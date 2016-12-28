@@ -1,0 +1,1046 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title></title>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, maximum-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="css/a.css">
+    <meta http-equiv="”pragma”" content="”no-cache”">
+    <meta http-equiv="”expires”" content="”-1″">
+    <script type="text/javascript" src="js/jquery-1.7.2.min.js"></script>
+    <script type="text/javascript" src="js/jquery.xml2json.js"></script>
+    <script language="javascript" src="js/langPrefix.js"></script>
+    <script language="javascript" src="js/tool.js"></script>
+    <script language="JavaScript" type="text/javascript">
+        var theNetwork = {};
+        var theAPList = {};
+        var theRemoteAP = {};
+        var remoteAP = {};
+        var currentap = null;
+	var flag=null;
+	var refresh_flag="OFF";
+	var scan_flag="OFF";
+        var timeflag;
+        $(function () {
+            //
+        autoscan();
+            langPrefix();
+            //
+            document.title = message[currentlang].device;
+            //
+            $.get(appendTS(api.apiurl), { data: api.network }, function (result) {
+                var result = $.xml2json(result);
+                bindMode(result);
+                Loaded();
+            });
+            //
+            initEvents();
+        });
+        function autoscan()
+       	{
+	       	if(refresh_flag=="ON")
+                {
+              	  $.get(appendTS(api.apiurl), { data: api.aplist }, function (result) {
+        	       	     result = $.xml2json(result);
+               		     bindWLAN(result);
+               		     Loaded();
+           	     });
+                }
+       		setTimeout(autoscan,2000);
+       	}
+        function check3g(stat){
+            if(stat=="status"){
+                $.get(appendTS(api.apiurl), { data: api.g3}, function (result) {
+                var result = $.xml2json(result);
+                var res=result.G3;
+                if(res.status=="0")
+                {
+		    $("#status3g").html(message[currentlang].statusfail);
+                    $("#3g_info").css("display","none");
+                }
+		else if(res.status=="1")
+                {
+		    $("#status3g").html(message[currentlang].statusing);
+                    $("#3g_info").css("display","none");
+                }
+		else if(res.status=="2")
+		{
+                    $("#3g_ip").html(res.ip);
+                    $("#3g_nm").html(res.netmask);
+                    $("#3g_gw").html(res.gateway);
+                    $("#3g_dns").html(res.dns);
+                    $("#3g_info").css("display","block");
+		    $("#status3g").html(message[currentlang].statusok);
+              	}
+                });
+            }else 
+            {
+                $("#divWired").hide();
+                $("#divWireless").hide();
+                $("#btndone").show();
+                $("#div3g").show();
+                $.get(appendTS(api.apiurl), { data: api.g3}, function (result) {
+                    var result = $.xml2json(result);
+                    var res=result.G3;
+                    if(res.status=="0")
+                        $("#status3g").html(message[currentlang].statusfail);
+                    else if(res.status=="1")
+                        $("#status3g").html(message[currentlang].statusing);
+                    else if(res.status=="2")
+                        $("#status3g").html(message[currentlang].statusok);
+
+                    if(res.operator!="")
+                        $("#operator").html(message[currentlang].operator+res.operator);                         
+                    else $("#operator").hide();
+
+                    if(res.apnmode=="auto"){
+
+                        $("#sel2").val("auto");
+
+                        $("#divAPN").hide();
+                    }
+                    else if(res.apnmode=="manual"){
+                        $("#sel2").val("manual");
+                        $("#txtUserName3").val(res.username);
+                        $("#txtPassword3").val(res.password);
+                        $("#apn").val(res.apn);
+                        $("#dialnumber").val(res.dialnumber);
+                        $("#divAPN").show();
+                    } 
+                    Loaded();
+                });                
+                    timeflag=setInterval("check3g('status')",2000);
+            }
+
+        }
+        function bindMode(data) {
+            if (data == undefined) return;
+            if (data.Return.status != "true") {
+                alert(data.Return["#text"] || data.Return.toString());
+                return;
+            }
+            //
+            remoteAP=data.RemoteAP;
+            var network = theNetwork = data;
+            //flag = data.Client.enable;
+	    flag = "ON"
+	    //	alert(flag);
+            
+            // (有线/无线)接入
+            $(":radio[name='joinmode'][value='" + network.WorkMode.value + "']").attr("checked", "checked");
+            if (network.WorkMode.value == "0") {
+                //有线 
+                //
+                $("#divWireless").hide();
+                $("#divWired").show();         
+                $("#btndone").show();        
+               // Loading(message[currentlang].loadingmsg);
+                //
+                $.get(appendTS(api.apiurl), { data: api.joinwired }, function (result) {
+                    var result = $.xml2json(result);
+                    //
+                    if (result.JoinWired.DHCP != undefined) {
+                        //动态IP，DHCP
+                        $("#sel").val(0);
+                        $("#divWiredBox").hide();
+                        $("#divPppoeBox").hide();
+                        $(":radio[name='wiredmode'][value=0]").attr("checked", "checked").click();
+                    } else if (result.JoinWired.StaticIP != undefined){
+                        //静态IP
+                        $("#sel").val(1);
+                        $(":radio[name='wiredmode'][value=1]").attr("checked", "checked").click();
+                        $("#divWireless").hide();
+                        $("#divWiredBox").show();
+                        $("#divPppoeBox").hide();
+                        var staticip = result.JoinWired.StaticIP;
+                        $("#txtIP").val(staticip.ip);
+                        $("#txtGateway").val(staticip.gateway);
+                        $("#txtMask").val(staticip.mask);
+                        $("#txtDns1").val(staticip.dns1);
+                        $("#txtDns2").val(staticip.dns2);
+                    }else if (result.JoinWired.PPPOE != undefined) {
+                        $("#sel").val(2);
+                        var pppoe = result.JoinWired.PPPOE;
+                        $(":radio[name='wiredmode'][value=0]").attr("checked", "checked").click();
+                        $("#divWiredBox").hide();
+                        $("#divPppoeBox").show();
+                        $("#txtUserName").val(pppoe.user);
+                        $("#txtPassword2").val(pppoe.password);
+                    };
+                    Loaded();
+                });
+            } else if (network.WorkMode.value == "1") {
+                //无线
+                $(":radio[name='joinmode'][value=1]").attr("checked", "checked").click();
+                //
+                imageAutoScan =1 - imageAutoScan;
+                //关闭自动扫描
+                onAutoScan();
+                //
+                if (flag == "ON") {
+                    $("#ImageAutoScan").attr("src", "graphics/iPad_AutoScan_Btn_ON.png");
+                    $("#trScanResult").show();
+                } else {
+                    $("#ImageAutoScan").attr("src", "graphics/iPad_AutoScan_Btn_OFF.png");
+                    $("#trScanResult").hide();
+                }
+            } else if (network.WorkMode.value == "2") {
+                $(":radio[name='joinmode'][value=2]").attr("checked", "checked").click();
+                //3G
+               check3g();
+            }
+        }
+        function distinctAP(aplist) {
+            var tb = new Hashtable();
+            var apname = "", ap = null,tmpap=0;
+            var newaplist=new Hashtable();
+            for (var i = 0;i < aplist.length; i++) {
+                for (var j = i+1; j < aplist.length; j++) {
+                if(aplist[i]["rssi"] > aplist[j]["rssi"])
+                    {
+                        tmpap=aplist[i];
+                        aplist[i]=aplist[j];
+                        aplist[j]=tmpap;
+                    }
+                }
+            }
+            for (var i = 0, n = 0; i < aplist.length; i++) {
+                apname = aplist[i]["name"];
+                if (tb.contains(apname)) {
+                    //存在，比较大小
+                    ap = tb.get(apname);
+                    if (ap.rssi < aplist[i].rssi) {
+                        ap = aplist[i];
+                    }
+                } else {
+                    tb.add(aplist[i]["name"], aplist[i]);
+                }
+            }
+            return tb;
+        }
+        function bindWLAN(data) {
+            if (data == undefined) return;
+           // data = data.getSysInfo;
+            //
+            if (data.Return.status != "true") {
+                alert(data.Return["#text"] || data.Return.toString());
+                return;
+            }
+            //
+            theAPList = data.APList;
+           // var remoteAP = theRemoteAP = data.RemoteAP;
+            //
+            var tb = $("#divWirelessBox>table>tbody");
+            tb.empty();
+            //
+            if (theAPList != null) {
+            	refresh_flag="OFF";
+                var aplist = null;
+                if (is.Array(theAPList.AP) && theAPList.AP.length > 0) {
+                    aplist = distinctAP(theAPList.AP);
+                    theAPList = theAPList.AP;
+                }else{
+                    aplist = new Hashtable();
+                    aplist.add(theAPList.AP.name,theAPList.AP);
+                    theAPList = [theAPList.AP];
+                }
+                var ap = null;
+                for (var key in aplist._hash) {
+                    ap = aplist.get(key);
+                   // ap.name=ap.name.replace(/</g,"&lt;");
+                    $("<tr apname=\"$1\"><td>$1</td><td>$2</td><td>$3</td><td>$4</td></tr>".format(ap.name.replace(/(&|>|<)/g,function($0,$1){return{"&":"&amp;",">":"&gt;","<":"&lt;"}[$1];}),
+                        transfer_rssi(ap.rssi),
+                        (ap.name == remoteAP.name && remoteAP.status == "0" ? "<img src=\"/graphics/iPad_WiFi_Now.png\" />" : ""),
+                        (ap.encrypt != "NONE" ? "<img src=\"/graphics/iPad_WiFi_Lock.png\" />" : "")
+                    ))
+                    .hover(function () { this.cells[0].style.backgroundColor = "#D3DEEE"; }, function () { this.cells[0].style.backgroundColor = "#FFFFFF"; })
+                    .click(function () {
+                        //
+                        var ap = findAP(this.cells[0].innerHTML.replace(/&amp;/g,"&").replace(/&gt;/g,">").replace(/&lt;/,"<"));
+                        if (ap != null) {
+                            if (ap.encrypt == "WPA-1X" || ap.encrypt == "WPA2-1X" || ap.encrypt == "WPA/WPA2-1X") {
+                                alert(message[currentlang].x8021alert);
+                                return;
+                            }
+                            if (ap.encrypt != "NONE") {
+                                $("#divPopup")
+                                    .css("left", ((pageWidth() - $("#divPopup").width()-8) / 2) + "px")
+                                    .css("top", (pageHeight() / 2 - (parseInt($("#divPopup").height()) / 2)) + "px")
+                                    .show();
+                                $("div.boxlayer").show();
+                                $("#txtPassword").val("").focus();
+                                currentap = ap;
+                                isconnectting = true;
+                                return;
+                            }
+                            //连接WLAN
+                            connectWLAN(ap);
+                        }
+                    }).appendTo(tb);
+                }//end for
+            }
+            else {
+            	refresh_flag="ON";
+            reload();
+                $("<tr><td colspan=\"3\"><div>"+message[currentlang].scanningmsg+"</div></td></tr>").appendTo(tb);
+            }//end null判断
+        }
+        function transfer_rssi(rssi) {
+            if (rssi > -50)
+                return "<img src=\"graphics/iPad_WiFi_Symbol.png\" />";
+            else if (rssi > -65)
+                return "<img src=\"graphics/iPad_WiFi_Symbol4.png\" />";
+            else if (rssi > -80)
+                return "<img src=\"graphics/iPad_WiFi_Symbol3.png\" />";
+            else if(rssi > -90)
+                return "<img src=\"graphics/iPad_WiFi_Symbol2.png\" />";
+			else
+				return "<img src=\"graphics/iPad_WiFi_Symbol1.png\" />";
+        }
+        function findAP(apname) {
+            for (var i = 0, j = theAPList.length; i < j; i++) {
+                if (theAPList[i].name == apname) return theAPList[i];
+            }
+            return null;
+        }
+        function connectWLAN(ap) {
+            //
+            ap.name=ap.name.replace(/&/g,"&amp;");
+            ap.name=ap.name.replace(/"/g,"&quot;");
+            ap.name=ap.name.replace(/</g,"&lt;");
+            ap.name=ap.name.replace(/>/g,"&gt;");
+			if(ap.encrypt != "NONE" )
+            ap.password=ap.password.replace(/(&|\"|>|<)/g,function($0,$1){return{"&":"&amp;","\"":"&quot;",">":"&gt;","<":"&lt;"}[$1];});
+            var xml = json2xml({ "setSysInfo": { "JoinWireless": { "AP": toAttribute(ap)}} });
+            //
+            Loading("");
+            isconnectting = true;
+            //
+           // $.ajax({ url: appendTS(api.apiurl + "?data=" + escape(xml)),
+           $.ajax({ url: appendTS(api.apiurl),
+                type: "POST",
+                data: { data: xml },
+                contentType: "application/x-www-form-urlencoded;",
+                success: function (result) {
+                    //Loaded();
+                    var result = $.xml2json(result);
+                    if (result.Return.status != "true") alert(result.Return.toString());
+
+                }
+            });
+            //bugcode
+            Loading(message[currentlang].connecting + ap["@name"] + "...", 30, function () {                
+                $.get(appendTS(api.apiurl), { data: api.currentap }, function (result) {
+                    var result = $.xml2json(result);
+                    Loaded();
+                    var remoteAP = theRemoteAP = result.RemoteAP;
+                    isconnectting = false;
+                    if (theRemoteAP.status == "0") {
+                        //连接成功
+                        window.location.href = window.location.href;
+                    } else {
+                        alert(message[currentlang].connectfailed);
+                        $.get(appendTS(api.apiurl), { data: api.aplist }, function (result) {
+                            //var result = $.xml2json(result);
+                            result = $.xml2json(result);
+                            bindWLAN(result);
+                            Loaded();
+                            //
+                        //    setTimeout(reload, 20000);
+                        });
+                    }
+                });
+                Loaded();
+                //window.location.href = window.location.href;
+            }
+            );
+        }
+
+        function initEvents() {
+            $("#btnClose").click(function () {
+                $("#divPopup").hide();
+                $("div.boxlayer").hide();
+                isconnectting = false;
+            });
+            $("#btnConfirm").click(function () {
+               	var ap = currentap;
+                if (ap == null) return;
+                ap.password = $("#txtPassword").val();
+                if (ap.password == null) return false;
+                if (ap.encrypt == "WEP" && (ap.password.length != 5 && ap.password.length != 10 && ap.password.length != 13 && ap.password.length != 26)) {
+                    alert(message[currentlang].pwdlengthalert);
+                    return false;
+                }else if(ap.encrypt != "NONE" && ap.encrypt != "WEP"){
+					//WPA、WPA2以及WPA/WPA2混合加密方式的密码需要8位及以上
+                	if (ap.password.length < 8) {
+                	  	 alert(message[currentlang].errorpasswd1);
+                   		 return false;
+                	}
+				}
+                $("#divPopup").hide();
+                $("div.boxlayer").hide();
+                //连接WLAN
+                connectWLAN(ap);
+            });
+            $(":radio[name='joinmode']").click(function () {
+                Loaded();
+                //切换接入
+                clearInterval(timeflag);
+                if ($(this).val() == "0") {//wired access
+                    $("#divWired").show();
+                    $("#divWireless").hide();
+                    $("#btndone").show();
+                     $("#div3g").hide();   
+					$.get(appendTS(api.apiurl), { data: api.joinwired }, function (result) {
+                    var result = $.xml2json(result);
+                    //
+                    if (result.JoinWired.DHCP != undefined) {
+                        //动态IP，DHCP
+                        $("#sel").val(0);
+                        $("#divWiredBox").hide();
+                        $("#divPppoeBox").hide();
+                        $(":radio[name='wiredmode'][value=0]").attr("checked", "checked").click();
+                    } else if (result.JoinWired.StaticIP != undefined){
+                        //静态IP
+                        $("#divWiredBox").show();
+                        $("#divPppoeBox").hide();
+                        $("#sel").val(1);
+                        $(":radio[name='wiredmode'][value=1]").attr("checked", "checked").click();
+                        var staticip = result.JoinWired.StaticIP;
+                        $("#txtIP").val(staticip.ip);
+                        $("#txtGateway").val(staticip.gateway);
+                        $("#txtMask").val(staticip.mask);
+                        $("#txtDns1").val(staticip.dns1);
+                        $("#txtDns2").val(staticip.dns2);
+                    }else if (result.JoinWired.PPPOE != undefined){
+                        $("#sel").val(2);
+                        var pppoe = result.JoinWired.PPPOE;
+                        $("#divWiredBox").hide();
+                        $("#divPppoeBox").show();
+                        $("#txtUserName").val(pppoe.user);
+                        $("#txtPassword2").val(pppoe.password);
+                    }
+				 });
+                scan_flag="OFF";
+                }
+                else if ($(this).val() == "1") {//wireless access
+                    clearInterval(timeflag);
+                    $("#divWired").hide();
+                    $("#divWireless").show();
+		            $("#div3g").hide();
+                    if(flag=="OFF")
+                   {   //alert("OFF")
+                       $("#ImageAutoScan").show();
+                      $("#ImageAutoScan").attr("src", "graphics/iPad_AutoScan_Btn_OFF.png");
+                      $("#trScanResult").hide();
+                    }
+                    else{
+                            if(scan_flag=="ON")
+                            {
+                            imageAutoScan=0;
+                              onAutoScan();
+                            }
+                            $("#trScanResult").show();
+                            imageAutoScan = 1 - imageAutoScan;                  
+                              scan_flag="ON";
+                             ///onAutoScan();
+                       }
+				//	imageAutoScan=0;
+				//	onAutoScan();
+					$("#btndone").hide();
+                }else//3G access
+                {
+                scan_flag="OFF";
+                  check3g();
+                }
+            });
+            $(":radio[name='wiredmode']").click(function () {
+                //
+                if ($(this).val() == "0") {
+                    $("#divWiredBox").hide(); //动态
+                }
+                else {
+                    $("#divWiredBox").show(); //静态
+                }
+            })
+            $(":radio[name='joinmode']:first").click();
+            $(":radio[name='wiredmode']:first").click();
+
+            $("#sel").each(function(){
+                $(this).find("option").each(function(){
+                  $(this).text(message[currentlang][$(this).attr("lang")])  
+                })
+
+            })
+            $("#sel").change(function () {
+                if ($("#sel").val()=="0") {
+
+                    $("#divWiredBox").hide();
+                    $("#divPppoeBox").hide();        
+                }else if ($("#sel").val()=="1") 
+                {
+                    $("#divWiredBox").show();
+                    $("#divPppoeBox").hide();
+                }else if($("#sel").val()=="2")
+                {
+                    $("#divWiredBox").hide();
+                    $("#divPppoeBox").show();
+                }
+
+            });
+
+            $("#sel2").each(function(){
+                $(this).find("option").each(function(){
+                  $(this).text(message[currentlang][$(this).attr("lang")])  
+                })
+
+            })
+            $("#sel2").change(function () {
+                if ($("#sel2").val()=="auto") {
+
+                    $("#divAPN").hide();
+                }else if ($("#sel2").val()=="manual") 
+                {
+                    $("#divAPN").show();
+                }
+
+            });
+
+        }
+        function onDone() {
+            if ($(":radio[name='joinmode'][checked]").val() == "0") 
+            {//wired access
+
+                var xml = "";
+                
+                if($("#sel").val()=="0"){ 
+                    xml = api.setdhcp;
+                } else if($("#sel").val()=="1"){ 
+                    //静态
+                    if ($("#txtIP").val().trim() == "") {
+                        alert(message[currentlang].ipemptyalert);
+                        return false;
+                    }
+                    if (!checkIP($("#txtIP").val().trim())||$("#txtIP").val().split(".")[3]=="0"||$("#txtIP").val().split(".")[3]=="1"||$("#txtIP").val().split(".")[3]=="255"||$("#txtIP").val().split(".")[2]=="222"){
+                        alert(message[currentlang].iperroralert);
+                        return false;
+                    }
+
+                    if ($("#txtMask").val().trim() == "") {
+                        alert(message[currentlang].maskemptyalert);
+                        return false;
+                    }
+                    if (!checkIP($("#txtMask").val().trim())){
+                        alert(message[currentlang].maskerroralert);
+                        return false;
+                    }
+                    if ($("#txtGateway").val().trim() == "") {
+                        alert(message[currentlang].gatewayemptyalert);
+                        return false;
+                    }
+                    if (!checkIP($("#txtGateway").val().trim())||$("#txtGateway").val().split(".")[2]=="222"){
+                        alert(message[currentlang].gatewayerroralert);
+                        return false;
+                    }
+                    if ($("#txtDns1").val().trim() == "") {
+                        alert(message[currentlang].dns1emptyalert);
+                        return false;
+                    }
+                    if (!checkIP($("#txtDns1").val().trim())){
+                        alert(message[currentlang].dns1erroralert);
+                        return false;
+                    }
+                    if ($("#txtDns2").val().trim() && !checkIP($("#txtDns2").val().trim())){
+                        alert(message[currentlang].dns2erroralert);
+                        return false;
+                    }
+                    vall=validateNetwork($("#txtIP").val().trim(),$("#txtMask").val().trim(),$("#txtGateway").val().trim());
+                    if(!vall){
+                     alert(message[currentlang].checkip);
+                     return;
+                    }
+                    var staticip = { "@ip": $("#txtIP").val().trim(),
+                        "@gateway": $("#txtGateway").val().trim(),
+                        "@mask": $("#txtMask").val().trim(),
+                        "@dns1": $("#txtDns1").val().trim(),
+                        "@dns2": $("#txtDns2").val().trim()
+                    };
+                    xml = json2xml({ "setSysInfo": { "JoinWired": { "StaticIP": staticip}} });
+                }else if($("#sel").val()=="2"){
+                    
+                    if (($("#txtUserName").val()=="")||($("#txtPassword2").val()=="")){
+                        alert(message[currentlang].emptyalert);
+                        return false;
+                    }
+                    if ($("#txtUserName").val().trim().Length() > 32||$("#txtPassword2").val().trim().Length()>32) {
+                            alert(message[currentlang].ssidlengthalert);
+                            return false;
+                    }
+
+                    var pppoe={"@user":$("#txtUserName").val().trim(),
+                    "@password":$("#txtPassword2").val().trim()
+                    };
+
+                    xml = json2xml({ "setSysInfo": { "JoinWired": { "PPPOE": pppoe}} });
+                } 
+                //
+                Loading("");
+                //
+                $.ajax({ url: appendTS(api.apiurl + "?data=" + escape(xml)),
+                    type: "POST",
+                    data: { "data": xml },
+                    contentType: "application/x-www-form-urlencoded;",
+                    success: function (result) {
+                        var result = $.xml2json(result);
+                        if (result.Return.status != "true") alert(result.Return.toString());
+                    //    Loading(message[currentlang].savingconfig, result.Return.delay, function () { Loaded(); alert(message[currentlang].refreshalert); });
+                    }
+                });
+                //bugcode
+                Loading(message[currentlang].savingconfig, 30, function () { Loaded(); alert(message[currentlang].refreshalert); });
+            } else if ($(":radio[name='joinmode'][checked]").val() == "1"){
+                //wireless access
+                
+                if (theRemoteAP == undefined) {
+                    alert(message[currentlang].selectwifialert);
+                }
+            } else if ($(":radio[name='joinmode'][checked]").val() == "2"){
+                //3G access
+                
+                if($("#sel2").val()=="manual"){
+                /*    if (($("#txtUserName3").val()=="")||($("#txtPassword3").val()=="")){
+                            alert(message[currentlang].emptyalert);
+                            return false;
+                        }
+                    if ($("#txtUserName3").val().trim().Length() > 32||$("#txtPassword3").val().trim().Length()>32) {
+                            alert(message[currentlang].ssidlengthalert);
+                            return false;
+                    }
+                */    if ($("#apn").val()==""){
+                            alert("APN"+message[currentlang].emptyalert);
+                            return false;
+                        }
+                    var g3={"@username":$("#txtUserName3").val().trim(),
+                    "@password":$("#txtPassword3").val().trim(),
+                    "@apnmode":$("#sel2").val().trim(),
+                    "@apn":$("#apn").val().trim(),
+                    "@dialnumber":$("#dialnumber").val().trim()
+                    };
+                   
+                }else {
+                    var g3={"@username":"",
+                    "@password":"",
+                    "@apnmode":$("#sel2").val().trim(),
+                    "@apn":"",
+                    "@dialnumber":""
+                    };
+                }
+                xml = json2xml({ "setSysInfo": { "G3": g3} });    
+                
+                $.ajax({ url: appendTS(api.apiurl + "?data=" + escape(xml)),
+                    type: "POST",
+                    data: { "data": xml },
+                    contentType: "application/x-www-form-urlencoded;",
+                    success: function (result) {
+                        var result = $.xml2json(result);
+                        if (result.Return.status != "true") alert(result.Return.toString());
+                        Loading(message[currentlang].savingconfig,10, function () { Loaded(); alert(message[currentlang].refreshalert); });
+                    }
+                });
+            }
+            return false;
+        }
+        var imageAutoScan = getCookie('AUTOSCAN') || 1;
+        var isconnectting = false;
+function onAutoScan() {
+            if (imageAutoScan == 0) {
+                imageAutoScan = 1;
+                setCookie('AUTOSCAN', 1);
+                $("#ImageAutoScan").attr("src", "graphics/iPad_AutoScan_Btn_ON.png");
+                $("#trScanResult").show();
+
+                $.get(appendTS(api.apiurl), { data: api.aplist }, function (result) {
+                    //var result = $.xml2json(result);
+                    result = $.xml2json(result);
+                    bindWLAN(result);
+                    if (result.APList != "undefined") {
+                        setTimeout(reload,3000);
+                    };
+                    Loaded();
+                });
+            }
+            else {
+                imageAutoScan = 0;
+                setCookie('AUTOSCAN', 0);
+                $("#ImageAutoScan").attr("src", "graphics/iPad_AutoScan_Btn_OFF.png");
+            //    $("#trScanResult").hide();
+			
+            }
+}
+function reload() {
+		
+            if (flag=="ON"&&imageAutoScan == 1 && !isconnectting && $(":radio[name='joinmode'][checked]").val() == "0") {
+                    $.get(appendTS(api.apiurl), { data: api.aplist }, function (result) {
+                    //var result = $.xml2json(result);
+                    result = $.xml2json(result);
+                    bindWLAN(result);
+                    Loaded();
+                });
+                return;
+            }
+}
+function Client(){
+            
+        if(flag=="ON")
+        {
+            client="<setSysInfo><Client enable=\"OFF\"/></setSysInfo>";
+            $.get(appendTS(api.apiurl), { data: client }, function (result) {
+            //alert(result);
+			result = $.xml2json(result);
+            //  alert(result.Return.status);
+            });
+            $("#ImageAutoScan").attr("src", "graphics/iPad_AutoScan_Btn_OFF.png");
+            $("#trScanResult").hide();
+            flag="OFF";
+        }else{
+            client="<setSysInfo><Client enable=\"ON\"/></setSysInfo>";
+            //alert(client);
+            $.get(appendTS(api.apiurl), { data: client }, function (result) {
+            //  alert(result);
+                        	window.location.href = window.location.href;
+            
+                     });
+            $("#ImageAutoScan").attr("src", "graphics/iPad_AutoScan_Btn_ON.png");
+            
+            $("#trScanResult").show();
+            flag="ON";
+        } 
+            
+}
+function pwdmask(){
+        //var e = document.getElementById('txtPassword');
+        //e.type = (e.type=='password') ? 'text' : 'password'
+        //var obj=$("#txtPassword");
+       	var  obj = document.getElementById('txtPassword');
+	if(obj.value !== ""){
+		if(obj.type == "password"){
+            		$("#pwdspan").html("<input type=\"text\" id=\"txtPassword\" style=\"vertical-align:middle;width:240px;height:28px;line-height:28px;\" value=\""+obj.value.replace(/(&|\"|>|<)/g,function($0,$1){return{"&":"&amp;","\"":"&quot;",">":"&gt;","<":"&lt;"}[$1];})+"\" />");
+            	}
+            	else if(obj.type == "text")
+            	{
+            		$("#pwdspan").html("<input type=\"password\" id=\"txtPassword\" style=\"vertical-align:middle;width:240px;height:28px;line-height:28px;\" value=\""+obj.value.replace(/(&|\"|>|<)/g,function($0,$1){return{"&":"&amp;","\"":"&quot;",">":"&gt;","<":"&lt;"}[$1];})+"\" />");
+            	
+        	 }
+		}	
+ }
+ 
+ function pwdmask1(){                                                   
+             var  obj = $("#txtPassword2");   
+             var  va = $("#txtPassword2").val();                                                                        
+             if(obj.val() !== ""){ 
+                  if(obj.attr("type") == "password"){
+                     $("#ppoe").html("<input type=\"text\" id=\"txtPassword2\" validate=\"require,lenght[_50]\" style=\"width:110px;\" value='"+obj.val()+"' >");
+                  }
+              else if(obj.attr("type") == "text")
+                 {                                       
+                $("#ppoe").html("<input type=\"password\" id=\"txtPassword2\" validate=\"require,lenght[_50]\" style=\"width:110px;\" value='"+obj.val()+"' >");
+                 }    
+                  $("#txtPassword2").val(va);                           
+            }                                            
+     	}
+     	
+</script>
+    <style type="text/css">
+        div.container
+        {
+            margin: 5px auto;
+            width: 320px;
+            border: solid 1px gray;
+            background-color: #CDDBEE;
+            display: none;
+        }
+        div.wiredbox
+        {
+            border: solid 1px gray;
+            padding: 3px;
+            width: 100%;
+            height: 100%;
+        }
+
+        span.caption
+        {
+            width: 110px;
+			margin-left:-20px;
+			padding-left:20px;
+            display: inline-block;
+            height:45px;
+            line-height:45px;
+            text-align:left;
+        }
+        div.wiredbox table td
+        {
+            height: 22px;
+            line-height: 22px;
+            cursor: pointer;
+		font-family:微软雅黑;
+        }
+        .btn_style_1{width:80px;height:28px;}
+        #eye {
+	 vertical-align:middle;
+       	 margin-left:196px !important;/*ff*/
+       	 margin-top:-33px !important;
+       	 padding-bottom:10px;
+       	 margin-top:-36px \9;/* ie*/
+       	 padding-bottom:28px \9;
+        }
+    </style>
+</head>
+<body>
+    <form name="form_conn_network" id="form_conn_network" action="">
+    <div class="div_content" id="DivContent">
+        <div class="div_header">
+            <div class="div_container">
+                <div style="float: left;" class="title_back">
+                    <a href="a_config2.shtml" lang="back" class="btn_back"></a>
+                </div>
+                <div style="float: left;" class="title_text" lang="networkconnect">
+                </div>
+                <div style="display:none;float: left;" class="title_done" id="btndone">
+                    <a href="javascript:;" onclick="return onDone();" lang="done" class="btn_done" />
+                    </a></div>
+                <div style="clear: both;">
+                </div>
+            </div>
+        </div>
+        <div class="div_center">
+            <div class="div_container">
+        
+        <div>
+           <!-- <div class="div_row_text div_sp_text smfont" style="width: 80px;" lang="joinmode">
+            </div>-->
+            <div class="div_row_control" style="display:none;">
+                <label>
+                    <input name="joinmode" value="1" checked="checked" type="radio" /><span lang="wireless" class="div_sp_text smfont"></span></label>&nbsp;&nbsp;
+                <label>
+                    <input name="joinmode" value="0"  type="radio" /><span lang="wired" class="div_sp_text smfont"></span></label>&nbsp;&nbsp;
+                <label>
+                    <input name="joinmode" value="2"  type="radio" /><span lang="3g" class="div_sp_text smfont"></span></label>    
+            </div>
+        </div>
+
+        <!--有线接入-->
+        <div id="divWired" class="container">
+            <table style="width: 100%;">
+                <tr>
+                    <td>
+                        <div style="padding: 0px 2px;">
+                            <span style="background: url(/graphics/s_attention.png) no-repeat; width: 16px; height: 16px;
+                                display: inline-block"></span>&nbsp;<span lang="wirednotice" class="div_sp_text smfont"></span></div>
+                    </td>
+                </tr>
+                <!--tr>
+                    <td>
+                        <div style="padding-left:100px;text-align:left;">
+                        <label>
+                            <input name="wiredmode" value="0" checked="checked" type="radio" />
+                            <span lang="dynamicip" class="div_sp_text smfont"></span>
+                        </label>
+                        </div>
+                    </td>
+                </tr-->
+                <tr>
+                <tr>
+                    <td>
+                        <div style="padding-left:30px;text-align:left;">
+                        <label>
+                            <select id="sel" style="width:250px;" class="div_sp_text smfont">>
+                              <option lang="dynamicip" value ="0"></option>
+                              <option lang="staticip" value ="1"></option>
+                              <option lang="pppoe" value="2"></option>
+                            </select>                        
+                        </label>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <!--div style="padding-left:100px;text-align:left;">
+                        <label>
+                            <input name="wiredmode" value="1" type="radio" />
+                            <span lang="staticip" class="div_sp_text smfont"></span>
+                        </label>
+                        </div-->
+                        <div class="wiredbox" id="divWiredBox" style="display:none;margin: 5px 5px 5px 22px; width: 260px;border:0px;">
+                            <div class="item_row">
+                                <span lang="ip" class="caption div_sp_text smfont" ></span><span>
+                                    <input id="txtIP" value="" type="text" style="width:110px;"/></span>
+                            </div>
+                            <div class="item_row">
+                                <span lang="mask" class="caption div_sp_text smfont " ></span><span>
+                                    <input id="txtMask" value="" type="text" style="width:110px;"/></span>
+                            </div>
+                            <div class="item_row">
+					<span lang="gateway" class="caption div_sp_text smfont" ></span><span>
+                                    <input id="txtGateway" value="" type="text" style="width:110px;"/></span>
+                            </div>
+                            <div class="item_row">
+                                <span lang="dns1" class="caption div_sp_text smfont"></span><span>
+                                    <input id="txtDns1" value="" type="text" style="width:110px;"/></span>
+                            </div>
+                            <div class="item_row">
+                                <span lang="dns2" class="caption div_sp_text smfont" ></span><span>
+                                    <input id="txtDns2" value="" type="text" style="width:110px;"/></span>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <!--div style="padding-left:100px;text-align:left;">
+                        <label>
+                            <input name="wiredmode" value="0" checked="checked" type="radio" />
+                            <span lang="pppoe" class="div_sp_text smfont">PPPoE</span>
+                        </label>
+                        </div-->
+                        <div class="wiredbox" id="divPppoeBox" style="display:none;margin: 5px 5px 5px 22px; width: 260px;border:0px;">
+                            <div class="item_row">
+                                <span lang="username" class="caption div_sp_text smfont" ></span><span>
+                                    <input id="txtUserName" value="" type="text" style="width:110px;"/></span>
+                            </div>
+                            <div class="item_row">
+                                <span lang="password" class="caption div_sp_text smfont " ></span><span id="ppoe">
+                                   
+                                    <input id="txtPassword2" value="" type="password" style="width:110px;"/></span>
+                                   
+                                    <img src="/graphics/eye.png" id="eye" onclick="pwdmask1()">
+                            </div>
+                            
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <!--无线接入-->
+        <div id="divWireless" class="container">
+            <table>
+                <tr>
+                    <td style="padding: 2px 5px;display:block;">
+                        <!--div>
+                            <div lang="autoscan" class="caption div_sp_text smfont" style="float: left; height: 27px; line-height: 27px;">
+                            </div>
+                            <div style="float: left; height: 27px; cursor: pointer; margin-left: 5px;">
+                                <img id="ImageAutoScan" onclick="Client();" src="graphics/iPad_AutoScan_Btn_OFF.png" /></div>
+                        </div-->
+                    </td>
+                </tr>
+                <tr id="trScanResult">
+                    <td style="padding: 5px 5px;">
+                        <div lang="availableconnection" style="text-align:left;" class="div_sp_text smfont">
+                        </div>
+                        <div class="wiredbox" id="divWirelessBox" style="width: 298px; background-color: #FFF;">
+                            <table style="table-layout: fixed; width: 100%;">
+                                <colgroup>
+                                    <col />
+                                    <col width="28" />
+                                    <col width="28" />
+                                    <col width="28" />
+                                </colgroup>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="4">
+                                            <div style="height: 100px; padding-top: 5px;" lang="scanningmsg" class="div_sp_text smfont">
+                                                正在扫描可用的无线网络...</div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div id="div3g" class="container">
+            <table style="width: 100%;">
+                    <tr>
+                        <td style="padding: 10px 5px;display:block;">
+                            <div id="status3g" class="caption div_sp_text smfont" style="height: 27px; cursor: pointer; margin-left: 5px;">
+                                
+                                Internet is accessable...
+                                
+                            </div>
+                    
+                            <div class="caption div_sp_text smfont" style="height: 27px; cursor: pointer; margin-left: 5px;">
+                                <label>
+                                    <select id="sel2" style="width:250px;" class="div_sp_text smfont">>
+                                      <option lang="auto3g" value ="auto"></option>
+                                      <option lang="manual3g" value ="manual"></option>
+                                    </select>
+                                </label>
+                            </div>
+                        </td>
+                     </tr>
+                     <tr>
+                        <td style="padding: 10px 5px;display:block;">
+                            
+                            <div id="divAPN" style="padding-left:25px">
+                                <div class="">
+                                <span lang="dial" class="caption div_sp_text smfont" style="margin-left:-44px;" ></span><!--span>
+                                    <input id="dialnumber" value="" type="text" style="width:110px;"/></span-->
+                                    <label>
+                                        <select id="dialnumber" style="width:118px;margin-left:9px;" class="div_sp_text smfont">>
+                                          <option value ="*99#">*99#</option>
+                                          <option value ="#777">#777</option>
+                                          <option value ="*99***1#">*99***1#</option>
+                                        </select>
+                                    </label>
+                                </div>
+                                <div class="item_row">
+                                <span lang="username" class="caption div_sp_text smfont" ></span><span>
+                                    <input id="txtUserName3" value="" type="text" style="width:110px;"/></span>
+                                </div>
+                                <div class="item_row">
+                                <span lang="password" class="caption div_sp_text smfont" ></span><span>
+                                    <input id="txtPassword3" value="" type="text" style="width:110px;"/></span>
+                                </div>
+                                <div class="item_row">
+                                <span class="caption div_sp_text smfont" >APN:</span><span>
+                                    <input id="apn" value="" type="text" style="width:110px;"/></span>
+                                </div>
+                                <!--p>
+                                    手动拨号模式，您可能需要输入用户名和密码来完成拨号。
+                                </p-->
+                            </div>
+                            <div id="operator" class="caption div_sp_text smfont" style="height: 27px; cursor: pointer; margin-left: 5px;">
+                                
+                                Operator info...
+                                
+                            </div>
+				<div class="caption div_sp_text smfont" id="3g_info" style="display:hidden;height: 90px; cursor: pointer; margin-left: 5px;text-align:left;line-height:2">
+                                	<div class="caption div_sp_text smfont" style="padding-left:27px" >IP address:</span><span id="3g_ip" style="width:110px;padding-left:20px"/></div>
+                               		<div class="caption div_sp_text smfont" style="padding-left:27px">netmask:</span><span id="3g_nm" style="width:110px;padding-left:20px"/></div>
+                             	        <div class="caption div_sp_text smfont" style="padding-left:27px">gateway:</span><span id="3g_gw" style="width:110px;padding-left:20px"/></div>
+                                	<div class="caption div_sp_text smfont" style="padding-left:27px">DNS:</span><span id="3g_dns" style="width:110px;padding-left:20px"/></div>
+				</div>
+                        </td>
+                    </tr>
+            </table>
+        </div>  
+        </div>
+        </div>
+        <div class="div_bottom">
+        </div>
+    </div>
+    </form>
+    <div id="divPopup" style="position:absolute;width:280px; height:120px;display:none;z-index:99999;background:#E6EFFA;border:solid 4px #82B2EE;">        
+        <div lang="connectpwdalert" style="background-color:#CDDBEE;height:30px;line-height:30px;text-align:left;padding-left:0px;"></div>
+        <div style="width:240px; height:30px;margin:10px auto;">
+            <span id="pwdspan"><input id="txtPassword" type="password" style="vertical-align:middle;width:240px;height:28px;line-height:28px;"/></span>
+       	    <img src="/graphics/eye.png" id="eye" onclick="pwdmask()">
+        </div>
+        <div style="text-align:left;">
+             <input id="btnConfirm" class="btn_style_1" style="margin-left:20px;" value="确定" type="button" lang="confirm"/>
+             <input id="btnClose" class="btn_style_1" style="position:absolute;left:185px;" value="取消" type="button" lang="cancel"/>
+        </div>
+    </div>
+</body>
+</html>

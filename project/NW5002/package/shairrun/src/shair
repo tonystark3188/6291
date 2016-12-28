@@ -1,0 +1,5 @@
+config shairname
+	option name BPEN
+	option airplay_name BPEN
+	option dlna_name BPEN
+	option port 6068

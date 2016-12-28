@@ -1,0 +1,78 @@
+diff -urN a/block.c b/block.c
+--- a/block.c	2016-03-03 15:09:20.020224000 +0800
++++ b/block.c	2016-03-03 16:02:29.009673376 +0800
+@@ -841,6 +841,12 @@
+ 		int err = 0;
+ 		int num;
+ 		
++		//just for x1000 
++		if(strstr(device,"mmcblk0p1") != NULL || strstr(device,"mmcblk0p2") != NULL || strstr(device,"mmcblk0p3") != NULL)
++		{
++			return -1;
++		}
++		
+ 		//snprintf(target, sizeof(target), "/mnt/%s", device);
+ 		if(strstr(device,"sd") != NULL || strstr(device,"mmc") != NULL)
+ 		{
+@@ -920,7 +926,7 @@
+ 			err = mount(pr->dev, target, "ufsd", MS_NOATIME, "force,fmask=0000,dmask=0000");
+ 			if(err)
+ 			{
+-				//err = mount(pr->dev, target, pr->id->name, 0, "");
++				err = mount(pr->dev, target, pr->id->name, 0, "");
+ 			}
+ 		}
+ 		
+@@ -943,11 +949,11 @@
+ 			if ((!strcmp(pr->id->name, "vfat")) || (!strcmp(pr->id->name, "exfat")))
+ 			{
+ 				memset(cmd,0,sizeof(cmd));
+-				snprintf(cmd, sizeof (cmd), "echo \"to_update_vfat_time\" >/%s/to_update_vfat_time",target);
++				snprintf(cmd, sizeof (cmd), "echo \"to_update_vfat_time\" >/%s/.to_update_vfat_time",target);
+ 				system(cmd);
+ 				system("sync");
+ 				memset(cmd,0,sizeof(cmd));
+-				snprintf(cmd, sizeof (cmd),  "rm -f /%s/to_update_vfat_time",target);
++				snprintf(cmd, sizeof (cmd),  "rm -f /%s/.to_update_vfat_time",target);
+ 				system(cmd);
+ 				system("sync");
+ 			}
+@@ -1232,6 +1238,12 @@
+ 	if (!strcmp(pr->id->name, "swap"))
+ 		return -1;
+ 
++	//just for x1000 
++	if(strstr(pr->dev,"mmcblk0p1") != NULL || strstr(pr->dev,"mmcblk0p2") != NULL || strstr(pr->dev,"mmcblk0p3") != NULL)
++	{
++		return -1;
++	}
++
+ 	mp = find_mount_point(pr->dev);
+ 	if (!mp)
+ 		return -1;
+@@ -1274,6 +1286,12 @@
+ 		return -1;
+ 	snprintf(path, sizeof(path), "/dev/%s", device);
+ 
++	//just for x1000 
++	if(strstr(device,"mmcblk0p1") != NULL || strstr(device,"mmcblk0p2") != NULL || strstr(device,"mmcblk0p3") != NULL)
++	{
++		return -1;
++	}
++
+ 	if (!strcmp(action, "remove")) {
+ 		int err = 0;
+ 		mount_point = find_mount_point(path);
+@@ -1324,6 +1342,12 @@
+ 		return -1;
+ 	snprintf(path, sizeof(path), "/dev/%s", device);
+ 
++	//just for x1000 
++	if(strstr(device,"mmcblk0p1") != NULL || strstr(device,"mmcblk0p2") != NULL || strstr(device,"mmcblk0p3") != NULL)
++	{
++		return -1;
++	}
++
+ 	if (!strcmp(action, "remove")) {
+ 		int err = 0;
+ 		mount_point = find_mount_point(path);

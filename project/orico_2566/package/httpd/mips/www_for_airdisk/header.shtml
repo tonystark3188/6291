@@ -1,0 +1,249 @@
+﻿<html>
+<head> 
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html">
+    <meta name="viewport" content="width=device-width, maximum-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="/css/reset.css" />
+    <link rel="stylesheet" type="text/css" href="/css/style.css" />
+    <link rel="stylesheet" type="text/css" href="/css/a.css" />
+    <script type="text/javascript" src="/js/jquery-1.7.2.min.js"></script>
+    <script type="text/javascript" src="/js/jquery.xml2json.js"></script>
+    <script language="javascript" src="/js/langPrefix.js"></script>
+    <script language="javascript" src="/js/tool.js"></script>
+    <script type="text/javascript" language="JavaScript">
+    var url= "/webdav/";
+    var tab1;
+
+    function fillZero(v){
+        if(v<10){v='0'+v;}
+        return v;
+    }
+
+    function init()
+    {
+    //时间同步
+    var date=new Date();
+    y=date.getFullYear();
+    mo=fillZero(date.getMonth()+1);
+    d=fillZero(date.getDate());
+    h=fillZero(date.getHours());
+    mi=fillZero(date.getMinutes());
+    s=fillZero(date.getSeconds());
+    time=y+"-"+mo+"-"+d+" "+h+":"+mi+":"+s;
+    if ((date.getTimezoneOffset()/60)>0) {
+        zone="GMT-"+((date.getTimezoneOffset()/60))+":00";
+    }else
+    zone="GMT+"+(-(date.getTimezoneOffset()/60))+":00";
+
+    xml="<setSysInfo><Time value="+"\""+time+"\""+" zone="+"\""+zone+"\""+"></Time></setSysInfo>";
+
+    $.ajax({ url: appendTS(api.apiurl + "?data=" + escape(xml)),
+        type: "POST",
+        data: { "data": xml },
+        contentType: "application/x-www-form-urlencoded;",
+        success: function (result) {
+            //<?xml version="1.0"?><setSysInfo><Return status="true"></Return></setSysInfo><Return status="false">wpa encrypt set error!</Return></setSysInfo>
+            var result = $.xml2json(result);
+            if (result.Return.status != "true") 
+            alert(result.Return.toString());
+            //Loading(message[currentlang].savingconfig, result.Return.delay, function () { Loaded(); alert(message[currentlang].refreshalert); });
+        }
+    });
+
+	tab1=$("#main table").get(0);
+        document.title = message[currentlang].device;
+        escape_char();
+
+	var row1 = tab1.rows[0];
+        row1.cells[0].style.width = "33px";
+        row1.cells[1].style["textAlign"]="left";
+        row1.cells[2].style["textAlign"]="right";
+        row1.cells[3].style["textAlign"]="right";
+        row1.cells[1].innerHTML=message[currentlang].name;
+        row1.cells[2].innerHTML=message[currentlang].modif;
+        row1.cells[3].innerHTML=message[currentlang].size;
+      	
+	if(url=="/" || url=="\\")
+		{
+		tab1.rows[0].style["display"]="none";	
+        tab1.rows[1].style["display"]="none";
+      //tab1.rows[2].style["display"]="none";    
+			len=tab1.rows.length;
+			for(var i=2;i<len;i++)
+			{
+				var diskLable=tab1.rows[i].getElementsByTagName("a")[1];
+				if(diskLable)
+					{
+					if(diskLable["innerHTML"].indexOf("-disk")>=0){
+							row1.cells[1].innerHTML="";
+							row1.cells[2].innerHTML="";
+							row1.cells[3].innerHTML="";
+							tab1.rows[i].cells[2].innerHTML="";
+							tab1.rows[i].cells[3].innerHTML="";
+						}
+					}
+			}
+		}
+    if (row1.cells[4])row1.cells[4].getElementsByTagName("a")[0].innerHTML=message[currentlang].description;
+	var ahref=tab1.rows[2].getElementsByTagName("a")[1];
+	if(ahref){
+		if(ahref["innerHTML"].indexOf("Parent")==0)
+     			ahref["innerHTML"]=message[currentlang].parent;
+		}		
+	}
+
+    function escape_char() {
+    $id('current_dir').innerHTML = decodeURI($id('current_dir').innerHTML);
+    document.title = decodeURI(document.title);
+    var table = $('#main');
+    if (table) {
+        table.find("tbody>tr:first").addClass("hbtrsplit4").find("th>a").each(function () { 
+            $(this).attr("lang",$(this).text())
+        });
+        table.find("tbody>tr:gt(1)").each(function (idx) {
+            $(this).addClass("hbtrsplit")
+                .hover(function () { this.style.backgroundColor = '#D4DFEE'; }, function () { this.style.backgroundColor = ''; })
+                .find("td:first").width("33");
+            var img = $(this).find("td:first img");
+            img.attr("src")!=undefined && img.attr("src", img.attr("src").replace(/(.*\/)(.*\.)(gif)/, function (s1, s2, s3) { return s2 + "48x48/" + s3 + "png" }));
+        });
+        //
+        if ($("body").width() <= 480) {
+		if(url=="/" || url=="\\")
+		{
+/*			var row1 = tab1.rows[0];
+			len=tab1.rows.length;
+			for(var i=2;i<len;i++)
+			{
+				var diskLable=tab1.rows[i].getElementsByTagName("a")[1];
+				if(diskLable)
+					{
+						if(diskLable["innerHTML"].indexOf("disk-")==0){
+							row1.innerHTML="";
+							tab1.rows[i].cells[2].innerHTML="";
+							tab1.rows[i].cells[3].innerHTML="";
+						}
+					}
+			}
+*/		}else
+
+		{
+        	    table.find("tbody>tr").each(function () {
+               		 var nametd = $(this).find("td:eq(1)");
+             	  	 nametd.css("word-break","break-all");
+               		 nametd.css({"line-height":"1.5em"}).html("<div>" + nametd.html() + "</div><div class=\"subname\">" + nametd.next("td").html() + "&nbsp;&nbsp;" + nametd.next("td").next("td").html() + "</div>")
+               		 $(this).find("td:gt(1)").hide().end().find("th:gt(1)").hide();
+            		});
+            	}
+       }
+    }
+}
+function bindPower(data) {
+            if (data == undefined) return;
+            if (data.Return.status != "true") {
+                alert(data.Return["#text"] || data.Return.toString());
+                return;
+            }
+            //
+            var power = data.Power;
+            
+            //充放电状态 0：正常,1：充电,2：放电,3：低电
+            var status = "";
+            switch(power.status)
+            {
+                case "0":
+                    status = message[currentlang]["power_status1"];
+                    break;
+                case "1":
+                    status = message[currentlang]["power_status2"];
+                    break;
+                case "2":
+                    status = message[currentlang]["power_status3"];
+                    break;
+                case "3":
+                    status = message[currentlang]["power_status4"];
+                    break;
+            }
+            //
+            $("#divPower").html(status + "&nbsp;&nbsp;"+ power.percent + "%");           
+        }
+		
+        function bindStorage(data) {
+            if (data == undefined) return;
+            if (data.Return.status != "true") {
+                alert(data.Return["#text"] || data.Return.toString());
+                return;
+            }
+            
+           // alert("---"+data+"----");
+            tab1=$("#main table").get(0);
+            len=tab1.rows.length;
+            var storage = data.Storage;
+            if (storage.Section != undefined) {
+                var html = message[currentlang]["status_all"] + "<span>$1</span>&nbsp;&nbsp;" + message[currentlang]["status_usage"] + "<span>$2</span>";
+                //alert("html:"+html);
+                for(var i=0,j=0;i<len-2;i++)
+                {
+                    var diskLable=tab1.rows[i+2].getElementsByTagName("a")[1];
+                    if(diskLable)
+                        {
+                            if(diskLable["innerHTML"].indexOf("-disk")>=0){
+                            
+                    			var sect = is.Array(storage.Section) ? storage.Section[j] : storage.Section;j++;
+                    			//alert("sect:"+sect);
+								$(tab1.rows[i+2].cells[0]).html('<a href='+sect.volume+'><img src="/icons/48x48/folder.png"></a>');
+			    				$(tab1.rows[i+2].cells[1]).html('<a href='+sect.volume+'>'+sect.volume+'</a>');
+								$(tab1.rows[i+2].cells[3]).html(html.format(sect.total, sect.free));
+                            }
+                        }
+                }                
+                $("#storagestatus").hide();
+                return;
+            }
+            //
+            $("#divStorage").html(message[currentlang].nostorage);
+        }
+    $(function(){        
+        langPrefix();
+        init();
+        $.get(appendTS(api.apiurl),{data: api.power},function (result) {
+            bindPower($.xml2json(result));
+        });
+        $.get(appendTS(api.apiurl), { data: api.storage }, function (result) {
+           // alert("++++"+result+"+++++");
+            bindStorage($.xml2json(result));
+        });
+    });
+
+</script>
+<style type="text/css">
+span.important{color:White;font-weight:bold;}
+div.subname{font-size:9px;color:#e53f39;}
+</style>
+</head>
+<body>
+    <table class="table_setting" id="table_setting" cellspacing="1" cellpadding="2" width="50%"
+        border="0">
+        <tr>
+            <td>
+                <div style="line-height:30px;font-size:18px;font-weight:bold;">
+                    <span lang="device"></span>
+                    <span id="current_dir">
+						/webdav/
+                    </span>
+                </div>
+                <div style="line-height:22px;font-size:14px;">
+                    <span lang="powerstatus" class="div_sp_text smfont"></span>
+                    <span id="divPower" class="important"></span>&nbsp;&nbsp;&nbsp;&nbsp;
+                   <!-- <span id="storagestatus" lang="storagestatus" class="div_sp_text smfont"></span>
+                    <span id="divStorage" class="important"></span>-->
+                </div>
+            </td>
+            <td>
+            </td>
+            <td align="right" width="32px">
+                <a href="/a_config2.shtml"><img src="/icons/Settings.png" border="0" height="30px"></a>
+            </td>
+        </tr>
+    </table>
+    <div class="main" id="main" name="main">

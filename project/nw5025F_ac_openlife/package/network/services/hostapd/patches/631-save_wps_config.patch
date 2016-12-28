@@ -1,0 +1,116 @@
+--- a/wpa_supplicant/config_file.c	2014-12-22 23:03:43.000000000 +0800
++++ b/wpa_supplicant/config_file.c	2016-06-22 11:05:02.746489574 +0800
+@@ -644,6 +644,103 @@
+ 
+ #endif /* CONFIG_P2P */
+ 
++int dm6291_wifi_config(struct wpa_ssid *wpa_conf)
++{
++    char *value = NULL;
++//	int i = 0;
++	char encrypt_config[32]={0};
++    char cmd[256]={0};
++	char cmdnew[256]={0};
++//    system("touch /tmp/aaaaacccc");
++
++
++	printf("ENTER dm6291_wifi_config\n");
++    value = wpa_config_get(wpa_conf,"ssid");//SSID
++	if(value)
++	{
++	   /* for(i = 0; i < strlen(value)-2;i++)//ignore "
++			*(value+i) = *(value+i+1)
++		*(value+i+1) = 0;*/
++        snprintf(cmd,sizeof(cmd),"uci set wireless.@wifi-iface[1].ssid=%s",value);
++		system(cmd);
++		memset(cmd,0x0,sizeof(cmd));
++		/*system("uci commit wireless");
++		snprintf(cmdnew,sizeof(cmdnew),"echo \"%s\" >>/tmp/loggg",cmd);
++		system(cmdnew);
++		memset(cmd,0x0,sizeof(cmd));*/
++	}
++	else
++		return -1;
++    
++    value = wpa_config_get(wpa_conf,"bssid");//BSSID
++	if(value)
++	{
++        snprintf(cmd,sizeof(cmd),"uci set wireless.@wifi-iface[1].bssid=%s",value);
++		system(cmd);
++		memset(cmd,0x0,sizeof(cmd));
++		/*snprintf(cmd,sizeof(cmd),"echo %s >>/tmp/loggg",value);
++		system(cmd);
++		memset(cmd,0x0,sizeof(cmd));*/
++	}
++	else
++	{
++	    system("uci delete wireless.@wifi-iface[1].bssid");
++		system("uci commit wireless");
++	}
++
++    value = wpa_config_get(wpa_conf,"psk");//key
++	if(value)
++	{
++        snprintf(cmd,sizeof(cmd),"uci set wireless.@wifi-iface[1].key=%s",value);
++		system(cmd);
++		memset(cmd,0x0,sizeof(cmd));
++		/*snprintf(cmd,sizeof(cmd),"echo %s >>/tmp/loggg",value);
++		system(cmd);
++		memset(cmd,0x0,sizeof(cmd));*/
++	}
++	else
++	{
++        snprintf(cmd,sizeof(cmd),"uci set wireless.@wifi-iface[1].encryption=none");
++		system(cmd);
++		memset(cmd,0x0,sizeof(cmd));
++	}
++
++
++    value = wpa_config_get(wpa_conf,"key_mgmt");//key
++	if(value)
++	{
++	    if(!strcmp(value,"NONE"))
++			strcpy(encrypt_config,"none");
++		else if(!strcmp(value,"WEP"))
++			strcpy(encrypt_config,"wep");
++		else if(!strcmp(value,"WPA-PSK"))
++			strcpy(encrypt_config,"psk");
++		else if(!strcmp(value,"WPA2-PSK"))
++			strcpy(encrypt_config,"psk2");
++		else if(!strcmp(value,"WPA/WPA2-PSK"))
++			strcpy(encrypt_config,"mixed-psk");
++        snprintf(cmd,sizeof(cmd),"uci set wireless.@wifi-iface[1].encryption=%s",encrypt_config);
++		system(cmd);
++		/*snprintf(cmd,sizeof(cmd),"echo %s >>/tmp/loggg",value);
++		system(cmd);
++		memset(cmd,0x0,sizeof(cmd));*/
++
++	}
++
++    system("rm -rf /tmp/WPSing");//delete node
++	system("echo 0 > /sys/class/leds/longsys\:green\:led/brightness");
++	system("echo none > /sys/class/leds/longsys\:green\:led/trigger");
++	system("echo netdev > /sys/class/leds/longsys\:blue\:led/trigger");
++	system("echo wl0.1 > /sys/class/leds/longsys\:blue\:led/device_name");
++	system("echo link tx rx > /sys/class/leds/longsys\:blue\:led/mode");
++	
++    system("uci commit wireless");
++	system("control_dns.sh >/dev/null 2>&1 &");
++	system("sleep 10 && save_wifi &");
++    return 0;
++	
++}
++
+ 
+ static void wpa_config_write_network(FILE *f, struct wpa_ssid *ssid)
+ {
+@@ -1204,6 +1301,9 @@
+ 		if (wpa_key_mgmt_wpa_psk(ssid->key_mgmt) && !ssid->psk_set &&
+ 		    !ssid->passphrase)
+ 			continue; /* do not save invalid network */
++		
++		if((NULL == ssid->next) && (0 == dm6291_wifi_config(ssid)))//save the newest configure//JJJHHH
++			continue;
+ 		fprintf(f, "\nnetwork={\n");
+ 		wpa_config_write_network(f, ssid);
+ 		fprintf(f, "}\n");

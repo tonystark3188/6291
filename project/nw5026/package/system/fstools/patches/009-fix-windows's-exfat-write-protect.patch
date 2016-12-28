@@ -1,0 +1,41 @@
+diff -urN a/block.c b/block.c
+--- a/block.c	2015-09-06 10:08:10.457861000 +0800
++++ b/block.c	2015-09-10 10:57:09.600294834 +0800
+@@ -901,14 +901,17 @@
+ 		else
+ 		{
+ 			//for update the folder time  when the fs is vfat
+-			if (!strcmp(pr->id->name, "vfat"))
++			//when fs is exfat,touch one file can fix windows's write protect
++			if ((!strcmp(pr->id->name, "vfat")) || (!strcmp(pr->id->name, "exfat")))
+ 			{
+ 				memset(cmd,0,sizeof(cmd));
+ 				snprintf(cmd, sizeof (cmd), "echo \"to_update_vfat_time\" >/%s/to_update_vfat_time",target);
+ 				system(cmd);
++				system("sync");
+ 				memset(cmd,0,sizeof(cmd));
+ 				snprintf(cmd, sizeof (cmd),  "rm -f /%s/to_update_vfat_time",target);
+ 				system(cmd);
++				system("sync");
+ 			}
+ 			else
+ 			{
+@@ -1112,14 +1115,17 @@
+ 		else
+ 		{
+ 			//for update the folder time  when the fs is vfat
+-			if (!strcmp(pr->id->name, "vfat"))
++			//when fs is exfat,touch one file can fix windows's write protect
++			if ((!strcmp(pr->id->name, "vfat")) || (!strcmp(pr->id->name, "exfat")))
+ 			{
+ 				memset(cmd,0,sizeof(cmd));
+ 				snprintf(cmd, sizeof (cmd), "echo \"to_update_vfat_time\" >/%s/to_update_vfat_time",target);
+ 				system(cmd);
++				system("sync");
+ 				memset(cmd,0,sizeof(cmd));
+ 				snprintf(cmd, sizeof (cmd),  "rm -f /%s/to_update_vfat_time",target);
+ 				system(cmd);
++				system("sync");
+ 			}
+ 			else
+ 			{

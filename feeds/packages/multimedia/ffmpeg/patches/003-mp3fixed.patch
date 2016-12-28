@@ -1,0 +1,255 @@
+diff -ur ffmpeg-0.7.12/libavcodec/mpegaudiodec.c ffmpeg-new/libavcodec/mpegaudiodec.c
+--- ffmpeg-0.7.12/libavcodec/mpegaudiodec.c	2012-04-10 01:04:53.000000000 +0800
++++ ffmpeg-new/libavcodec/mpegaudiodec.c	2013-08-06 12:39:58.605654000 +0800
+@@ -128,13 +128,57 @@
+   128, 16
+ };
+ /* computed from band_size_long */
+-static uint16_t band_index_long[9][23];
++static uint16_t band_index_long[9][23]={
++	{0x0, 0x4, 0x8, 0xc, 0x10, 0x14, 0x18, 0x1e, 0x24, 0x2c, 0x34, 0x3e, 0x4a, 0x5a, 0x6e, 0x86, 0xa2, 0xc4, 0xee, 0x120, 0x156, 0x1a2, 0x240},
++	{0x0, 0x4, 0x8, 0xc, 0x10, 0x14, 0x18, 0x1e, 0x24, 0x2a, 0x32, 0x3c, 0x48, 0x58, 0x6a, 0x80, 0x9c, 0xbe, 0xe6, 0x114, 0x14a, 0x180, 0x240},
++	{0x0, 0x4, 0x8, 0xc, 0x10, 0x14, 0x18, 0x1e, 0x24, 0x2c, 0x36, 0x42, 0x52, 0x66, 0x7e, 0x9c, 0xc2, 0xf0, 0x128, 0x16c, 0x1c0, 0x226, 0x240},
++	{0x0, 0x6, 0xc, 0x12, 0x18, 0x1e, 0x24, 0x2c, 0x36, 0x42, 0x50, 0x60, 0x74, 0x8c, 0xa8, 0xc8, 0xee, 0x11c, 0x150, 0x18c, 0x1d0, 0x20a, 0x240},
++	{0x0, 0x6, 0xc, 0x12, 0x18, 0x1e, 0x24, 0x2c, 0x36, 0x42, 0x50, 0x60, 0x72, 0x88, 0xa2, 0xc2, 0xe8, 0x116, 0x14a, 0x18a, 0x1d0, 0x21c, 0x240},
++	{0x0, 0x6, 0xc, 0x12, 0x18, 0x1e, 0x24, 0x2c, 0x36, 0x42, 0x50, 0x60, 0x74, 0x8c, 0xa8, 0xc8, 0xee, 0x11c, 0x150, 0x18c, 0x1d0, 0x20a, 0x240},
++	{0x0, 0x6, 0xc, 0x12, 0x18, 0x1e, 0x24, 0x2c, 0x36, 0x42, 0x50, 0x60, 0x74, 0x8c, 0xa8, 0xc8, 0xee, 0x11c, 0x150, 0x18c, 0x1d0, 0x20a, 0x240},
++	{0x0, 0x6, 0xc, 0x12, 0x18, 0x1e, 0x24, 0x2c, 0x36, 0x42, 0x50, 0x60, 0x74, 0x8c, 0xa8, 0xc8, 0xee, 0x11c, 0x150, 0x18c, 0x1d0, 0x20a, 0x240},
++	{0x0, 0xc, 0x18, 0x24, 0x30, 0x3c, 0x48, 0x58, 0x6c, 0x84, 0xa0, 0xc0, 0xe8, 0x118, 0x150, 0x190, 0x1dc, 0x236, 0x238, 0x23a, 0x23c, 0x23e, 0x240}
++};
+ #include "mpegaudio_tablegen.h"
+ /* intensity stereo coef table */
+-static INTFLOAT is_table[2][16];
+-static INTFLOAT is_table_lsf[2][2][16];
+-static INTFLOAT csa_table[8][4];
+-static INTFLOAT mdct_win[8][36];
++static INTFLOAT is_table[2][16]={
++	{0, 1772721, 3070444, 4194304, 5318164, 6615887, 8388608, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
++	{8388608, 6615887, 5318164, 4194304, 3070444, 1772721, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, }
++};
++
++
++static INTFLOAT is_table_lsf[2][2][16]={
++	{
++		{8388608, 7053950, 8388608, 5931642, 8388608, 4987896, 8388608, 4194304, 8388608, 3526975, 8388608, 2965821, 8388608, 2493948, 8388608, 2097152},
++		{8388608, 8388608, 7053950, 8388608, 5931642, 8388608, 4987896, 8388608, 4194304, 8388608, 3526975, 8388608, 2965821, 8388608, 2493948, 8388608}
++	},
++	{
++		{8388608, 5931642, 8388608, 4194304, 8388608, 2965821, 8388608, 2097152, 8388608, 1482910, 8388608, 1048576, 8388608, 741455, 8388608, 524288},
++		{8388608, 8388608, 5931642, 8388608, 4194304, 8388608, 2965821, 8388608, 2097152, 8388608, 1482910, 8388608, 1048576, 8388608, 741455, 8388608}
++	}
++};
++
++static INTFLOAT csa_table[8][4]={
++	{920726016, -552435647, 368290369, -1473161663},
++	{946763264, -506518367, 440244897, -1453281631},
++	{1019656000, -336486495, 683169505, -1356142495},
++	{1055825984, -195327807, 860498177, -1251153791},
++	{1068929088, -101548263, 967380825, -1170477351},
++	{1072840512, -43986463, 1028854049, -1116826975},
++	{1073633600, -15245596, 1058388004, -1088879196},
++	{1073734464, -3972817, 1069761647, -1077707281}
++};
++
++static INTFLOAT mdct_win[8][36]={
++	{4332874, 14388994, 27033365, 43703487, 67108864, 103048977, 166594117, 312989196, 1039402296, -1134308560, -407895461, -261500382, -197955241, -162015129, -138609752, -121939630, -109295259, -99239139, -90935917, -83865201, -77684112, -72155669, -67108863, -62415047, -57973238, -53700455, -49524980, -45381283, -41205808, -36933026, -32491217, -27797401, -22750594, -17222152, -11041062, -3970347},
++	{4332874, 14388994, 27033365, 43703487, 67108864, 103048977, 166594117, 312989196, 1039402296, -1134308560, -407895461, -261500382, -197955241, -162015129, -138609752, -121939630, -109295259, -99239139, -91022550, -84588871, -79570244, -75657321, -72638110, -70365597, -68150168, -62535505, -53291762, -40892207, -25903054, -8972139, 0, 0, 0, 0, 0, 0},
++	{14388994, 67108864, 312989196, -407895461, -162015129, -109295259, -83865201, -67108863, -53700455, -41205808, -27797401, -11041062, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
++	{0, 0, 0, 0, 0, 0, 40470708, 196753234, 936585551, -1220582053, -475004325, -307405548, -223171165, -175363912, -145336362, -124900265, -110238363, -99333683, -90935917, -83865201, -77684112, -72155669, -67108863, -62415047, -57973238, -53700455, -49524980, -45381283, -41205808, -36933026, -32491217, -27797401, -22750594, -17222152, -11041062, -3970347},
++	{4332874, -14388994, 27033365, -43703487, 67108864, -103048977, 166594117, -312989196, 1039402296, 1134308560, -407895461, 261500382, -197955241, 162015129, -138609752, 121939630, -109295259, 99239139, -90935917, 83865201, -77684112, 72155669, -67108863, 62415047, -57973238, 53700455, -49524980, 45381283, -41205808, 36933026, -32491217, 27797401, -22750594, 17222152, -11041062, 3970347},
++	{4332874, -14388994, 27033365, -43703487, 67108864, -103048977, 166594117, -312989196, 1039402296, 1134308560, -407895461, 261500382, -197955241, 162015129, -138609752, 121939630, -109295259, 99239139, -91022550, 84588871, -79570244, 75657321, -72638110, 70365597, -68150168, 62535505, -53291762, 40892207, -25903054, 8972139, 0, 0, 0, 0, 0, 0},
++	{14388994, -67108864, 312989196, 407895461, -162015129, 109295259, -83865201, 67108863, -53700455, 41205808, -27797401, 11041062, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
++	{0, 0, 0, 0, 0, 0, 40470708, -196753234, 936585551, 1220582053, -475004325, 307405548, -223171165, 175363912, -145336362, 124900265, -110238363, 99333683, -90935917, 83865201, -77684112, 72155669, -67108863, 62415047, -57973238, 53700455, -49524980, 45381283, -41205808, 36933026, -32491217, 27797401, -22750594, 17222152, -11041062, 3970347}
++};
+ 
+ static int16_t division_tab3[1<<6 ];
+ static int16_t division_tab5[1<<8 ];
+@@ -145,9 +189,30 @@
+ };
+ 
+ /* lower 2 bits: modulo 3, higher bits: shift */
+-static uint16_t scale_factor_modshift[64];
++static uint16_t scale_factor_modshift[64]={
++0x0, 0x1, 0x2, 0x4, 0x5, 0x6, 0x8, 0x9, 0xa, 0xc, 0xd, 0xe, 0x10, 0x11, 0x12, 0x14, 
++0x15, 0x16, 0x18, 0x19, 0x1a, 0x1c, 0x1d, 0x1e, 0x20, 0x21, 0x22, 0x24, 0x25, 0x26, 0x28, 0x29, 
++0x2a, 0x2c, 0x2d, 0x2e, 0x30, 0x31, 0x32, 0x34, 0x35, 0x36, 0x38, 0x39, 0x3a, 0x3c, 0x3d, 0x3e, 
++0x40, 0x41, 0x42, 0x44, 0x45, 0x46, 0x48, 0x49, 0x4a, 0x4c, 0x4d, 0x4e, 0x50, 0x51, 0x52, 0x54
++};
+ /* [i][j]:  2^(-j/3) * FRAC_ONE * 2^(i+2) / (2^(i+2) - 1) */
+-static int32_t scale_factor_mult[15][3];
++static int32_t scale_factor_mult[15][3]={
++	{0x1555554, 0x10eea9a, 0xd706c9},
++	{0x1249248, 0xe836cd, 0xb84ef6},
++	{0x1111110, 0xd8bbaf, 0xac056e},
++	{0x1084210, 0xd1bde3, 0xa678de},
++	{0x1041040, 0xce699a, 0xa3d469},
++	{0x1020408, 0xccc988, 0xa28a2c},
++	{0x1010100, 0xcbfbf0, 0xa1e6fe},
++	{0x1008040, 0xcb95bf, 0xa195e2},
++	{0x1004010, 0xcb62cd, 0xa16d73},
++	{0x1002004, 0xcb495e, 0xa15943},
++	{0x1001000, 0xcb3ca7, 0xa14f2c},
++	{0x1000800, 0xcb364e, 0xa14a22},
++	{0x1000400, 0xcb3321, 0xa1479d},
++	{0x1000200, 0xcb318b, 0xa1465a},
++	{0x1000100, 0xcb30c0, 0xa145b9}
++};
+ /* mult table for layer 2 group quantization */
+ 
+ #define SCALE_GEN(v) \
+@@ -285,30 +350,6 @@
+     if (!init && !avctx->parse_only) {
+         int offset;
+ 
+-        /* scale factors table for layer 1/2 */
+-        for(i=0;i<64;i++) {
+-            int shift, mod;
+-            /* 1.0 (i = 3) is normalized to 2 ^ FRAC_BITS */
+-            shift = (i / 3);
+-            mod = i % 3;
+-            scale_factor_modshift[i] = mod | (shift << 2);
+-        }
+-
+-        /* scale factor multiply for layer 1 */
+-        for(i=0;i<15;i++) {
+-            int n, norm;
+-            n = i + 2;
+-            norm = ((INT64_C(1) << n) * FRAC_ONE) / ((1 << n) - 1);
+-            scale_factor_mult[i][0] = MULLx(norm, FIXR(1.0          * 2.0), FRAC_BITS);
+-            scale_factor_mult[i][1] = MULLx(norm, FIXR(0.7937005259 * 2.0), FRAC_BITS);
+-            scale_factor_mult[i][2] = MULLx(norm, FIXR(0.6299605249 * 2.0), FRAC_BITS);
+-            av_dlog(avctx, "%d: norm=%x s=%x %x %x\n",
+-                    i, norm,
+-                    scale_factor_mult[i][0],
+-                    scale_factor_mult[i][1],
+-                    scale_factor_mult[i][2]);
+-        }
+-
+         RENAME(ff_mpa_synth_init)(RENAME(ff_mpa_synth_window));
+ 
+         /* huffman decode tables */
+@@ -353,15 +394,6 @@
+         }
+         assert(offset == FF_ARRAY_ELEMS(huff_quad_vlc_tables));
+ 
+-        for(i=0;i<9;i++) {
+-            k = 0;
+-            for(j=0;j<22;j++) {
+-                band_index_long[i][j] = k;
+-                k += band_size_long[i][j];
+-            }
+-            band_index_long[i][22] = k;
+-        }
+-
+         /* compute n ^ (4/3) and store it in mantissa/exp format */
+ 
+         mpegaudio_tableinit();
+@@ -379,94 +411,6 @@
+                     division_tabs[i][j] = val1 + (val2 << 4) + (val3 << 8);
+                 }
+ 
+-
+-        for(i=0;i<7;i++) {
+-            float f;
+-            INTFLOAT v;
+-            if (i != 6) {
+-                f = tan((double)i * M_PI / 12.0);
+-                v = FIXR(f / (1.0 + f));
+-            } else {
+-                v = FIXR(1.0);
+-            }
+-            is_table[0][i] = v;
+-            is_table[1][6 - i] = v;
+-        }
+-        /* invalid values */
+-        for(i=7;i<16;i++)
+-            is_table[0][i] = is_table[1][i] = 0.0;
+-
+-        for(i=0;i<16;i++) {
+-            double f;
+-            int e, k;
+-
+-            for(j=0;j<2;j++) {
+-                e = -(j + 1) * ((i + 1) >> 1);
+-                f = pow(2.0, e / 4.0);
+-                k = i & 1;
+-                is_table_lsf[j][k ^ 1][i] = FIXR(f);
+-                is_table_lsf[j][k][i] = FIXR(1.0);
+-                av_dlog(avctx, "is_table_lsf %d %d: %f %f\n",
+-                        i, j, (float) is_table_lsf[j][0][i],
+-                        (float) is_table_lsf[j][1][i]);
+-            }
+-        }
+-
+-        for(i=0;i<8;i++) {
+-            float ci, cs, ca;
+-            ci = ci_table[i];
+-            cs = 1.0 / sqrt(1.0 + ci * ci);
+-            ca = cs * ci;
+-#if !CONFIG_FLOAT
+-            csa_table[i][0] = FIXHR(cs/4);
+-            csa_table[i][1] = FIXHR(ca/4);
+-            csa_table[i][2] = FIXHR(ca/4) + FIXHR(cs/4);
+-            csa_table[i][3] = FIXHR(ca/4) - FIXHR(cs/4);
+-#else
+-            csa_table[i][0] = cs;
+-            csa_table[i][1] = ca;
+-            csa_table[i][2] = ca + cs;
+-            csa_table[i][3] = ca - cs;
+-#endif
+-        }
+-
+-        /* compute mdct windows */
+-        for(i=0;i<36;i++) {
+-            for(j=0; j<4; j++){
+-                double d;
+-
+-                if(j==2 && i%3 != 1)
+-                    continue;
+-
+-                d= sin(M_PI * (i + 0.5) / 36.0);
+-                if(j==1){
+-                    if     (i>=30) d= 0;
+-                    else if(i>=24) d= sin(M_PI * (i - 18 + 0.5) / 12.0);
+-                    else if(i>=18) d= 1;
+-                }else if(j==3){
+-                    if     (i<  6) d= 0;
+-                    else if(i< 12) d= sin(M_PI * (i -  6 + 0.5) / 12.0);
+-                    else if(i< 18) d= 1;
+-                }
+-                //merge last stage of imdct into the window coefficients
+-                d*= 0.5 / cos(M_PI*(2*i + 19)/72);
+-
+-                if(j==2)
+-                    mdct_win[j][i/3] = FIXHR((d / (1<<5)));
+-                else
+-                    mdct_win[j][i  ] = FIXHR((d / (1<<5)));
+-            }
+-        }
+-
+-        /* NOTE: we do frequency inversion adter the MDCT by changing
+-           the sign of the right window coefs */
+-        for(j=0;j<4;j++) {
+-            for(i=0;i<36;i+=2) {
+-                mdct_win[j + 4][i] = mdct_win[j][i];
+-                mdct_win[j + 4][i + 1] = -mdct_win[j][i + 1];
+-            }
+-        }
+-
+         init = 1;
+     }
+ 
+
+diff -ur ffmpeg-0.7.12/libavformat/utils.c ffmpeg-new/libavformat/utils.c
+--- ffmpeg-0.7.12/libavformat/utils.c	2013-08-06 12:44:06.569090907 +0800
++++ ffmpeg-new/libavformat/utils.c	2013-08-06 12:39:01.797480000 +0800
+@@ -2465,7 +2465,7 @@
+         st = ic->streams[pkt->stream_index];
+         if (st->codec_info_nb_frames>1) {
+             int64_t t;
+-            if (st->time_base.den > 0 && (t=av_rescale_q(st->info->codec_info_duration, st->time_base, AV_TIME_BASE_Q)) >= ic->max_analyze_duration) {
++             if (st->time_base.den > 0 && (t=av_rescale_q(st->info->codec_info_duration, st->time_base, AV_TIME_BASE_Q)) >= ic->max_analyze_duration) {
+                 av_log(ic, AV_LOG_WARNING, "max_analyze_duration %d reached at %"PRId64"\n", ic->max_analyze_duration, t);
+                 break;
+             }
+

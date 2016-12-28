@@ -1,0 +1,44 @@
+DM_ROUTER][1451007224.391260][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = Make,val = Canon
+[DM_ROUTER][1451007224.391317][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = Model,val = Canon EOS 700D
+[DM_ROUTER][1451007224.391345][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = Orientation,val = top - left
+[DM_ROUTER][1451007224.391559][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = XResolution,val = 72.00
+[DM_ROUTER][1451007224.391593][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = YResolution,val = 72.00
+[DM_ROUTER][1451007224.391622][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = ResolutionUnit,val = Inch
+[DM_ROUTER][1451007224.391640][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = DateTime,val = 2015:12:23 10:07:28
+[DM_ROUTER][1451007224.391659][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = Artist,val = 
+[DM_ROUTER][1451007224.391679][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = YCbCrPositioning,val = co-sited
+[DM_ROUTER][1451007224.391703][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = Copyright,val = [None] (Photographer) -  (Editor)
+[DM_ROUTER][1451007224.391727][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = ExposureTime,val = 1/50 sec.
+[DM_ROUTER][1451007224.391753][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = FNumber,val = f/4.0
+[DM_ROUTER][1451007224.391773][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = ExposureProgram,val = Not defined
+[DM_ROUTER][1451007224.391793][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = ISOSpeedRatings,val = 320
+[DM_ROUTER][1451007224.391812][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = ExifVersion,val = Unknown Exif Version
+[DM_ROUTER][1451007224.391831][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = DateTimeOriginal,val = 2015:12:23 10:07:28
+[DM_ROUTER][1451007224.391850][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = DateTimeDigitized,val = 2015:12:23 10:07:28
+[DM_ROUTER][1451007224.391873][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = ComponentsConfiguration,val = Y Cb Cr -
+[DM_ROUTER][1451007224.391973][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = ShutterSpeedValue,val = 5.62 EV (1/49 sec.)
+[DM_ROUTER][1451007224.392005][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = ApertureValue,val = 4.00 EV (f/4.0)
+[DM_ROUTER][1451007224.392026][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = ExposureBiasValue,val = 0.00 EV
+[DM_ROUTER][1451007224.392047][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = MeteringMode,val = Pattern
+[DM_ROUTER][1451007224.392073][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = Flash,val = Flash did not fire, compulsory flash mode
+[DM_ROUTER][1451007224.392096][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = FocalLength,val = 31.0 mm
+[DM_ROUTER][1451007224.392116][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = MakerNote,val = 7856 bytes undefined data
+[DM_ROUTER][1451007224.392136][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = UserComment,val = 
+[DM_ROUTER][1451007224.392154][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = SubsecTime,val = 82
+[DM_ROUTER][1451007224.392171][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = SubSecTimeOriginal,val = 82
+[DM_ROUTER][1451007224.392189][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = SubSecTimeDigitized,val = 82
+[DM_ROUTER][1451007224.392209][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = FlashPixVersion,val = FlashPix Version 1.0
+[DM_ROUTER][1451007224.392229][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = ColorSpace,val = sRGB
+[DM_ROUTER][1451007224.392248][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = PixelXDimension,val = 5184
+[DM_ROUTER][1451007224.392266][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = PixelYDimension,val = 3456
+[DM_ROUTER][1451007224.392287][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = FocalPlaneXResolution,val = 5798.66
+[DM_ROUTER][1451007224.392308][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = FocalPlaneYResolution,val = 5788.94
+[DM_ROUTER][1451007224.392328][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = FocalPlaneResolutionUnit,val = Inch
+[DM_ROUTER][1451007224.392347][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = CustomRendered,val = Normal process
+[DM_ROUTER][1451007224.394930][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = ExposureMode,val = Auto exposure
+[DM_ROUTER][1451007224.394962][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = WhiteBalance,val = Auto white balance
+[DM_ROUTER][1451007224.394984][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = SceneCaptureType,val = Standard
+[DM_ROUTER][1451007224.395009][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = GPSVersionID,val = 2.3.0.0
+[DM_ROUTER][1451007224.395029][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = InteroperabilityIndex,val = R98
+[DM_ROUTER][1451007224.395048][./camera/camera.c:664][fill_exif_info][DEBUG] find new exif info,tag = InteroperabilityVersion,val = 0100
+

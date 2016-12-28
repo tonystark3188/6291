@@ -1,0 +1,350 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title></title>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, maximum-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="/css/a.css">
+    <meta http-equiv="”pragma”" content="”no-cache”">
+    <meta http-equiv="”expires”" content="”-1″">
+    <script type="text/javascript" src="js/jquery-1.7.2.min.js"></script>
+    <script type="text/javascript" src="js/jquery.xml2json.js"></script>
+    <script language="javascript" src="js/langPrefix.js"></script>
+    <script language="javascript" src="js/tool.js"></script>
+    <script language="JavaScript" type="text/javascript">
+        var theSSID = {};
+        
+       // var cdeviceName="";
+        //var cdeviceCrypto="";
+        //var cdevicePassword="";
+        
+        //
+        function bindData(data) {
+            if (data == undefined) return;
+            if (data.Return.status != "true") {
+                alert(data.Return["#text"] || data.Return.toString());
+                return;
+            }
+            //
+            var ssid = theSSID = data.SSID;
+            //
+            $("#DeviceName").val(ssid.name);
+            //
+            $("#method0 option").each(function () {
+                if ($(this).text() == ssid.encrypt) {
+                    $(this).attr("selected", "true");
+                }
+            });
+            //
+            onSecurityChanged();
+            //
+            $("#Password,#Password1").val(ssid.password);
+        }
+
+
+        
+        $(function () {
+            //
+            langPrefix();
+            //
+           //Loading(message[currentlang].loadingmsg);
+            $.get(appendTS(api.apiurl), { data: api.ssid }, function (data) {
+                var data = $.xml2json(data);
+                bindData(data);
+               // cdeviceName=$("#DeviceName").val();
+                //var cobjSecurityMode=$id("method0");
+                //cdeviceCrypto=cobjSecurityMode.options[cobjSecurityMode.selectedIndex].text;
+                //cdevicePassword=$("#Password").val();
+                Loaded();
+            });
+            //
+            $("#divPopup").hide();
+            document.title = message[currentlang].device;
+        });
+
+        function onSecurityChanged() {
+        	
+        	 
+            //
+            objSecurityMode = $id("method0");
+            var MethodText = objSecurityMode.options[objSecurityMode.selectedIndex].text;
+            //
+            if (MethodText == "WEP" || MethodText == "NONE") {
+                $("#divPassword").hide();
+                $("#divPassword1").hide();
+            } else {
+                $("#divPassword").show();
+                $("#divPassword1").show();
+            }
+            //
+            if (MethodText == "WEP") {
+                //wep 加密
+                $('#DivWep').show();
+                $('#trLength').show();
+                $('#trFormat').show();
+            }
+            else {
+                $('#DivWep').hide();
+                $('#trLength').hide();
+                $('#trFormat').hide();
+            }
+            $("#Password").val("");
+            $("#Password1").val("");
+        }
+        
+        //function saveDevice(){ //是否确定继续保存
+        	//$("#divPopup").hide();
+        	//}
+        
+
+        function onDone() {
+            var postdata = theSSID || {};
+            for (var k in postdata) {
+                if (k.charAt(0) != "@") {
+                    postdata["@" + k] = postdata[k];
+                    delete postdata[k];
+                }
+            }
+            var DeviceName = $("#DeviceName").val().trim();
+            if (DeviceName == "") {
+                alert(message[currentlang].emptyname); 
+                return false;
+            }
+            if (DeviceName.Length() > 32) {
+                alert(message[currentlang].ssidlengthalert);
+                return false;
+            }
+            
+            objSecurityMode = $id("method0");
+            //
+            var Password = $("#Password").val();
+		console.log(Password);
+		if(Password.indexOf("&")>=0)
+			{alert("不支持特殊字符 & ");return;}
+		else if(Password.indexOf(">")>=0)
+			{alert("不支持特殊字符 > ");return;}
+		else if(Password.indexOf("<")>=0)
+			{alert("不支持特殊字符 < ");return;}
+
+            //var Password1 = $("#Password1").val().trim();
+            var MethodText = objSecurityMode.options[objSecurityMode.selectedIndex].text;
+            //
+            //判断无修改不准保存
+           // if((cdeviceName == DeviceName)&&(cdeviceCrypto == MethodText)&&(cdevicePassword == Password)){
+            	
+            	
+            	
+             // Loading1(message[currentlang].basicsettingsave, 3, function () {Loaded(); });
+            	 //return false;
+            //	}
+            if (MethodText == "WEP") {
+                var len = $(":radio[name=encrypt_len]:checked").val();
+                var format = $(":radio[name=format]:checked").val();
+                //WEP加密方式
+                if (Password.length == 5) {
+                    document.getElementById("wepKeyLen0").value = "wep64";
+                    document.getElementById("length0").value = "1"; //password length=5
+                    document.getElementById("format0").value = "1"; //ascii
+                }
+                else if (Password.length == 10) {
+                    document.getElementById("wepKeyLen0").value = "wep64";
+                    document.getElementById("length0").value = "1"; //password length=10
+                    document.getElementById("format0").value = "2"; //hex
+                }
+                else if (Password.length == 13) {
+                    document.getElementById("wepKeyLen0").value = "wep128";
+                    document.getElementById("length0").value = "2"; //password length=13
+                    document.getElementById("format0").value = "1"; //ascii
+                }
+                else if (Password.length == 26) {
+                    document.getElementById("wepKeyLen0").value = "wep128";
+                    document.getElementById("length0").value = "2"; //password length=26
+                    document.getElementById("format0").value = "2"; //hex
+                } else {
+                    alert("Please enter correct length of password for WEP!");
+                    return false;
+                }
+
+                if (Password != Password1) {
+                    alert(message[currentlang].errorpasswd2);
+                    return false;
+                }
+                //
+                postdata["@encrypt_len"] = len;
+                postdata["@format"] = format;
+
+            } else if (objSecurityMode.selectedIndex != 0) {
+                //WPA、WPA2以及WPA/WPA2混合加密方式的密码需要8位及以上
+                if (Password.length < 8) {
+                    alert(message[currentlang].errorpasswd1);
+                    return false;
+                }
+               // if (Password != Password1) {
+              //     alert(message[currentlang].errorpasswd2);
+              //     return false;
+              // }
+            }
+            if (Password.Length() > 32) {
+                alert(message[currentlang].passwordlengthalert);
+                return false;
+            }
+            postdata["@name"] = DeviceName.replace(/(&|"|>|<)/g,function($0,$1){return{"&":"&amp;","\"":"&quot;",">":"&gt;","<":"&lt;"}[$1];})
+           // postdata["@name"] = DeviceName;
+			postdata["@encrypt"] = MethodText;
+			postdata["@password"] = Password.replace(/(&|"|>|<)/g,function($0,$1){return{"&":"&amp;","\"":"&quot;",">":"&gt;","<":"&lt;"}[$1];})
+           // postdata["@password"] = Password;//.replace(/(&|"|>|<)/g,function($0,$1){return{"&":"&amp;","\"":"&quot;",">":"&gt;","<":"&lt;"}[$1];})
+        //    postdata["@name"] = DeviceName.replace(/</g,"&lt;");
+            //if (MethodText == "WPA") 
+            postdata["@tkip_aes"] = "aes"; //默认项
+            //
+            var xml = json2xml({ "setSysInfo": { SSID: postdata} });
+            //
+            Loading(message[currentlang].savingconfig, 20, function () { Loaded(); alert(message[currentlang].refreshalert); });
+            //alert(xml);
+            $.ajax({ url: appendTS(api.apiurl + "?data=" + escape(xml)),
+                type: "POST",
+                data: { "data": xml },
+                contentType: "application/x-www-form-urlencoded;",
+                success: function (result) {
+                    //<?xml version="1.0"?><setSysInfo><Return status="true"></Return></setSysInfo><Return status="false">wpa encrypt set error!</Return></setSysInfo>
+                    var result = $.xml2json(result);
+                    if (result.Return.status != "true") alert(result.Return.toString());
+                    //Loading(message[currentlang].savingconfig, result.Return.delay, function () { Loaded(); alert(message[currentlang].refreshalert); });
+                }
+            });
+            //bugcode
+            //Loading(message[currentlang].savingconfig, 40, function () { Loaded(); alert(message[currentlang].refreshalert); });
+            return false;
+        }
+        
+        	function pwdmask(){                                                   
+             var  obj = $("#Password"); 
+             var  va = $("#Password").val();                                                                    
+             if(obj.val() !== ""){ 
+                  if(obj.attr("type") == "password"){ 
+                     //$("#pwdspan").html("<input type=\"text\" id=\"Password\" validate=\"require,lenght[_50]\"  onkeyup=\"check(this)\" value='"+obj.val()+"'  >");
+                     $("#pwdspan").html("<input type=\"text\" id=\"Password\" validate=\"require,lenght[_50]\"  onkeyup=\"check(this)\"   >");
+                  }
+              else if(obj.attr("type") == "text")
+                 {                                         
+                    //$("#pwdspan").html("<input type=\"password\" id=\"Password\" validate=\"require,lenght[_50]\"  onkeyup=\"check(this)\" value='"+obj.val()+"'  >");
+                    $("#pwdspan").html("<input type=\"password\" id=\"Password\" validate=\"require,lenght[_50]\"  onkeyup=\"check(this)\" >");
+                 }   
+               $("#Password").val(va);                           
+            }                                            
+     	}
+     	
+     	
+     	 function check(dms){ //dms判断非法字符 以及限制设备名称输入长度
+        //onkeyup=" if((value.indexOf('&') > 0) || (value.indexOf('>')>0)){value=value.replace(/</g,'').replace(/&/g,'');alert('&为非法字符')}"
+        
+       
+        var value=$(dms).val();
+        //if((value.indexOf("&") > 0) || (value.indexOf(">")>0)){
+        //value=value.replace(">","").replace("&","");
+        //$(dms).val("");
+        //$(dms).val(value);
+        //alert('设备名称不能包含以下任何字符：& >')}
+        
+        
+          var totalLength = 0;
+          var i;
+          var charCode;
+			   for(i=0;i<value.length;i++) {
+			    charCode = value.charCodeAt(i);
+			    if(charCode<0x007f) {
+			    totalLength +=1;
+			   }else if(charCode>=0x0080&charCode<=0x07ff) {
+			    totalLength +=2;
+			   }else if(charCode>=0x0800&charCode<=0xffff) {
+			    totalLength +=3;
+			   }
+        }
+        
+        if(totalLength>32){
+         alert(message[currentlang].maxlength);
+         var value32=value.substring(0,32);
+         $(dms).val("");
+         $(dms).val(value32);
+        	}
+        
+ }
+     	
+   
+     	
+    </script>
+    <style type="text/css">
+        table.fixtb tbody td.control > input, table.fixtb tbody td.control > select
+        {
+            width: 180px;
+        }
+	#eye {                                                        
+     	 vertical-align:middle;                                             
+         margin-left:-32px !important;/*ff*/       
+         padding-bottom:10px;                          
+         padding-bottom:28px \9;                                                                               
+        }
+    </style>
+</head>
+<body>
+    <form name="form_wi_drive_settings" id="form_wi_drive_settings" action="">
+    <div class="div_content" id="DivContent">
+        <div class="div_header">
+            <div class="div_container">
+                <div style="float: left;" class="title_back">
+                    <a href="a_config2.shtml" lang="back" class="btn_back"></a>
+                </div>
+                <div style="float: left;" class="title_text" lang="setting">
+                </div>
+                <div style="float: left;" class="title_done">
+                    <a href="javascript:;" onclick="return onDone();" lang="done" class="btn_done"/>
+                    
+                    </a></div>
+                <div style="clear: both;">
+                </div>
+            </div>
+        </div>
+        <div class="div_center">
+            <div class="div_container">
+                <div class="div_row">
+                    <div class="div_row_text" lang="devicename">
+                    </div>
+                    <div class="div_row_control">
+                        <input id="DeviceName" name="DeviceName" value="" type="text" validate="required,length[_50]" onkeyup="check(this)" />
+                    </div>
+                </div>
+                <p />
+                <div class="div_row">
+                    <div class="div_row_text" lang="security">
+                    </div>
+                    <div class="div_row_control">
+                        <select size="1" id="method0" name="method0" onchange="onSecurityChanged();">
+                            <option value="0">NONE</option>
+                            <!--<option value="1">WEP</option>-->
+                            <option value="2">WPA</option>
+                            <option value="4">WPA2</option>
+                            <option value="6">WPA/WPA2</option>
+                        </select>
+                    </div>
+                </div>
+                <p />
+                <div class="div_row" id="divPassword" style="display:none">
+                    <div class="div_row_text" lang="passwd">
+                    </div>
+                    <div class="div_row_control">
+                        <span id="pwdspan"><input id="Password" name="Password" value="" type="password" validate="required,length[_50]" onkeyup="check(this)"/></span>
+                  	<img src="/graphics/eye.png" id="eye" onclick="pwdmask()">
+                    </div>
+                </div>
+                <p />
+                <p />
+
+            </div>
+        </div>
+        <div class="div_bottom">
+        </div>
+    </div>
+    </form>
+    
+</body>
+</html>

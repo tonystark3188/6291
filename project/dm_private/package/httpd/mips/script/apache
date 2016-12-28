@@ -1,0 +1,15 @@
+#!/bin/sh /etc/rc.common
+
+START=50
+
+RUN_D=/tmp/httpd
+
+start() {
+	[ -d /tmp/mnt ] || mkdir -p /tmp/mnt
+	[ -d $RUN_D ] || mkdir -p $RUN_D
+	httpd
+}
+
+stop() {
+	killall httpd
+}

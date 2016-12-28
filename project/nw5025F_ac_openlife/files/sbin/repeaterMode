@@ -1,0 +1,110 @@
+#!/bin/sh
+
+sleep 10
+local oldwan_ip=192.168.222.254
+while true
+do
+local wan_ip=$(ifconfig wlan0 | grep 'inet addr' | awk '{print $2}'|awk -F : '{print $2}')
+local lan_ip=$(ifconfig "wl0.1" | grep 'inet addr' | awk '{print $2}'|awk -F : '{print $2}')
+local wan_state=$(iwconfig wlan0 | grep Frequency | awk '{print $6}' | awk -F : '{print $2}')
+local default_ip=192.168.222.254
+#echo $wan_ip
+#echo $lan_ip
+#echo $wan_state
+
+if [ -n $wan_state ] && [ "$oldwan_ip" !=  "$wan_ip" ]; then
+	touch /tmp/enter_repeator_mode
+	local wan_getway=$(route -n | grep UG | awk '{print $2}')
+	local wan_getway_header=$(route -n | grep UG | awk '{print $2}' | awk -F "." '{printf"%d.%d.%d.",$1,$2,$3}')
+	ap_ssid=$(uci get wireless.@wifi-iface[0].ssid)
+	if [ -z $wan_getway ]; then
+		touch /tmp/wan_gateway_null
+		continue
+	fi
+	iw wlan0 set power_save off
+	echo $wan_getway
+	echo $wan_getway_header	
+	uci set network.stabridge=interface
+	uci set network.stabridge.proto=relay
+	uci set network.stabridge.network="lan wan"
+	uci set network.stabridge.ipaddr=$wan_ip
+	uci set network.lan.gateway=$wan_getway
+	uci set network.lan.dns=$wan_getway
+	uci set network.lan.ipaddr=$wan_ip
+
+#	uci set network.wan.gateway=$wan_getway
+	uci set network.wan.ipaddr=$wan_ip
+
+#	uci delete network.lan.type
+#	uci delete network.lan.proto
+#	uci delete network.lan.ipaddr
+	uci set network.wan.gateway=$wan_getway
+	uci commit network
+
+	uci set dhcp.lan.ignore=1
+	uci commit dhcp
+
+#	killall relayd
+#	relayd -I wl0.1 -I wlan0 -ddd -D -G $wan_getway&
+	ifconfig wl0.1 down
+
+#	ifconfig wlan0 down
+#	ifconfig wlan0 up
+#	dhd_helper reboot
+#	reinit_network.sh
+	ifconfig wl0.1 $wan_ip up
+#	set_client.sh
+	echo xxxxxxxxxxxxxxxxxxxxxx
+	killall relayd
+	sleep 5                         
+	relayd -I wl0.1 -I wlan0 -d -D -G $wan_getway&
+
+#	exit;
+
+#	ifconfig wl0.1 192.168.169.100 up
+#	route add default gw $wan_getway
+#	iptables -F -t nat
+	iptables -t nat -A POSTROUTING -s "$wan_getway_header"0/24 -o wlan0 -j MASQUERADE
+	iptables -A FORWARD -s 0/0 -d 0/0 -j ACCEPT
+
+	sed -i '/^dhcp-range/d' /etc/dnsmasq/dnsmasq.conf
+#	echo dhcp-range=lan,"$wan_getway_header"100,"$wan_getway_header"249,255.255.255.0,12h >>/etc/dnsmasq/dnsmasq.conf 
+#	killall dnsmasq
+#	dnsmasq -C /etc/dnsmasq/dnsmasq.conf -p 53 -k &
+#	killall udhcpc
+#	killall relayd                                                                     
+#	relayd -I wlan0 -I wl0.1 -d -D -G $wan_getway&
+#	killall udhcpc
+#	udhcpc -b -t 0 -B -i wlan0 -s /etc/udhcpc.script
+	sleep 5
+#	killall relayd
+#	relayd -I wlan0 -I wl0.1 -d -D -G $wan_getway -L 192.168.8.2 &
+	sed -i '/^altnet/d' /etc/igmpproxy/igmpproxy.conf
+	echo altnet\ "$wan_getway_header"0/24 >>/etc/igmpproxy/igmpproxy.conf
+	killall igmpproxy
+	igmpproxy -v /etc/igmpproxy/igmpproxy.conf &
+	local oldwan_ip=$(ifconfig wlan0 | grep 'inet addr' | awk '{print $2}'|awk -F : '{print $2}') 
+elif [ -z $wan_state ] && [ "$lan_ip" = "$wan_ip" ]; then
+	touch /tmp/exit_repeater_mode
+	uci delete network.lan.gateway
+	uci set network.lan.dns=$default_ip
+	uci set network.lan.ipaddr=$default_ip
+	uci set network.lan.proto=static
+	uci set network.lan.type=bridge
+	uci delete dhcp.lan.ignore
+
+	sed -i '/^dhcp-range/d' /etc/dnsmasq/dnsmasq.conf
+	echo dhcp-range=lan,192.168.222.100,192.168.222.249,255.255.255.0,12h >>/etc/dnsmasq/dnsmasq.conf
+	killall relayd
+	killall igmpproxy
+	wl down
+	sleep 1
+	wl up
+	sleep 3
+	init_network.sh
+fi
+
+sleep 5
+
+
+done

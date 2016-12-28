@@ -1,0 +1,8 @@
+# Put your custom commands here that should be executed once
+# the system init finished. By default this file does nothing.
+
+init_network.sh
+telnetd -l /bin/login
+checkserverPen &
+/usr/sbin/check_shair.sh &
+exit 0

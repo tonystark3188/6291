@@ -1,0 +1,22 @@
+#!/bin/sh  
+eval `sh proccgi.sh $*`
+
+echo -e  "Content-type:text/html\r\n\r\n"
+echo " "
+wget -q http://127.0.0.1:9000/unbind -O /tmp/unbind
+
+
+rtn=`cat /tmp/unbind`
+#echo "$key"
+
+result=`echo "$rtn" | awk -F "[" '{print $2}'|awk -F "]" '{print $1}'`
+
+
+#echo "$QUERY_STRING"
+func="$FORM_callback"
+#echo "$func"
+if [ "$func" == "" ];then
+	echo "{\"result\":$result}"
+else	
+	echo "$func({\"result\":$result})"
+fi

@@ -1,0 +1,12 @@
+diff -urN a/wpa_supplicant/wpa_supplicant.c b/wpa_supplicant/wpa_supplicant.c
+--- a/wpa_supplicant/wpa_supplicant.c	2016-01-12 17:24:02.715489078 +0800
++++ b/wpa_supplicant/wpa_supplicant.c	2016-01-12 17:25:42.991490771 +0800
+@@ -2814,7 +2814,7 @@
+ 	if (wpa_s == NULL)
+ 		return NULL;
+ 	wpa_s->scan_req = INITIAL_SCAN_REQ;
+-	wpa_s->scan_interval = 1;
++	wpa_s->scan_interval = 60;
+ 	wpa_s->new_connection = 1;
+ 	wpa_s->parent = wpa_s;
+ 	wpa_s->sched_scanning = 0;

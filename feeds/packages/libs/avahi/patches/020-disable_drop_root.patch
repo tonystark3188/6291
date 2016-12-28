@@ -1,0 +1,11 @@
+--- a/avahi-daemon/main.c	2010-11-18 11:00:26.288465000 +0800
++++ b/avahi-daemon/main.c	2015-12-30 18:51:41.997400698 +0800
+@@ -1475,7 +1475,7 @@
+     config.n_entries_per_entry_group_max = 0;
+ #endif
+ 
+-    config.drop_root = 1;
++    config.drop_root = 0;
+     config.set_rlimits = 1;
+ #ifdef ENABLE_CHROOT
+     config.use_chroot = 1;

@@ -1,0 +1,21 @@
+--- a/wpa_supplicant/wpa_supplicant.c	2015-11-27 19:30:10.760344969 +0800
++++ b/wpa_supplicant/wpa_supplicant.c	2016-01-06 11:40:00.253504651 +0800
+@@ -2813,8 +2813,8 @@
+ 	wpa_s = os_zalloc(sizeof(*wpa_s));
+ 	if (wpa_s == NULL)
+ 		return NULL;
+-	wpa_s->scan_req = INITIAL_SCAN_REQ;
+-	wpa_s->scan_interval = 1;
++	wpa_s->scan_req = 1;
++	wpa_s->scan_interval = 60;
+ 	wpa_s->new_connection = 1;
+ 	wpa_s->parent = wpa_s;
+ 	wpa_s->sched_scanning = 0;
+@@ -4447,6 +4447,7 @@
+ 	 * TODO: if more than one possible AP is available in scan results,
+ 	 * could try the other ones before requesting a new scan.
+ 	 */
++	timeout = 30000;
+ 	wpa_supplicant_req_scan(wpa_s, timeout / 1000,
+ 				1000 * (timeout % 1000));
+ }

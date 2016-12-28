@@ -1,0 +1,258 @@
+/*
+ * libalsa output driver. This file is part of Shairport.
+ * Copyright (c) Muffinman, Skaman 2013
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+#define ALSA_PCM_NEW_HW_PARAMS_API
+
+#include <stdio.h>
+#include <unistd.h>
+#include <memory.h>
+#include <alsa/asoundlib.h>
+#include "common.h"
+#include "audio.h"
+#include "volume_interface.h"
+
+static void help(void);
+static int init(int argc, char **argv);
+static void deinit(void);
+static void start(int sample_rate);
+static void play(short buf[], int samples);
+static void stop(void);
+static void volume(double vol);
+
+audio_output audio_alsa = {
+    .name = "alsa",
+    .help = &help,
+    .init = &init,
+    .deinit = &deinit,
+    .start = &start,
+    .stop = &stop,
+    .play = &play,
+    .volume = &volume,
+    .dev_try = NULL,
+};
+
+static snd_pcm_t *alsa_handle = NULL;
+static snd_pcm_hw_params_t *alsa_params = NULL;
+
+static snd_mixer_t *alsa_mix_handle = NULL;
+static snd_mixer_elem_t *alsa_mix_elem = NULL;
+static snd_mixer_selem_id_t *alsa_mix_sid = NULL;
+static long alsa_mix_minv, alsa_mix_range;
+
+static char *alsa_out_dev = "default";
+static char *alsa_mix_dev = NULL;
+static char *alsa_mix_ctrl = "Master";
+static int alsa_mix_index = 0;
+
+static void help(void) {
+    printf("    -d output-device    set the output device [default*|...]\n"
+           "    -t mixer-type       set the mixer type [software*|hardware]\n"
+           "    -m mixer-device     set the mixer device ['output-device'*|...]\n"
+           "    -c mixer-control    set the mixer control [Master*|...]\n"
+           "    -i mixer-index      set the mixer index [0*|...]\n"
+           "    *) default option\n"
+          );
+}
+
+static int init(int argc, char **argv) {
+    int hardware_mixer = 0;
+
+    optind = 1; // optind=0 is equivalent to optind=1 plus special behaviour
+    argv--;     // so we shift the arguments to satisfy getopt()
+    argc++;
+    // some platforms apparently require optreset = 1; - which?
+    int opt;
+    while ((opt = getopt(argc, argv, "d:t:m:c:i:")) > 0) {
+        switch (opt) {
+            case 'd':
+                alsa_out_dev = optarg;
+                break;
+            case 't':
+                if (strcmp(optarg, "hardware") == 0)
+                    hardware_mixer = 1;
+                break;
+            case 'm':
+                alsa_mix_dev = optarg;
+                break;
+            case 'c':
+                alsa_mix_ctrl = optarg;
+                break;
+            case 'i':
+                alsa_mix_index = strtol(optarg, NULL, 10);
+                break;
+            default:
+                help();
+                die("Invalid audio option -%c specified", opt);
+        }
+    }
+
+    if (optind < argc)
+        die("Invalid audio argument: %s", argv[optind]);
+
+    if (!hardware_mixer)
+        return 0;
+
+    if (alsa_mix_dev == NULL)
+        alsa_mix_dev = alsa_out_dev;
+    audio_alsa.volume = &volume;
+
+    int ret = 0;
+    long alsa_mix_maxv;
+
+    snd_mixer_selem_id_alloca(&alsa_mix_sid);
+    snd_mixer_selem_id_set_index(alsa_mix_sid, alsa_mix_index);
+    snd_mixer_selem_id_set_name(alsa_mix_sid, alsa_mix_ctrl);
+
+    if ((snd_mixer_open(&alsa_mix_handle, 0)) < 0)
+        die ("Failed to open mixer");
+    if ((snd_mixer_attach(alsa_mix_handle, alsa_mix_dev)) < 0)
+        die ("Failed to attach mixer");
+    if ((snd_mixer_selem_register(alsa_mix_handle, NULL, NULL)) < 0)
+        die ("Failed to register mixer element");
+
+    ret = snd_mixer_load(alsa_mix_handle);
+    if (ret < 0)
+        die ("Failed to load mixer element");
+    alsa_mix_elem = snd_mixer_find_selem(alsa_mix_handle, alsa_mix_sid);
+    if (!alsa_mix_elem)
+        die ("Failed to find mixer element");
+    snd_mixer_selem_get_playback_volume_range (alsa_mix_elem, &alsa_mix_minv, &alsa_mix_maxv);
+    alsa_mix_range = alsa_mix_maxv - alsa_mix_minv;
+
+    return 0;
+}
+
+static void deinit(void) {
+    stop();
+    if (alsa_mix_handle) {
+        snd_mixer_close(alsa_mix_handle);
+    }
+}
+
+static void start(int sample_rate) {
+    if (sample_rate != 44100)
+        die("Unexpected sample rate!");
+
+    unsigned int buffer_time = 128000; /* 128ms, Unit: us */
+    unsigned int period_time = 8000; /* 8ms, Unit: us */
+
+    int ret, dir = 0;
+    ret = snd_pcm_open(&alsa_handle, alsa_out_dev, SND_PCM_STREAM_PLAYBACK, 0);
+    if (ret < 0)
+        die("Alsa initialization failed: unable to open pcm device: %s\n", snd_strerror(ret));
+
+    snd_pcm_hw_params_alloca(&alsa_params);
+    /* choose all parameters */
+    snd_pcm_hw_params_any(alsa_handle, alsa_params);
+    /* close hardware resampling */
+    snd_pcm_hw_params_set_rate_resample(alsa_handle, alsa_params, 0);
+    /* set the interleaved read/write format */
+    snd_pcm_hw_params_set_access(alsa_handle, alsa_params, SND_PCM_ACCESS_RW_INTERLEAVED);
+    /* set the sample format */
+    snd_pcm_hw_params_set_format(alsa_handle, alsa_params, SND_PCM_FORMAT_S16);
+    /* set the count of channels */
+    snd_pcm_hw_params_set_channels(alsa_handle, alsa_params, 2);
+    /* set the stream rate */
+    snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, (unsigned int *)&sample_rate, &dir);
+    /* set the buffer time */
+    snd_pcm_hw_params_set_buffer_time_near(alsa_handle, alsa_params, &buffer_time, &dir);
+    /* set the period time */
+    snd_pcm_hw_params_set_period_time_near(alsa_handle, alsa_params, &period_time, &dir);
+
+    ret = snd_pcm_hw_params(alsa_handle, alsa_params);
+    if (ret < 0)
+        die("unable to set hw parameters: %s\n", snd_strerror(ret));
+}
+
+/**
+ * xrun_recovery - Underrun and suspend recovery
+ * @handle:
+ * @err:
+ */
+static int xrun_recovery(snd_pcm_t *handle, int err) {
+    if (err == -EPIPE) {  /* under-run */
+        err = snd_pcm_prepare(handle);
+    if (err < 0)
+        printf("Can't recovery from underrun, prepare failed: %s\n", snd_strerror(err));
+        return 0;
+    } else if (err == -ESTRPIPE) {
+        while ((err = snd_pcm_resume(handle)) == -EAGAIN)
+            sleep(1);  /* wait until the suspend flag is released */
+
+        if (err < 0) {
+            err = snd_pcm_prepare(handle);
+            if (err < 0)
+                printf("Can't recovery from suspend, prepare failed: %s\n", snd_strerror(err));
+        }
+        return 0;
+    }
+
+    return err;
+}
+
+/**
+ * play-
+ * @buf:
+ * @samples
+ */
+static void play(short buf[], int samples) {
+    signed short *ptr = buf;
+    int len = samples;
+    int err;
+
+    while (len > 0) {
+        err = snd_pcm_writei(alsa_handle, ptr, len);
+
+	if (err == -EAGAIN || err == -EINTR)
+            continue;
+
+        if (err < 0) {
+            /* this might be an error, or an exception */
+            err = xrun_recovery(alsa_handle, err);
+            if (err < 0) {
+                die("Failed to write to PCM device: %s\n", snd_strerror(err));
+            } else
+                continue;
+        }
+
+	/* decrement the sample counter */
+	len -= err;
+	/* adjust the start pointer */
+	ptr += err * 2;
+    }
+}
+
+static void stop(void) {
+    if (alsa_handle) {
+        snd_pcm_drain(alsa_handle);
+        snd_pcm_close(alsa_handle);
+        alsa_handle = NULL;
+    }
+}
+
+static void volume(double vol) {
+	mozart_volume_set((int)(vol * 100), MUSIC_VOLUME);
+}

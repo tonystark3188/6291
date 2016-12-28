@@ -1,0 +1,43 @@
+diff -urN a/arch/mips/ath79/Kconfig b/arch/mips/ath79/Kconfig
+--- a/arch/mips/ath79/Kconfig	2015-06-01 00:35:54.876438344 +0800
++++ b/arch/mips/ath79/Kconfig	2015-06-01 00:39:20.340437152 +0800
+@@ -802,6 +802,17 @@
+ 	select ATH79_DEV_USB
+ 	select ATH79_DEV_WMAC
+ 
++config ATH79_MACH_GR_WR001
++	bool "GeekRouter GR-WR001 support"
++	select SOC_AR933X
++	select ATH79_DEV_ETH
++	select ATH79_DEV_GPIO_BUTTONS
++	select ATH79_DEV_LEDS_GPIO
++	select ATH79_DEV_M25P80
++	select ATH79_DEV_USB
++	select ATH79_DEV_WMAC
++
++
+ config ATH79_MACH_TL_WR741ND
+ 	bool "TP-LINK TL-WR741ND support"
+ 	select SOC_AR724X
+diff -urN a/arch/mips/ath79/machtypes.h b/arch/mips/ath79/machtypes.h
+--- a/arch/mips/ath79/machtypes.h	2015-06-01 00:36:40.192438081 +0800
++++ b/arch/mips/ath79/machtypes.h	2015-06-01 00:40:35.728436715 +0800
+@@ -138,6 +138,7 @@
+ 	ATH79_MACH_TL_WR703N,		/* TP-LINK TL-WR703N */
+ 	ATH79_MACH_TL_WR710N,		/* TP-LINK TL-WR710N */
+ 	ATH79_MACH_TL_WR720N_V3,	/* TP-LINK TL-WR720N v3 */
++	ATH79_MACH_GR_WR001,		/* GeekRouter GR-WR001 */
+ 	ATH79_MACH_TL_WR741ND,		/* TP-LINK TL-WR741ND */
+ 	ATH79_MACH_TL_WR741ND_V4,	/* TP-LINK TL-WR741ND  v4*/
+ 	ATH79_MACH_TL_WR841N_V1,	/* TP-LINK TL-WR841N v1 */
+diff -urN a/arch/mips/ath79/Makefile b/arch/mips/ath79/Makefile
+--- a/arch/mips/ath79/Makefile	2015-06-01 00:36:57.400437981 +0800
++++ b/arch/mips/ath79/Makefile	2015-06-01 00:41:39.304436346 +0800
+@@ -120,6 +120,7 @@
+ obj-$(CONFIG_ATH79_MACH_TL_WR2543N)	+= mach-tl-wr2543n.o
+ obj-$(CONFIG_ATH79_MACH_TL_WR703N)	+= mach-tl-wr703n.o
+ obj-$(CONFIG_ATH79_MACH_TL_WR720N_V3)	+= mach-tl-wr720n-v3.o
++obj-$(CONFIG_ATH79_MACH_GR_WR001)	+= mach-gr-wr001.o
+ obj-$(CONFIG_ATH79_MACH_TUBE2H)		+= mach-tube2h.o
+ obj-$(CONFIG_ATH79_MACH_UBNT)		+= mach-ubnt.o
+ obj-$(CONFIG_ATH79_MACH_UBNT_XM)	+= mach-ubnt-xm.o

@@ -1,0 +1,143 @@
+#!/bin/sh
+. /lib/network/networkmode.sh
+. /etc/functions.sh
+
+reset_ddns() {
+	cp -f /rom/etc/config/ddns /etc/config/ddns
+}
+
+reset_powertools() {
+	local MPSet=$(uci get powertools.@system[0].MPSet)
+	cp -f /rom/etc/config/powertools /etc/config/powertools
+	local IP_ADDR=`cfg get ip | awk -F = '{print $2}'`
+	[ -n "$IP_ADDR" ] && uci set powertools.@system[0].address=$IP_ADDR
+	uci set powertools.@system[0].MPSet=$MPSet
+	uci commit
+}
+
+reset_system() {
+	cp -f /rom/etc/config/system /etc/config/system
+}
+
+reset_vsftpd() {
+	cp -f /rom/etc/config/vsftpd /etc/config/vsftpd
+}
+
+reset_dhcp() {
+	cp -f /rom/etc/config/dhcp /etc/config/dhcp
+	local DHCP_START=`cfg get dhcp_start | awk -F = '{print $2}'`
+	local DHCP_END=`cfg get dhcp_end | awk -F = '{print $2}'`
+	if [ -n "$DHCP_START" ] && [ -n "$DHCP_END" ]; then
+		uci set dhcp.lan.start=$DHCP_START
+		uci set dhcp.lan.limit=`expr $DHCP_END - $DHCP_START`
+		
+	fi
+	uci commit
+}
+
+reset_samba() {
+	cp -f /rom/etc/config/samba /etc/config/samba
+}
+
+reset_ushare() {
+	cp -f /rom/etc/config/ushare /etc/config/ushare
+}
+
+reset_network() {
+	switch_network_mode 1
+}
+
+reset_wireless() {
+	cp -f /rom/etc/config/wireless /etc/config/wireless
+	
+	local mac=`cfg get mac | awk -F = '{print $2}'`
+	wlan_mac_addr="${mac:0:2}:${mac:2:2}:${mac:4:2}:${mac:6:2}:${mac:8:2}:${mac:10:2}"
+	uci set wireless.radio0.macaddr="$wlan_mac_addr"
+	WIFI_UID=$(echo $wlan_mac_addr | awk -F':' '{print $4$5$6}' | tr [a-z] [A-Z])
+	local SSID=`cfg get ssid | awk -F = '{print $2}'`
+	[ -z "$SSID" ] && SSID="AirDisk-$WIFI_UID"
+	uci set wireless.@wifi-iface[0].ssid="$SSID"
+	uci commit
+	
+	
+	
+	local ENCRYPT=`cfg get encryption | awk -F = '{print $2}'`
+	local PASSWORD=`cfg get password | awk -F = '{print $2}'`
+	local WPA_CIPHER=`cfg get wpa_cipher | awk -F = '{print $2}'`
+	[ -n "$WPA_CIPHER" ] && {
+		if [ "$WPA_CIPHER" = "1" ]; then
+			WPA_CIPHER="tkip"
+			
+		elif [ "$WPA_CIPHER" = "2" ]; then
+			WPA_CIPHER="ccmp"
+			
+		elif [ "$WPA_CIPHER" = "3" ]; then
+			WPA_CIPHER="tkip+ccmp"
+		fi
+	
+	}
+	
+	[ -n "$ENCRYPT" ] && {
+		if [ "$ENCRYPT" = "0" ]; then
+			ENCRYPT="none"
+			uci set wireless.@wifi-iface[0].encryption=$ENCRYPT
+		elif [ "$ENCRYPT" = "1" ]; then
+			ENCRYPT="wep"
+			uci set wireless.@wifi-iface[0].encryption=$ENCRYPT
+		elif [ "$ENCRYPT" = "2" ]; then
+			ENCRYPT="psk"
+			if [ -n "$WPA_CIPHER" ];then
+				uci set wireless.@wifi-iface[0].encryption="$ENCRYPT+$WPA_CIPHER"
+			else
+				uci set wireless.@wifi-iface[0].encryption="$ENCRYPT+ccmp"
+			fi
+		elif [ "$ENCRYPT" = "4" ]; then
+			ENCRYPT="psk2"
+			if [ -n "$WPA_CIPHER" ];then
+				uci set wireless.@wifi-iface[0].encryption="$ENCRYPT+$WPA_CIPHER"
+			else
+				uci set wireless.@wifi-iface[0].encryption="$ENCRYPT+ccmp"
+			fi
+		elif [ "$ENCRYPT" = "6" ]; then
+			ENCRYPT="mixed-psk"
+			if [ -n "$WPA_CIPHER" ];then
+				uci set wireless.@wifi-iface[0].encryption="$ENCRYPT+$WPA_CIPHER"
+			else
+				uci set wireless.@wifi-iface[0].encryption="$ENCRYPT+ccmp"
+			fi
+		fi
+		
+		
+	}
+
+	if [ -n "$PASSWORD" ] && [ "$ENCRYPT" != "none" ]; then
+		uci set wireless.@wifi-iface[0].key=$PASSWORD
+	fi
+	
+	
+	uci commit
+}
+
+reset_passwd_smbpasswd() {
+	cp -f /rom/etc/passwd /etc/passwd
+	cp -f /rom/etc/samba/smbpasswd /etc/samba/smbpasswd
+}
+
+reset_config_files() {
+	reset_ddns
+	reset_powertools
+	reset_system
+	reset_vsftpd
+	reset_dhcp
+	reset_samba
+	reset_ushare
+	reset_network
+	reset_wireless
+	reset_passwd_smbpasswd
+#clear the user config data
+	nor reset
+}
+
+reset_config_files;
+exit 0
+exit 0

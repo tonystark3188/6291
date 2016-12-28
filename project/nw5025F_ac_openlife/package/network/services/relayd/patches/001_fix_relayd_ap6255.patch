@@ -1,0 +1,325 @@
+--- a/dhcp.c	2016-06-22 01:58:41.000000000 -0700
++++ b/dhcp.c	2016-08-02 03:26:47.363031000 -0700
+@@ -115,7 +115,30 @@
+ 	}
+ }
+ 
+-bool relayd_handle_dhcp_packet(struct relayd_interface *rif, void *data, int len, bool forward)
++
++int same_host_ipaddr(uint32_t ipvalue)
++{
++    int i = 0;
++	int ret = 0;
++    int point_n = 0;
++	
++	char ip_str[16]={0};
++    if(strlen(g_gateway) <= 0)
++		return 0;
++	snprintf(ip_str,sizeof(ip_str),IP_FMT,IP_BUF((void *) &ipvalue));
++	for(i = 0; i < 12;i++)
++	{
++        if('.' == ip_str[i])
++			point_n++;
++		if(ip_str[i] != g_gateway[i])
++			break;
++	}
++    if(3 == point_n)
++		ret = 1;
++	return ret;	
++}
++
++ bool relayd_handle_dhcp_packet(struct relayd_interface *rif, void *data, int len, bool forward, bool parse)
+ {
+ 	struct ip_packet *pkt = data;
+ 	struct udphdr *udp;
+@@ -124,36 +147,82 @@
+ 	int udplen;
+ 	uint16_t sum;
+ 
++	struct udphdr *myudp;
++	struct dhcp_header *mydhcp;
++	int flag_have_add = 0;
++	myudp = (void *) ((char *) &pkt->iph + (pkt->iph.ihl << 2));
++	mydhcp = (void *) (myudp + 1);
++	
+ 	if (pkt->eth.ether_type != htons(ETH_P_IP))
+-		return false;
++	{
++        DPRINTF(2,"relayd_handle_dhcp_packet failed 11111\n");
++	    return false;
++	}
+ 
+ 	if (pkt->iph.version != 4)
++	{
++		DPRINTF(2,"relayd_handle_dhcp_packet failed 22222\n");
+ 		return false;
++	}
++
+ 
+ 	if (pkt->iph.protocol != IPPROTO_UDP)
++	{
++		DPRINTF(2,"relayd_handle_dhcp_packet failed 33333\n");
+ 		return false;
++	}
++
+ 
+ 	udp = (void *) ((char *) &pkt->iph + (pkt->iph.ihl << 2));
+ 	dhcp = (void *) (udp + 1);
+ 
+ 	udplen = ntohs(udp->len);
+ 	if (udplen > len - ((char *) udp - (char *) data))
++	{
++		DPRINTF(2,"relayd_handle_dhcp_packet failed 44444\n");
+ 		return false;
++	}
++
++    DPRINTF(2,">>>>>>"MAC_FMT"----------"IP_FMT"  dhcp->op=%d udp->dest=%x  %x %x\n",MAC_BUF(pkt->eth.ether_shost),IP_BUF((void *) &pkt->iph.saddr),mydhcp->op,udp->dest,htons(67),htons(68));
++	if(pkt->eth.ether_shost&&pkt->iph.saddr&&(1 == same_host_ipaddr(pkt->iph.saddr)))
++	{
++        host = relayd_refresh_host(rif, pkt->eth.ether_shost, (void *) &pkt->iph.saddr);
++        flag_have_add = 1;
++	}/**/
+ 
+ 	if (udp->dest != htons(67) && udp->source != htons(67))
++	{
++		DPRINTF(2,"relayd_handle_dhcp_packet failed 55555\n");
+ 		return false;
++	}/**/
++
+ 
+ 	if (dhcp->op != 1 && dhcp->op != 2)
++	{
++		DPRINTF(2,"relayd_handle_dhcp_packet failed 66666\n");
+ 		return false;
++	}
++
+ 
+ 	if (!forward)
+-		return true;
++	{
++		DPRINTF(2,"relayd_handle_dhcp_packet failed 77777\n");
++		return false;
++	}
+ 
+-	if (dhcp->op == 2) {
++    //printf("<<<<<<<"MAC_FMT"----------"IP_FMT"  dhcp->op=%d\n",MAC_BUF(pkt->eth.ether_shost),IP_BUF((void *) &pkt->iph.saddr),dhcp->op);
++	if (dhcp->op == 2 && !flag_have_add){//(dhcp->op == 2 && !flag_have_add) {//dhcp->op == 2//1:"request"    2:"response"
++	/*
++	DPRINTF(1, "%s: adding host "IP_FMT" ("MAC_FMT")\n", rif->ifname,
++				IP_BUF(ipaddr), MAC_BUF(lladdr));
++     */
++		//printf("------"MAC_FMT"----------"IP_FMT"  dhcp->op=%d\n",MAC_BUF(pkt->eth.ether_shost),IP_BUF((void *) &pkt->iph.saddr),dhcp->op);
+ 		host = relayd_refresh_host(rif, pkt->eth.ether_shost, (void *) &pkt->iph.saddr);
+-		if (host)
++                 if (host && parse)
+ 			parse_dhcp_options(host, dhcp, udplen - sizeof(struct udphdr));
+ 	}
++	//else
++	//	printf("!!!!!!!"MAC_FMT"----------"IP_FMT"  dhcp->op=%d\n",MAC_BUF(pkt->eth.ether_shost),IP_BUF((void *) &pkt->iph.saddr),dhcp->op);
+ 
+ 	DPRINTF(2, "%s: handling DHCP %s\n", rif->ifname, (dhcp->op == 1 ? "request" : "response"));
+ 
+--- a/main.c	2016-06-22 01:58:41.000000000 -0700
++++ b/main.c	2016-08-02 04:39:48.306702000 -0700
+@@ -40,6 +40,8 @@
+ static int inet_sock;
+ static int forward_bcast;
+ static int forward_dhcp;
++static int parse_dhcp;
++char g_gateway[16]={0};
+ 
+ uint8_t local_addr[4];
+ int local_route_table;
+@@ -79,6 +81,8 @@
+ 	struct sockaddr_in *sin;
+ 	struct arpreq arp;
+ 
++	//printf("@@@@@"MAC_FMT"----------"IP_FMT"\n",MAC_BUF(host->lladdr),IP_BUF(host->ipaddr));
++
+ 	strncpy(arp.arp_dev, host->rif->ifname, sizeof(arp.arp_dev));
+ 	arp.arp_flags = ATF_COM;
+ 
+@@ -164,7 +168,7 @@
+ 	fill_arp_packet(&pkt, rif, rif->src_ip, ipaddr);
+ 
+ 	pkt.arp.arp_op = htons(ARPOP_REQUEST);
+-	memcpy(pkt.arp.arp_spa, rif->src_ip, ETH_ALEN);
++         memcpy(pkt.arp.arp_spa, rif->src_ip, sizeof(pkt.arp.arp_spa));
+ 	memset(pkt.arp.arp_tha, 0, ETH_ALEN);
+ 	memset(pkt.eth.ether_dhost, 0xff, ETH_ALEN);
+ 
+@@ -252,6 +256,7 @@
+ static void host_entry_timeout(struct uloop_timeout *timeout)
+ {
+ 	struct relayd_host *host = container_of(timeout, struct relayd_host, timeout);
++         struct relayd_interface *rif;
+ 
+ 	/*
+ 	 * When a host is behind a managed interface, we must not expire its host
+@@ -261,7 +266,9 @@
+ 	 * giving up on it.
+ 	 */
+ 	if (host->rif->managed && host->cleanup_pending < host_ping_tries) {
+-		send_arp_request(host->rif, host->ipaddr);
++                 list_for_each_entry(rif, &interfaces, list) {
++                         send_arp_request(rif, host->ipaddr);
++                 }
+ 		host->cleanup_pending++;
+ 		uloop_timeout_set(&host->timeout, 1000);
+ 		return;
+@@ -386,15 +393,15 @@
+ 	if (!memcmp(pkt->arp.arp_spa, "\x00\x00\x00\x00", 4))
+ 		return;
+ 
++         host = find_host_by_ipaddr(NULL, pkt->arp.arp_spa);
++         if (!host || host->rif != rif)
++                 relayd_refresh_host(rif, pkt->eth.ether_shost, pkt->arp.arp_spa);
++ 
+ 	if (local_route_table && !memcmp(pkt->arp.arp_tpa, local_addr, sizeof(local_addr))) {
+ 		send_arp_reply(rif, local_addr, pkt->arp.arp_sha, pkt->arp.arp_spa);
+ 		return;
+ 	}
+ 
+-	host = find_host_by_ipaddr(NULL, pkt->arp.arp_spa);
+-	if (!host || host->rif != rif)
+-		relayd_refresh_host(rif, pkt->eth.ether_shost, pkt->arp.arp_spa);
+-
+ 	host = find_host_by_ipaddr(NULL, pkt->arp.arp_tpa);
+ 
+ 	/*
+@@ -504,7 +511,7 @@
+ 		if (!forward_bcast && !forward_dhcp)
+ 			continue;
+ 
+-		if (relayd_handle_dhcp_packet(rif, pktbuf, pktlen, forward_dhcp))
++                 if (relayd_handle_dhcp_packet(rif, pktbuf, pktlen, forward_dhcp, parse_dhcp))
+ 			continue;
+ 
+ 		if (forward_bcast)
+@@ -667,29 +674,28 @@
+ 	 * When we hit SIGTERM, clean up interfaces directly, so that we
+ 	 * won't leave our routing in an invalid state.
+ 	 */
+-	cleanup_hosts();
+-	free_interfaces();
+-	exit(1);
+-}
+-
+-static int usage(const char *progname)
+-{
+-	fprintf(stderr, "Usage: %s <options>\n"
+-			"\n"
+-			"Options:\n"
+-			"	-d		Enable debug messages\n"
+-			"	-i <ifname>	Add an interface for relaying\n"
+-			"	-I <ifname>	Same as -i, except with ARP cache and host route management\n"
+-			"			You need to specify at least two interfaces\n"
+-			"	-G <ip>		Set a gateway IP for clients\n"
+-			"	-R <gateway>:<net>/<mask>\n"
+-			"			Add a static route for <net>/<mask> via <gateway>\n"
+-			"	-t <timeout>	Host entry expiry timeout\n"
+-			"	-p <tries>	Number of ARP ping attempts before considering a host dead\n"
+-			"	-T <table>	Set routing table number for automatically added routes\n"
+-			"	-B		Enable broadcast forwarding\n"
+-			"	-D		Enable DHCP forwarding\n"
+-			"	-L <ipaddr>	Enable local access using <ipaddr> as source address\n"
++         uloop_end();
++ }
++ 
++ static int usage(const char *progname)
++ {
++         fprintf(stderr, "Usage: %s <options>\n"
++                         "\n"
++                         "Options:\n"
++                         "       -d              Enable debug messages\n"
++                         "       -i <ifname>     Add an interface for relaying\n"
++                         "       -I <ifname>     Same as -i, except with ARP cache and host route management\n"
++                         "                       You need to specify at least two interfaces\n"
++                         "       -G <ip>         Set a gateway IP for clients\n"
++                         "       -R <gateway>:<net>/<mask>\n"
++                         "                       Add a static route for <net>/<mask> via <gateway>\n"
++                         "       -t <timeout>    Host entry expiry timeout\n"
++                         "       -p <tries>      Number of ARP ping attempts before considering a host dead\n"
++                         "       -T <table>      Set routing table number for automatically added routes\n"
++                         "       -B              Enable broadcast forwarding\n"
++                         "       -D              Enable DHCP forwarding\n"
++                         "       -P              Disable DHCP options parsing\n"
++                         "       -L <ipaddr>     Enable local access using <ipaddr> as source address\n"
+ 			"\n",
+ 		progname);
+ 	return -1;
+@@ -700,7 +706,7 @@
+ 	struct relayd_interface *rif = NULL;
+ 	struct in_addr addr, addr2;
+ 	bool local_addr_valid = false;
+-	bool managed;
++         bool managed = false;
+ 	int ifnum = 0;
+ 	char *s, *s2;
+ 	int mask;
+@@ -717,9 +723,10 @@
+ 	host_ping_tries = 5;
+ 	forward_bcast = 0;
+ 	local_route_table = 0;
++         parse_dhcp = 1;
+ 	uloop_init();
+ 
+-	while ((ch = getopt(argc, argv, "I:i:t:BDdT:G:R:L:")) != -1) {
++         while ((ch = getopt(argc, argv, "I:i:t:p:BDPdT:G:R:L:")) != -1) {
+ 		switch(ch) {
+ 		case 'I':
+ 			managed = true;
+@@ -750,6 +757,9 @@
+ 			break;
+ 		case 'D':
+ 			forward_dhcp = 1;
++                         break;
++                 case 'P':
++                         parse_dhcp = 0;
+ 			break;
+ 		case 'T':
+ 			route_table = atoi(optarg);
+@@ -761,6 +771,7 @@
+ 				fprintf(stderr, "Address '%s' not found\n", optarg);
+ 				return 1;
+ 			}
++			memcpy(g_gateway,optarg,sizeof(g_gateway));
+ 			relayd_add_pending_route((uint8_t *) &addr.s_addr, (const uint8_t *) "\x00\x00\x00\x00", 0, 0);
+ 			break;
+ 		case 'L':
+--- a/relayd.h	2016-06-22 01:58:41.000000000 -0700
++++ b/relayd.h	2016-08-02 20:06:28.851019000 -0700
+@@ -101,6 +101,8 @@
+ extern int route_table;
+ extern uint8_t local_addr[4];
+ extern int local_route_table;
++extern char g_gateway[16];
++
+ 
+ void rtnl_route_set(struct relayd_host *host, struct relayd_route *route, bool add);
+ 
+@@ -127,6 +129,6 @@
+ void relayd_add_pending_route(const uint8_t *gateway, const uint8_t *dest, uint8_t mask, int timeout);
+ 
+ void relayd_forward_bcast_packet(struct relayd_interface *from_rif, void *packet, int len);
+-bool relayd_handle_dhcp_packet(struct relayd_interface *rif, void *data, int len, bool forward);
++ bool relayd_handle_dhcp_packet(struct relayd_interface *rif, void *data, int len, bool forward, bool parse);
+ 
+ #endif
+
+
+--- a/route.c	2016-06-22 01:58:41.000000000 -0700
++++ b/route.c	2016-08-01 02:03:38.998431000 -0700
+@@ -94,10 +94,11 @@
+ 		strcpy(req.dev.ifname, ifname);
+ 		req.dev.rta.rta_len = sizeof(req.dev.rta) + strlen(ifname) + 1;
+ 	} else {
++                 uint32_t val = 1;
+ 		req.dev.rta.rta_type = FRA_PRIORITY;
+ 		req.dev.rta.rta_len = sizeof(req.dev.rta) + sizeof(uint32_t);
+ 		padding -= sizeof(uint32_t);
+-		*((uint32_t *) &req.dev.ifname) = 1;
++                 memcpy(&req.dev.ifname, &val, sizeof(val));
+ 	}
+ 	req.table.table = get_route_table(rif);
+ 	req.nl.nlmsg_len = sizeof(req) - padding;

@@ -1,0 +1,28 @@
+--- a/arch/mips/xburst/soc-x1000/chip-x1000/canna/common/spi_bus.c
++++ b/arch/mips/xburst/soc-x1000/chip-x1000/canna/common/spi_bus.c
+@@ -10,10 +10,11 @@
+ #if defined(CONFIG_MTD_JZ_SPI_NORFLASH)|| defined(CONFIG_MTD_JZ_SFC_NORFLASH)
+ 
+ #define SIZE_BOOTLOADER	0x40000	 /* 256k */
+-#define SIZE_KERNEL	0x3C0000 /* 3.75M */
++#define SIZE_KERNEL	0x200000 /* 3.75M */
+ //#define SIZE_ROOTFS	0xB80000 /* 11.5M */
+-#define SIZE_ROOTFS	0xC00000 /* 11.5M */
++#define SIZE_ROOTFS	0x800000 /* 11.5M */
+ #define SIZE_USRDATA	0x80000  /* 512K */
++#define SIZE_BACKUP		0x5C0000  /* 512K */
+ 
+ struct mtd_partition jz_mtd_partition1[] = {
+ 	{
+@@ -36,6 +37,11 @@ struct mtd_partition jz_mtd_partition1[]
+ 		.offset =   SIZE_BOOTLOADER,
+ 		.size =     SIZE_KERNEL + SIZE_ROOTFS,
+ 	},
++	{
++		.name =     "backup",
++		.offset =   SIZE_BOOTLOADER + SIZE_KERNEL + SIZE_ROOTFS,
++		.size =     SIZE_BACKUP,
++	},
+ #if 0
+ 	{
+ 		.name =     "usrdata",

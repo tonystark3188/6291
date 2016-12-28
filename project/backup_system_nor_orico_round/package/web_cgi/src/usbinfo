@@ -1,0 +1,14 @@
+#!/bin/sh
+local i=0
+echo -e "Content-Type: text/plain\r\n"
+#echo "<getSysInfo>"
+lsusb | awk '{print $6}' |while read line
+do
+	vid=`echo $line |awk -F : '{print $1}'`
+	pid=`echo $line |awk -F : '{print $2}'`
+	if [ $i == 1 ];then
+			echo "<getSysInfo><usbinfo vid=\"$vid\" pid=\"$pid\"/></getSysInfo>"
+	fi
+	i=$(($i+1))
+done
+#echo "</getSysInfo>"

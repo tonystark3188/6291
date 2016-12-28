@@ -1,0 +1,46 @@
+diff -uNr a/src/mime.c b/src/mime.c
+--- a/src/mime.c	2012-11-19 10:06:26.435859000 +0800
++++ b/src/mime.c	2012-11-19 10:11:37.043885360 +0800
+@@ -54,19 +54,23 @@
+   { "mpeg2", UPNP_VIDEO, "http-get:*:video/mpeg2:"},
+   { "m4v",   UPNP_VIDEO, "http-get:*:video/mp4:"},
+   { "m4p",   UPNP_VIDEO, "http-get:*:video/mp4:"},
++  { "mp4",   UPNP_VIDEO, "http-get:*:video/mp4:"},
+   { "mp4ps", UPNP_VIDEO, "http-get:*:video/x-nerodigital-ps:"},
+   { "ts",    UPNP_VIDEO, "http-get:*:video/mpeg2:"},
+   { "ogm",   UPNP_VIDEO, "http-get:*:video/mpeg:"},
+   { "mkv",   UPNP_VIDEO, "http-get:*:video/mpeg:"},
+   { "rmvb",  UPNP_VIDEO, "http-get:*:video/mpeg:"},
++  { "rm",  	 UPNP_VIDEO, "http-get:*:video/mpeg:"},
+   { "mov",   UPNP_VIDEO, "http-get:*:video/quicktime:"},
+   { "hdmov", UPNP_VIDEO, "http-get:*:video/quicktime:"},
+   { "qt",    UPNP_VIDEO, "http-get:*:video/quicktime:"},
+   { "bin",   UPNP_VIDEO, "http-get:*:video/mpeg2:"},
+   { "iso",   UPNP_VIDEO, "http-get:*:video/mpeg2:"},
++  { "3gp",   UPNP_VIDEO, "http-get:*:video/3gpp:"},
++  { "flv",   UPNP_VIDEO, "http-get:*:video/x-flv:"},
+ 
+   /* Audio files */
+-  { "3gp",  UPNP_AUDIO, "http-get:*:audio/3gpp:"},
++//  { "3gp",  UPNP_AUDIO, "http-get:*:audio/3gpp:"},
+   { "aac",  UPNP_AUDIO, "http-get:*:audio/x-aac:"},
+   { "ac3",  UPNP_AUDIO, "http-get:*:audio/x-ac3:"},
+   { "aif",  UPNP_AUDIO, "http-get:*:audio/aiff:"},
+@@ -80,7 +84,7 @@
+   { "mp1",  UPNP_AUDIO, "http-get:*:audio/mp1:"},
+   { "mp2",  UPNP_AUDIO, "http-get:*:audio/mp2:"},
+   { "mp3",  UPNP_AUDIO, "http-get:*:audio/mpeg:"},
+-  { "mp4",  UPNP_AUDIO, "http-get:*:audio/mp4:"},
++//  { "mp4",  UPNP_AUDIO, "http-get:*:audio/mp4:"},
+   { "m4a",  UPNP_AUDIO, "http-get:*:audio/mp4:"},
+   { "ogg",  UPNP_AUDIO, "http-get:*:audio/x-ogg:"},
+   { "wav",  UPNP_AUDIO, "http-get:*:audio/wav:"},
+@@ -90,7 +94,8 @@
+   { "wma",  UPNP_AUDIO, "http-get:*:audio/x-ms-wma:"},
+   { "mka",  UPNP_AUDIO, "http-get:*:audio/mpeg:"},
+   { "ra",   UPNP_AUDIO, "http-get:*:audio/x-pn-realaudio:"},
+-  { "rm",   UPNP_AUDIO, "http-get:*:audio/x-pn-realaudio:"},
++//  { "rm",   UPNP_AUDIO, "http-get:*:audio/x-pn-realaudio:"},
+   { "ram",  UPNP_AUDIO, "http-get:*:audio/x-pn-realaudio:"},
+   { "flac", UPNP_AUDIO, "http-get:*:audio/x-flac:"},
++  { "ape",   UPNP_AUDIO, "http-get:*:audio/x-ape:"},

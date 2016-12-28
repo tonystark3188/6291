@@ -1,0 +1,17 @@
+Source-Makefile: feeds/packages/net/sqm-scripts/Makefile
+Package: sqm-scripts
+Version: 8-4
+Depends: +libc +USE_EGLIBC:librt +USE_EGLIBC:libpthread +tc +kmod-sched +kmod-ifb iptables +ip +iptables-mod-ipopt +iptables-mod-conntrack-extra
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Base system
+Title: SQM Scripts (QoS)
+Maintainer: Toke Høiland-Jørgensen <toke@toke.dk>
+Source: 
+Type: ipkg
+Description:  A set of scripts that does simple SQM configuration.
+Toke Høiland-Jørgensen <toke@toke.dk>
+@@
+
+

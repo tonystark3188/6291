@@ -1,0 +1,2 @@
+---- ixmlDocument_createTextNode Matches (1 in 1 files) ----
+Upnp.c (src):	child=ixmlDocument_createTextNode(doc, value);

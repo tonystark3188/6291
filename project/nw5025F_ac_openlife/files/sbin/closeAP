@@ -1,0 +1,32 @@
+#!/bin/sh
+
+sleep 5
+while true
+do
+local lan_state=$(ifconfig | grep 'wl0.1')
+local wan_state=$(iwconfig wlan0 | grep Frequency | awk '{print $6}' | awk -F : '{print $2}')
+
+if [ -n "$wan_state" ]; then                       
+        echo 1 > /sys/class/leds/longsys\:blue\:led/brightness        
+fi
+
+if [ -n "$wan_state" ] && [ -n "$lan_state" ]; then
+	rm /tmp/openAP                                                          
+	touch /tmp/closeAP
+	ifconfig wlan0 down
+	ifconfig wlan0 up
+elif [ -z "$wan_state" ] && [ -z "$lan_state" ]; then                                                          
+	rm /tmp/closeAP
+	touch /tmp/openAP
+	init_network.sh &
+	sleep 3
+	echo 0 > /sys/class/leds/longsys\:green\:led/brightness
+	echo none > /sys/class/leds/longsys\:green\:led/trigger
+	echo netdev > /sys/class/leds/longsys\:blue\:led/trigger
+	echo wl0.1 > /sys/class/leds/longsys\:blue\:led/device_name
+	echo link tx rx > /sys/class/leds/longsys\:blue\:led/mode
+fi
+
+sleep 5
+
+done

@@ -1,0 +1,159 @@
+diff -urN a/block.c b/block.c
+--- a/block.c	2015-12-04 11:03:29.836225000 +0800
++++ b/block.c	2015-12-04 11:01:56.766225000 +0800
+@@ -35,6 +35,8 @@
+ #include <libubox/avl-cmp.h>
+ 
+ #include "libblkid-tiny/libblkid-tiny.h"
++#include <dirent.h>
++
+ 
+ #define ERROR(fmt, ...) do { \
+ 		syslog(LOG_ERR, fmt, ## __VA_ARGS__); \
+@@ -844,26 +846,62 @@
+ 		{
+ 			if(strstr(device,"sd") != NULL)
+ 			{	
+-				num = find_min_num_from_disk(USB);
+-				//ERROR("fffffffffffffffffff %d\n",num);
+-				if(num == -1)
++				int cnt;
++				for(cnt = 0; cnt < 10; cnt++)
++				{
++					num = find_min_num_from_disk(USB);
++					if(num == -1)
++					{
++						ERROR("find_min_num_from_disk error \n");
++						return -1;
++					}
++					memset(target,0,sizeof(target));
++					snprintf(target, sizeof(target), "/tmp/mnt/USB-disk-%d", num);
++					if(opendir(target) != NULL)
++					{
++						usleep(100000);
++						continue;
++					}
++					else
++					{
++						break;
++					}
++				}
++				if(cnt == 10)
+ 				{
+-					ERROR("find_min_num_from_disk error \n");
++					ERROR(">>>>>>mkdir %s fail!!!\n",target);
+ 					return -1;
+ 				}
+-				memset(target,0,sizeof(target));
+-				snprintf(target, sizeof(target), "/tmp/mnt/USB-disk-%d", num);
++					
+ 			}
+ 			if(strstr(device,"mmc") != NULL)
+ 			{	
+-				num = find_min_num_from_disk(SD);
+-				if(num == -1)
++				int cnt;
++				for(cnt = 0; cnt < 10; cnt++)
++				{
++					num = find_min_num_from_disk(SD);
++					if(num == -1)
++					{
++						ERROR("find_min_num_from_disk error \n");
++						return -1;
++					}
++					memset(target,0,sizeof(target));
++					snprintf(target, sizeof(target), "/tmp/mnt/SD-disk-%d", num);
++					if(opendir(target) != NULL)
++					{
++						usleep(100000);
++						continue;
++					}
++					else
++					{
++						break;
++					}
++				}
++				if(cnt == 10)
+ 				{
+-					ERROR("find_min_num_from_disk error \n");
++					ERROR(">>>>>>mkdir %s fail!!!\n",target);
+ 					return -1;
+ 				}
+-				memset(target,0,sizeof(target));
+-				snprintf(target, sizeof(target), "/tmp/mnt/SD-disk-%d", num);
+ 			}
+ 		}	
+ 		mkdir_p(target);
+@@ -1058,26 +1096,61 @@
+ 		{
+ 			if(strstr(device,"sd") != NULL)
+ 			{	
+-				num = find_min_num_from_disk(PRIVATE);
+-				//ERROR("fffffffffffffffffff %d\n",num);
+-				if(num == -1)
++				int cnt;
++				for(cnt = 0; cnt < 10; cnt++)
+ 				{
+-					ERROR("find_min_num_from_disk error \n");
++					num = find_min_num_from_disk(PRIVATE);
++					if(num == -1)
++					{
++						ERROR("find_min_num_from_disk error \n");
++						return -1;
++					}
++					memset(target,0,sizeof(target));
++					snprintf(target, sizeof(target), "/tmp/mnt/Private-disk-%d", num);
++					if(opendir(target) != NULL)
++					{
++						usleep(100000);
++						continue;
++					}
++					else
++					{
++						break;
++					}
++				}
++				if(cnt == 10)
++				{
++					ERROR(">>>>>>mkdir %s fail!!!\n",target);
+ 					return -1;
+ 				}
+-				memset(target,0,sizeof(target));
+-				snprintf(target, sizeof(target), "/tmp/mnt/Private-disk-%d", num);
+ 			}
+ 			if(strstr(device,"mmc") != NULL)
+ 			{	
+-				num = find_min_num_from_disk(SD);
+-				if(num == -1)
++				int cnt;
++				for(cnt = 0; cnt < 10; cnt++)
++				{
++					num = find_min_num_from_disk(SD);
++					if(num == -1)
++					{
++						ERROR("find_min_num_from_disk error \n");
++						return -1;
++					}
++					memset(target,0,sizeof(target));
++					snprintf(target, sizeof(target), "/tmp/mnt/SD-disk-%d", num);
++					if(opendir(target) != NULL)
++					{
++						usleep(100000);
++						continue;
++					}
++					else
++					{
++						break;
++					}
++				}
++				if(cnt == 10)
+ 				{
+-					ERROR("find_min_num_from_disk error \n");
++					ERROR(">>>>>>mkdir %s fail!!!\n",target);
+ 					return -1;
+ 				}
+-				memset(target,0,sizeof(target));
+-				snprintf(target, sizeof(target), "/tmp/mnt/SD-disk-%d", num);
+ 			}
+ 		}	
+ 		mkdir_p(target);

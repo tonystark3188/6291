@@ -1,0 +1,41 @@
+--- a/libavcodec/opt.c
++++ b/libavcodec/opt.c
+@@ -22,7 +22,7 @@
+ #include "avcodec.h"
+ #include "opt.h"
+ 
+-#if LIBAVCODEC_VERSION_MAJOR < 53 && CONFIG_SHARED && HAVE_SYMVER
++/*jh #if LIBAVCODEC_VERSION_MAJOR < 53 && CONFIG_SHARED && HAVE_SYMVER
+ 
+ FF_SYMVER(const AVOption *, av_find_opt, (void *obj, const char *name, const char *unit, int mask, int flags), "LIBAVCODEC_52"){
+     return av_find_opt(obj, name, unit, mask, flags);
+@@ -63,7 +63,7 @@
+ FF_SYMVER(void, av_opt_set_defaults2, (void *s, int mask, int flags), "LIBAVCODEC_52"){
+     return av_opt_set_defaults2(s, mask, flags);
+ }
+-#endif
++#endif*/
+ 
+ #if FF_API_SET_STRING_OLD
+ const AVOption *av_set_string2(void *obj, const char *name, const char *val, int alloc){
+ 
+--- a/libavformat/utils.c
++++ b/libavformat/utils.c
+@@ -298,7 +298,7 @@
+     return NULL;
+ }
+ 
+-#if FF_API_SYMVER && CONFIG_SHARED && HAVE_SYMVER
++/*jh #if FF_API_SYMVER && CONFIG_SHARED && HAVE_SYMVER
+ FF_SYMVER(void, av_destruct_packet_nofree, (AVPacket *pkt), "LIBAVFORMAT_52")
+ {
+     av_destruct_packet_nofree(pkt);
+@@ -329,7 +329,7 @@
+     av_log(NULL, AV_LOG_WARNING, "Diverting av_*_packet function calls to libavcodec. Recompile to improve performance\n");
+     av_init_packet(pkt);
+ }
+-#endif
++#endif*/
+ 
+ int av_get_packet(AVIOContext *s, AVPacket *pkt, int size)
+ {

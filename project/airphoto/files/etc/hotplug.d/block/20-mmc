@@ -1,0 +1,5 @@
+#!/bin/sh
+
+mkdir -p /tmp/mnt/SD-disk-p4
+
+mount -t ext4 /dev/mmcblk0p4 /tmp/mnt/SD-disk-p4

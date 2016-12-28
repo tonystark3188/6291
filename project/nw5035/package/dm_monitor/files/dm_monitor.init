@@ -1,0 +1,17 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2009-2012 OpenWrt.org
+
+START=90
+
+RUN_D=/var/run/dm_monitor
+
+start() {
+        dm_monitor &
+}
+stop() {
+        killall dm_monitor
+}
+restart() {
+		killall dm_monitor
+		dm_monitor &
+}

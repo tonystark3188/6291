@@ -1,0 +1,285 @@
+diff -urN a/block.c b/block.c
+--- a/block.c	2015-05-06 17:10:26.255333000 +0800
++++ b/block.c	2015-05-08 14:08:28.278896000 +0800
+@@ -512,7 +512,7 @@
+ 
+ 	return 0;
+ }
+-
++/*
+ static int print_block_uci(struct blkid_struct_probe *pr)
+ {
+ 	if (!strcmp(pr->id->name, "swap")) {
+@@ -529,7 +529,7 @@
+ 
+ 	return 0;
+ }
+-
++*/
+ static struct blkid_struct_probe* find_block_info(char *uuid, char *label, char *path)
+ {
+ 	struct blkid_struct_probe *pr = NULL;
+@@ -657,7 +657,7 @@
+ {
+ 	struct mount *m;
+ 	char *device;
+-
++	char cmd[1024];
+ 	if (!pr)
+ 		return -1;
+ 
+@@ -694,37 +694,153 @@
+ 			snprintf(_target, sizeof(_target), "/mnt/%s", device);
+ 			target = _target;
+ 		}
++		if(strstr(device,"sd") != NULL || strstr(device,"mmc") != NULL)
++		{
++			if(strstr(device,"sd") != NULL)
++			{	
++				memset(_target,0,sizeof(_target));
++				strcpy(_target,"/tmp/mnt/USB-disk-");
++				strcat(_target,device+2);
++				target = _target;
++			}
++			if(strstr(device,"mmc") != NULL)
++			{	
++				memset(_target,0,sizeof(_target));
++				strcpy(_target,"/tmp/mnt/SD-disk-");
++				strcat(_target,device);
++				target = _target;
++			}
++		}
+ 		mkdir_p(target);
+ 
+ 		if (check_fs)
+ 			check_filesystem(pr);
+-
+-		err = mount(pr->dev, target, pr->id->name, m->flags,
+-					(m->options) ? (m->options) : (""));
++		
++		if ( strcmp(pr->id->name, "ntfs"))
++		{
++			err = mount(pr->dev, target, pr->id->name, m->flags,
++		    		(m->options) ? (m->options) : (""));
++			
++		}
++		else
++		{		
++			//const char fstype[]="ufsd";
++			//err = mount(pr->dev, target, fstype, m->flags,"noatime,nls=utf8,force");
++			snprintf(cmd, sizeof (cmd), "mount -t ufsd -o noatime,nls=utf8,force %s %s ", pr->dev, target);
++			err = system(cmd);
++			if(err)
++			{
++				//err = mount(pr->dev, target, pr->id->name, m->flags,
++		    	//	 (m->options) ? (m->options) : (""));
++			}
++		}
++		
+ 		if (err)
++		{
++			if(strstr(device,"sd") != NULL || strstr(device,"mmc") != NULL)
++			{
++				memset(cmd,0,sizeof(cmd));
++				snprintf(cmd, sizeof (cmd), "rm -rf %s >/dev/null",target);
++				system(cmd);
++			}
+ 			ERROR("mounting %s (%s) as %s failed (%d) - %s\n",
+ 					pr->dev, pr->id->name, target, err, strerror(err));
++		}
+ 		else
++		{		
++			//for update the folder time  when the fs is vfat
++			if (!strcmp(pr->id->name, "vfat"))
++			{
++				memset(cmd,0,sizeof(cmd));
++				snprintf(cmd, sizeof (cmd), "echo \"to_update_vfat_time\" >/%s/to_update_vfat_time",target);
++				system(cmd);
++				memset(cmd,0,sizeof(cmd));
++				snprintf(cmd, sizeof (cmd),  "rm -f /%s/to_update_vfat_time",target);
++				system(cmd);
++			}
++			else
++			{
++				//memset(cmd,0,sizeof(cmd));
++				//snprintf(cmd, sizeof (cmd), "rm -f /tmp/to_update_vfat_time");
++				//system(cmd);
++			}
+ 			handle_swapfiles(true);
++		}
+ 		return err;
+ 	}
+ 
+ 	if (anon_mount) {
+-		char target[] = "/mnt/mmcblk123";
++		char target[32] = "/mnt/mmcblk123";
+ 		int err = 0;
+ 
++		
+ 		snprintf(target, sizeof(target), "/mnt/%s", device);
++		if(strstr(device,"sd") != NULL || strstr(device,"mmc") != NULL)
++		{
++			if(strstr(device,"sd") != NULL)
++			{	
++				memset(target,0,sizeof(target));
++				strcpy(target,"/tmp/mnt/USB-disk-");
++				strcat(target,device+2);
++			}
++			if(strstr(device,"mmc") != NULL)
++			{	
++				memset(target,0,sizeof(target));
++				strcpy(target,"/tmp/mnt/SD-disk-");
++				strcat(target,device);
++			}
++		}	
+ 		mkdir_p(target);
+ 
+ 		if (check_fs)
+ 			check_filesystem(pr);
+ 
+-		err = mount(pr->dev, target, pr->id->name, 0, "");
++		if (strcmp(pr->id->name, "ntfs"))
++		{
++			err = mount(pr->dev, target, pr->id->name, 0, "");
++		}
++		else
++		{
++			snprintf(cmd, sizeof (cmd), "mount -t ufsd -o noatime,nls=utf8,force %s %s >/dev/null", pr->dev, target);
++			err = system(cmd);
++			if(err)
++			{
++				//err = mount(pr->dev, target, pr->id->name, 0, "");
++			}
++		}
++		
++		
+ 		if (err)
++		{
++			if(strstr(device,"sd") != NULL || strstr(device,"mmc") != NULL)
++			{
++				memset(cmd,0,sizeof(cmd));
++				snprintf(cmd, sizeof (cmd), "rm -rf %s >/dev/null",target);
++				system(cmd);
++			}
+ 			ERROR("mounting %s (%s) as %s failed (%d) - %s\n",
+ 					pr->dev, pr->id->name, target, err, strerror(err));
++		}
+ 		else
++		{
++			//for update the folder time  when the fs is vfat
++			if (!strcmp(pr->id->name, "vfat"))
++			{
++				memset(cmd,0,sizeof(cmd));
++				snprintf(cmd, sizeof (cmd), "echo \"to_update_vfat_time\" >/%s/to_update_vfat_time",target);
++				system(cmd);
++				memset(cmd,0,sizeof(cmd));
++				snprintf(cmd, sizeof (cmd),  "rm -f /%s/to_update_vfat_time",target);
++				system(cmd);
++			}
++			else
++			{
++				//memset(cmd,0,sizeof(cmd));
++				//snprintf(cmd, sizeof (cmd), "rm -f /tmp/to_update_vfat_time");
++				//system(cmd);
++			}
+ 			handle_swapfiles(true);
++		}
+ 		return err;
+ 	}
+ 
+@@ -737,7 +853,8 @@
+ 	char *device = basename(pr->dev);
+ 	char *mp;
+ 	int err;
+-
++	char target[32];
++	char cmd[64];
+ 	if (!pr)
+ 		return -1;
+ 
+@@ -757,8 +874,28 @@
+ 		ERROR("unmounting %s (%s)  failed (%d) - %s\n",
+ 			pr->dev, mp, err, strerror(err));
+ 	else
++	{
++		if(strstr(device,"sd") != NULL || strstr(device,"mmc") != NULL)
++		{
++			if(strstr(device,"sd") != NULL)
++			{	
++				memset(target,0,sizeof(target));
++				strcpy(target,"/tmp/mnt/USB-disk-");
++				strcat(target,device+2);
++			}
++			if(strstr(device,"mmc") != NULL)
++			{	
++				memset(target,0,sizeof(target));
++				strcpy(target,"/tmp/mnt/SD-disk-");
++				strcat(target,device);
++			}
++			memset(cmd,0,sizeof(cmd));
++			snprintf(cmd, sizeof (cmd), "rm -rf %s >/dev/null",target);
++			system(cmd);
++		}
+ 		ERROR("unmounted %s (%s)\n",
+ 			pr->dev, mp);
++	}
+ 
+ 	return err;
+ }
+@@ -767,6 +904,8 @@
+ {
+ 	char path[32];
+ 	char *action, *device, *mount_point;
++	char target[32];
++	char cmd[64];
+ 
+ 	action = getenv("ACTION");
+ 	device = getenv("DEVNAME");
+@@ -784,6 +923,27 @@
+ 		if (err)
+ 			ERROR("umount of %s failed (%d) - %s\n",
+ 					mount_point, err, strerror(err));
++		else
++		{
++			if(strstr(device,"sd") != NULL || strstr(device,"mmc") != NULL)
++			{
++				if(strstr(device,"sd") != NULL)
++				{	
++					memset(target,0,sizeof(target));
++					strcpy(target,"/tmp/mnt/USB-disk-");
++					strcat(target,device+2);
++				}
++				if(strstr(device,"mmc") != NULL)
++				{	
++					memset(target,0,sizeof(target));
++					strcpy(target,"/tmp/mnt/SD-disk-");
++					strcat(target,device);
++				}
++				memset(cmd,0,sizeof(cmd));
++				snprintf(cmd, sizeof (cmd), "rm -rf %s >/dev/null",target);
++				system(cmd);
++			}
++		}
+ 
+ 		return 0;
+ 	} else if (strcmp(action, "add")) {
+@@ -1019,7 +1179,7 @@
+ 
+ static int main_detect(int argc, char **argv)
+ {
+-	struct blkid_struct_probe *pr;
++	//struct blkid_struct_probe *pr;
+ 
+ 	cache_load(0);
+ 	printf("config 'global'\n");
+@@ -1029,8 +1189,8 @@
+ 	printf("\toption\tauto_mount\t'1'\n");
+ 	printf("\toption\tdelay_root\t'5'\n");
+ 	printf("\toption\tcheck_fs\t'0'\n\n");
+-	list_for_each_entry(pr, &devices, list)
+-		print_block_uci(pr);
++	//list_for_each_entry(pr, &devices, list)
++	//	print_block_uci(pr);
+ 
+ 	return 0;
+ }

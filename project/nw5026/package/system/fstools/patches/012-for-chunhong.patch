@@ -1,0 +1,39 @@
+diff -urN a/block.c b/block.c
+--- a/block.c	2016-05-14 17:12:21.018913988 +0800
++++ b/block.c	2016-05-14 17:14:49.502916495 +0800
+@@ -842,7 +842,7 @@
+ 		int num;
+ 		
+ 		//just for x1000 
+-		if(strstr(device,"mmcblk0p1") != NULL || strstr(device,"mmcblk0p2") != NULL || strstr(device,"mmcblk0p3") != NULL)
++		if(strstr(device,"mmcblk0p1") != NULL || strstr(device,"mmcblk0p2") != NULL || strstr(device,"mmcblk0p3") != NULL || strstr(device,"mmcblk0p4") != NULL)
+ 		{
+ 			return -1;
+ 		}
+@@ -1239,7 +1239,7 @@
+ 		return -1;
+ 
+ 	//just for x1000 
+-	if(strstr(pr->dev,"mmcblk0p1") != NULL || strstr(pr->dev,"mmcblk0p2") != NULL || strstr(pr->dev,"mmcblk0p3") != NULL)
++	if(strstr(pr->dev,"mmcblk0p1") != NULL || strstr(pr->dev,"mmcblk0p2") != NULL || strstr(pr->dev,"mmcblk0p3") != NULL || strstr(device,"mmcblk0p4") != NULL)
+ 	{
+ 		return -1;
+ 	}
+@@ -1287,7 +1287,7 @@
+ 	snprintf(path, sizeof(path), "/dev/%s", device);
+ 
+ 	//just for x1000 
+-	if(strstr(device,"mmcblk0p1") != NULL || strstr(device,"mmcblk0p2") != NULL || strstr(device,"mmcblk0p3") != NULL)
++	if(strstr(device,"mmcblk0p1") != NULL || strstr(device,"mmcblk0p2") != NULL || strstr(device,"mmcblk0p3") != NULL || strstr(device,"mmcblk0p4") != NULL)
+ 	{
+ 		return -1;
+ 	}
+@@ -1343,7 +1343,7 @@
+ 	snprintf(path, sizeof(path), "/dev/%s", device);
+ 
+ 	//just for x1000 
+-	if(strstr(device,"mmcblk0p1") != NULL || strstr(device,"mmcblk0p2") != NULL || strstr(device,"mmcblk0p3") != NULL)
++	if(strstr(device,"mmcblk0p1") != NULL || strstr(device,"mmcblk0p2") != NULL || strstr(device,"mmcblk0p3") != NULL || strstr(device,"mmcblk0p4") != NULL)
+ 	{
+ 		return -1;
+ 	}

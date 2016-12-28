@@ -1,0 +1,49 @@
+diff -urN a/block.c b/block.c
+--- a/block.c	2015-08-21 22:08:05.608414000 +0800
++++ b/block.c	2015-08-22 13:15:43.965917474 +0800
+@@ -917,6 +917,10 @@
+ 				//system(cmd);
+ 			}
+ 			handle_swapfiles(true);
++			if(strstr(device,"sd") != NULL || strstr(device,"mmc") != NULL)
++			{
++				system("samba_ushare_hotplug &");
++			}
+ 		}
+ 		return err;
+ 	}
+@@ -1124,6 +1128,10 @@
+ 				//system(cmd);
+ 			}
+ 			handle_swapfiles(true);
++			if(strstr(device,"sd") != NULL || strstr(device,"mmc") != NULL)
++			{
++				system("samba_ushare_hotplug &");
++			}
+ 		}
+ 		return err;
+ 	}
+@@ -1165,6 +1173,7 @@
+ 			memset(cmd,0,sizeof(cmd));
+ 			snprintf(cmd, sizeof (cmd), "rm -rf %s >/dev/null",mp);
+ 			system(cmd);
++			system("samba_ushare_hotplug &");
+ 		}
+ 		ERROR("unmounted %s (%s)\n",
+ 			pr->dev, mp);
+@@ -1202,6 +1211,7 @@
+ 				memset(cmd,0,sizeof(cmd));
+ 				snprintf(cmd, sizeof (cmd), "rm -rf %s >/dev/null",mount_point);
+ 				system(cmd);
++				system("samba_ushare_hotplug &");
+ 			}
+ 		}
+ 
+@@ -1251,6 +1261,7 @@
+ 				memset(cmd,0,sizeof(cmd));
+ 				snprintf(cmd, sizeof (cmd), "rm -rf %s >/dev/null",mount_point);
+ 				system(cmd);
++				system("samba_ushare_hotplug &");
+ 			}
+ 		}
+ 

@@ -1,0 +1,12 @@
+#!/bin/sh
+
+local enabled
+enabled=`uci get samba.@samba[0].enabled`
+if [ "$enabled" == "1" ]; then
+	/etc/init.d/samba restart
+fi
+
+enabled=`uci get ushare.@ushare[0].enabled`
+if [ "$enabled" == "1" ]; then
+	/etc/init.d/ushare restart
+fi

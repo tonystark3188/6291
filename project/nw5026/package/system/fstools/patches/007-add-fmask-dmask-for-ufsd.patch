@@ -1,0 +1,21 @@
+diff -urN a/block.c b/block.c
+--- a/block.c	2015-07-01 10:16:16.343519000 +0800
++++ b/block.c	2015-07-01 10:20:02.742975520 +0800
+@@ -879,7 +879,7 @@
+ 		{
+ 			//snprintf(cmd, sizeof (cmd), "mount -t ufsd -o noatime,nls=utf8,force %s %s >/dev/null", pr->dev, target);
+ 			//err = system(cmd);
+-			err = mount(pr->dev, target, "ufsd", MS_NOATIME, "force");
++			err = mount(pr->dev, target, "ufsd", MS_NOATIME, "force,fmask=0000,dmask=0000");
+ 			if(err)
+ 			{
+ 				//err = mount(pr->dev, target, pr->id->name, 0, "");
+@@ -1086,7 +1086,7 @@
+ 		{
+ 			//snprintf(cmd, sizeof (cmd), "mount -t ufsd -o noatime,nls=utf8,force %s %s >/dev/null", pr->dev, target);
+ 			//err = system(cmd);
+-			err = mount(pr->dev, target, "ufsd", MS_NOATIME, "force");
++			err = mount(pr->dev, target, "ufsd", MS_NOATIME, "force,fmask=0000,dmask=0000");
+ 			if(err)
+ 			{
+ 				//err = mount(pr->dev, target, pr->id->name, 0, "");

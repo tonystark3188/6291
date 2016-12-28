@@ -1,0 +1,2 @@
+usleep 500000
+/sbin/block hotplug

@@ -1,0 +1,83 @@
+diff -urN a/block.c b/block.c
+--- a/block.c	2015-05-15 11:13:11.972647000 +0800
++++ b/block.c	2015-05-15 10:32:01.761394000 +0800
+@@ -959,6 +959,69 @@
+ 	return mount_device(find_block_info(NULL, NULL, path), 1);
+ }
+ 
++
++static int mymain_hotplug(int argc, char **argv)
++{
++	char path[32];
++	char *action, *device, *mount_point;
++	char target[32];
++	char cmd[64];
++
++	//action = getenv("ACTION");
++	//device = getenv("DEVNAME");
++	action = argv[2];
++	device = argv[3];
++	
++	if (!action || !device)
++		return -1;
++	snprintf(path, sizeof(path), "/dev/%s", device);
++
++	if (!strcmp(action, "remove")) {
++		int err = 0;
++		mount_point = find_mount_point(path);
++		if (mount_point)
++			err = umount2(mount_point, MNT_DETACH);
++
++		if (err)
++			ERROR("umount of %s failed (%d) - %s\n",
++					mount_point, err, strerror(err));
++		else
++		{
++			if(strstr(device,"sd") != NULL || strstr(device,"mmc") != NULL)
++			{
++				if(strstr(device,"sd") != NULL)
++				{	
++					memset(target,0,sizeof(target));
++					strcpy(target,"/tmp/mnt/USB-disk-");
++					strcat(target,device+2);
++				}
++				if(strstr(device,"mmc") != NULL)
++				{	
++					memset(target,0,sizeof(target));
++					strcpy(target,"/tmp/mnt/SD-disk-");
++					strcat(target,device);
++				}
++				memset(cmd,0,sizeof(cmd));
++				snprintf(cmd, sizeof (cmd), "rm -rf %s >/dev/null",target);
++				system(cmd);
++			}
++		}
++
++		return 0;
++	} else if (strcmp(action, "add")) {
++		ERROR("Unkown action %s\n", action);
++
++		return -1;
++	}
++
++	if (config_load(NULL))
++		return -1;
++	cache_load(0);
++
++	return mount_device(find_block_info(NULL, NULL, path), 1);
++}
++
++
+ static int find_block_mtd(char *name, char *part, int plen)
+ {
+ 	FILE *fp = fopen("/proc/mtd", "r");
+@@ -1371,6 +1434,9 @@
+ 		if (!strcmp(argv[1], "hotplug"))
+ 			return main_hotplug(argc, argv);
+ 
++		if (!strcmp(argv[1], "myhotplug"))
++			return mymain_hotplug(argc, argv);
++
+ 		if (!strcmp(argv[1], "extroot"))
+ 			return main_extroot(argc, argv);
+ 

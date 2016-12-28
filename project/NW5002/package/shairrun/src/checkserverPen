@@ -1,0 +1,14 @@
+#!/bin/sh
+
+while true
+do        
+        local ps_var=$(ps -w|grep penServer|grep -v "grep")
+	    if [ -z "$ps_var" ]; then
+	    	sleep 3
+	    	ps_var1=$(ps -w|grep penServer|grep -v "grep")
+	    	if [ -z "$ps_var" ]; then
+				penServerrestart
+			fi
+	    fi
+	    sleep 5
+done  

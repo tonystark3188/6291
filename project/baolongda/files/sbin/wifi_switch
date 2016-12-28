@@ -1,0 +1,83 @@
+#!/bin/sh
+
+. /lib/netifd/wpa_setup.sh
+
+radio_band=$(uci get wireless2.@wifi[0].radio_band)
+[ "$radio_band" != "double"] && exit
+
+wifi_mode=$1
+[ -z "$wifi_mode" ] && exit
+[ "$wifi_mode" != "2g" -a "$wifi_mode" != "5g" ] && exit
+
+ch2g=$(uci get wireless2.@wifi[0].ch2g)
+ch5g=$(uci get wireless2.@wifi[0].ch5g)
+lan_ip=$(uci get network.lan.ipaddr)
+ap_ssid=$(uci get wireless.@wifi-iface[0].ssid)
+ap_encrypt=$(uci get wireless.@wifi-iface[0].encryption)
+if [ "$ap_encrypt" != "none" ]; then
+	ap_key=$(uci get wireless.@wifi-iface[0].key)
+fi
+ifconfig wlan0 down
+ifconfig wlan0 up
+if [ "$wifi_mode" = "5g" ]; then
+	ap_ssid=${ap_ssid}_5G
+fi
+
+if [ "$ap_encrypt" = "none" ]; then
+	if [ "$wifi_mode" = "2g" ]; then
+		dhd_helper ssid "$ap_ssid" hidden n bgnmode bgn chan $ch2g amode open emode none
+	else
+		dhd_helper ssid "$ap_ssid" hidden n chan $ch5g amode open emode none
+	fi
+	
+else
+	if [ "$wifi_mode" = "2g" ]; then
+		dhd_helper ssid "$ap_ssid" bgnmode bgn chan $ch2g amode wpa2psk emode aes key "$ap_key"
+	else
+		dhd_helper ssid "$ap_ssid" chan $ch5g amode wpa2psk emode aes key "$ap_key"
+	fi
+fi
+if [ "$wifi_mode" = "5g" ]; then
+	wl down
+	wl chanspec $ch5g/80
+	wl up
+fi
+
+ifconfig wl0.1 $lan_ip up
+
+
+if [ "$wifi_mode" = "2g" ]; then
+	echo none > /sys/class/leds/longsys\:blue\:led/trigger
+	echo netdev > /sys/class/leds/longsys\:green\:led/trigger
+	echo wl0.1 > /sys/class/leds/longsys\:green\:led/device_name
+	echo link tx rx > /sys/class/leds/longsys\:green\:led/mode
+else
+	echo none > /sys/class/leds/longsys\:green\:led/trigger
+	echo netdev > /sys/class/leds/longsys\:blue\:led/trigger
+	echo wl0.1 > /sys/class/leds/longsys\:blue\:led/device_name
+	echo link tx rx > /sys/class/leds/longsys\:blue\:led/mode
+fi
+
+killall dnsmasq
+dnsmasq -C /etc/dnsmasq/dnsmasq.conf -k &
+
+
+local scan_status
+scan_status=$(auto_connect)
+
+if [ "$scan_status" != "ok" ]; then
+	scan_status=$(auto_connect)
+fi
+if [ "$scan_status" = "ok" ]; then
+	killall wpa_supplicant
+	start_wpa_supplicant
+	killall udhcpc
+	udhcpc -b -t 0 -i wlan0 -s /etc/udhcpc.script
+else
+	killall wpa_supplicant
+	killall udhcpc
+	killall dnsmasq
+	dnsmasq -C /etc/dnsmasq/dnsmasq.conf -k -p 0 &
+fi
+
+control_newshair.sh start

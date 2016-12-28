@@ -1,0 +1,5 @@
+config MRVL8801
+    tristate "Marvell MRVL8801 SDIO WiFi & BT "
+    depends on MMC
+    ---help---
+    Help message of Marvell MRVL8801 wifi & BT

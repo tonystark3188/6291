@@ -1,0 +1,14 @@
+# Put your custom commands here that should be executed once
+# the system init finished. By default this file does nothing.
+
+check_reset &
+init_network.sh &
+/usr/sbin/check_shair.sh &
+updatefw &
+erase_boot_flag auto
+#init_network.sh
+#route add -net 224.0.0.0 netmask 255.255.255.0 wl0.1
+#airplay -a airdisk -d
+sleep 5
+uart_client_test -s 8
+exit 0

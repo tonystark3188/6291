@@ -1,0 +1,101 @@
+#!/bin/bash
+
+PATCHPATH=
+CURPATH=../
+
+if [ -z $1 ]
+then
+	echo "Give me a project Param"
+	exit
+fi
+#echo "show param $1"
+
+CURPATH="$1"
+case "$1" in
+NW5002)
+echo "you're selecting Project:++++NW5002++++";;
+nw5025F_ac)
+echo "you're selecting Project:++++nw5025F_ac++++";;
+nw5025F)
+echo "you're selecting Project:++++nw5025F++++";;
+nw5025F_ac_openlife)
+echo "you're selecting Project:++++nw5025F_ac_openlife:support huawei openlife function based on nw5025F_ac++++";;
+dm_private)
+echo "you're selecting Project:++++dm_private++++";;
+dm6291_evb_spi_boot)
+echo "you're selecting Project:++++dm6291_evb_spi_boot++++";;
+NW5081)
+echo "you're selecting Project:+++++ NW5081 ++++";;
+nw5026)
+echo "you're selecting Project:+++++ nw5026 ++++";;
+nw5026_6212_8801)
+echo "you're selecting Project:+++++ nw5026_6212_8801 ++++";;
+baolongda)
+echo "you're selecting Project:+++++ baolongda ++++";;
+nw5031)
+echo "you're selecting Project:+++++ nw5031 ++++";;
+nw5025F_ac_xinao)
+echo "you're selecting Project:+++++ nw5025F_ac_xinao ++++";;
+orico_2566)
+echo "you're selecting Project:+++++ orico_2566 ++++";;
+orico_round)
+echo "you're selecting Project:+++++ orico_round ++++";;
+backup_system_nor)
+echo "you're selecting Project:+++++ backup_system_nor ++++";;
+backup_system_nor_orico_round)
+echo "you're selecting Project:+++++ backup_system_nor_round ++++";;
+nw5035)
+echo "you're selecting Project:+++++ nw5035 ++++";;
+*)
+echo "wrong project"
+exit;;
+esac
+
+
+TARGET_PATH=$CURPATH
+#remove some file
+
+BASE_FILE_PATH=package/base-files/files
+BASE_NET_PATH=package/base-files-network/files
+HTTPD_PATH=package/httpd
+WANLAN_PATH=package/wanlan
+WEBCGI_PATH=package/web_cgi
+SAMBA_PATH=package/samba36
+BLOCKMOUNT_PATH=package/block-mount
+M_ROUTE_PATH=feeds/xwrt/m-route
+USHARE_PATH=feeds/packages/multimedia/ushare
+VSFTPD_PATH=feeds/packages/net/vsftpd
+LINUX_PATH=target/linux/xburst 
+
+BUILD_LINUX_PATH=build_dir/target-mipsel_mips32_uClibc-0.9.33.2/linux-xburst_canna/linux-3.0.8
+
+RESTORE_PATH=feeds/packages/utils/restorefactory
+
+CURPATH=../
+#copy file to project
+
+
+#target 
+
+#restorefactory
+
+
+
+#remove kernel file which builded
+rm -r -f $CURPATH/$BUILD_LINUX_PATH
+
+#remove some patchfile
+
+cp $TARGET_PATH/.config ../
+#create target dir in ../tmp
+mkdir -p ../tmp/$TARGET_PATH
+cp -r  $TARGET_PATH/* ../tmp/$TARGET_PATH/
+#delete .svn
+find ../tmp/$TARGET_PATH/ -type d -name ".svn" | xargs rm -rf
+cp -r  ../tmp/$TARGET_PATH/* ../
+rm -rf ../tmp/$TARGET_PATH/
+
+cd ../
+make target/linux/clean
+
+

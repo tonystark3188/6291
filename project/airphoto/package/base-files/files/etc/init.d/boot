@@ -1,0 +1,295 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006-2011 OpenWrt.org
+
+START=10
+STOP=98
+
+uci_apply_defaults() {
+	. /lib/functions/system.sh
+
+	cd /etc/uci-defaults || return 0
+	files="$(ls)"
+	[ -z "$files" ] && return 0
+	mkdir -p /tmp/.uci
+	for file in $files; do
+		( . "./$(basename $file)" ) && rm -f "$file"
+	done
+	uci commit
+}
+
+boot() {
+	[ -f /proc/mounts ] || /sbin/mount_root
+	[ -f /proc/jffs2_bbc ] && echo "S" > /proc/jffs2_bbc
+	[ -f /proc/net/vlan/config ] && vconfig set_name_type DEV_PLUS_VID_NO_PAD
+
+	mkdir -p /factory
+	mkdir -p /user
+#	mkdir -p /tmp/mnt/SD-disk-a0
+	mount -t ext4 /dev/mmcblk0p2 /factory
+	ismount=$(mount | grep -c mmcblk0p2)
+	if [ "$ismount" -ne "1" ]; then
+		mount -t ext4 /dev/mmcblk0p2 /factory
+		ismount=$(mount | grep -c mmcblk0p2)
+		if [ "$ismount" -ne "1" ]; then
+			rm -rf /factory
+		fi
+	fi
+
+	mount -t ext4 /dev/mmcblk0p3 /user
+	ismount=$(mount | grep -c mmcblk0p3)
+	if [ "$ismount" -ne "1" ]; then
+		mount -t ext4 /dev/mmcblk0p3 /user
+		ismount=$(mount | grep -c mmcblk0p3)
+		if [ "$ismount" -ne "1" ]; then
+			rm -rf /user
+		fi
+	fi
+	
+#####factory/user config######
+	local MPSet=$(cfg get flag  | awk -F = '{print $2}')
+	if [ "$MPSet" = "1" ]; then
+		local IP_ADDR=`cfg get ip | awk -F = '{print $2}'`
+		local IP_HEADER=`cfg get ip | awk -F = '{print $1}'`
+			if [ $IP_HEADER!="ip" ];then
+				IP_ADDR="192.168.222.254"
+				cfg set ip=192.168.222.254
+			fi
+		[ -n "$IP_ADDR" ] && uci set network.lan.ipaddr=$IP_ADDR
+		uci commit
+	fi
+
+	if [ "$MPSet" = "1" ]; then
+		local WIFI_UID=$(cfg get mac | awk -F':' '{print $4$5$6}' | tr [a-z] [A-Z])
+		local CFG_SSID=`cfg get ssid | awk -F = '{print $2}'`
+		local USER_SSID=`nor get ssid_name`
+
+		local AIRPLAYNAME=`nor get airplay_name`
+		local DLNANAME=`nor get dlna_name`
+		
+		if [ -n "$AIRPLAYNAME" -a "$AIRPLAYNAME" != "unknow" ]; then
+			uci set shair.@shairname[0].name="$AIRPLAYNAME"
+			uci set shair.@shairname[0].airplay_name="$AIRPLAYNAME"
+		else
+			local CFG_AIRPLAYNAME=`cfg get airplay_name | awk -F = '{print $2}'`
+			if [ -n "$CFG_AIRPLAYNAME" ]; then
+				uci set shair.@shairname[0].name="$CFG_AIRPLAYNAME"
+				uci set shair.@shairname[0].airplay_name="$CFG_AIRPLAYNAME"
+			else
+				uci set shair.@shairname[0].name="airmusic_$WIFI_UID"
+				uci set shair.@shairname[0].airplay_name="airmusic_$WIFI_UID"
+			fi
+		fi
+		
+		if [ -n "$DLNANAME" -a "$DLNANAME" != "unknow" ]; then
+			uci set shair.@shairname[0].dlna_name="$DLNANAME"
+		else
+			local CFG_DLNANAME=`cfg get dlna_name | awk -F = '{print $2}'`
+			if [ -n "$CFG_DLNANAME" ]; then
+				uci set shair.@shairname[0].dlna_name="$CFG_DLNANAME"
+			else
+				uci set shair.@shairname[0].dlna_name="airmusic_$WIFI_UID"
+			fi
+		fi
+
+		if [ -n "$USER_SSID" -a "$USER_SSID" != "unknow" ]; then
+			local SSID=$USER_SSID
+		else
+			if [ -n "$CFG_SSID" ]; then
+				local SSID=$CFG_SSID
+			else
+				local SSID="airmusic_$WIFI_UID"
+			fi
+		fi
+		uci set wireless.@wifi-iface[0].ssid="$SSID"
+
+#-----------------
+		local ENCRYPT=`cfg get encryption | awk -F = '{print $2}'`
+		local PASSWORD=`cfg get password | awk -F = '{print $2}'`
+		local WPA_CIPHER=`cfg get wpa_cipher | awk -F = '{print $2}'`
+		local DHCP_START=`cfg get dhcp_start | awk -F = '{print $2}'`
+		local DHCP_END=`cfg get dhcp_end | awk -F = '{print $2}'`
+		local USER_ENCRYPT=`nor get encryption`
+		local USER_PASSWORD=`nor get ssid_password`
+		local SSID=`cfg get ssid | awk -F = '{print $2}'`
+		if [ -n "$DHCP_START" ] && [ -n "$DHCP_END" ]; then
+			uci set dhcp.lan.start=$DHCP_START
+			uci set dhcp.lan.limit=`expr $DHCP_END - $DHCP_START`
+			uci set powertools.@system[0].MPSet=1
+		fi
+		
+		if [ -n "$USER_ENCRYPT" -a "$USER_ENCRYPT" != "unknow" ]; then
+			uci set wireless.@wifi-iface[0].encryption=$USER_ENCRYPT
+		else
+			[ -n "$WPA_CIPHER" ] && {
+			if [ "$WPA_CIPHER" = "1" ]; then
+				WPA_CIPHER="tkip"
+				
+			elif [ "$WPA_CIPHER" = "2" ]; then
+				WPA_CIPHER="ccmp"
+				
+			elif [ "$WPA_CIPHER" = "3" ]; then
+				WPA_CIPHER="tkip+ccmp"
+			fi
+			}
+			
+			[ -n "$ENCRYPT" ] && {
+			if [ "$ENCRYPT" = "0" ]; then
+				ENCRYPT="none"
+				uci set wireless.@wifi-iface[0].encryption=$ENCRYPT
+			elif [ "$ENCRYPT" = "1" ]; then
+				ENCRYPT="wep"
+				uci set wireless.@wifi-iface[0].encryption=$ENCRYPT
+			elif [ "$ENCRYPT" = "2" ]; then
+				ENCRYPT="psk"
+				if [ -n "$WPA_CIPHER" ];then
+					uci set wireless.@wifi-iface[0].encryption="$ENCRYPT+$WPA_CIPHER"
+				else
+					uci set wireless.@wifi-iface[0].encryption="$ENCRYPT+ccmp"
+				fi
+			elif [ "$ENCRYPT" = "4" ]; then
+				ENCRYPT="psk2"
+				if [ -n "$WPA_CIPHER" ];then
+					uci set wireless.@wifi-iface[0].encryption="$ENCRYPT+$WPA_CIPHER"
+				else
+					uci set wireless.@wifi-iface[0].encryption="$ENCRYPT+ccmp"
+				fi
+			elif [ "$ENCRYPT" = "6" ]; then
+				ENCRYPT="mixed-psk"
+				if [ -n "$WPA_CIPHER" ];then
+					uci set wireless.@wifi-iface[0].encryption="$ENCRYPT+$WPA_CIPHER"
+				else
+					uci set wireless.@wifi-iface[0].encryption="$ENCRYPT+ccmp"
+				fi
+			fi
+			
+			}
+			
+		fi
+		
+		if [ -n "$USER_PASSWORD" -a "$USER_PASSWORD" != "unknow" ]; then
+			[ "$USER_ENCRYPT" != "none" ] && uci set wireless.@wifi-iface[0].key=$USER_PASSWORD
+		else
+			[ -n "$PASSWORD" ] && [ "$ENCRYPT" != "none" ] && uci set wireless.@wifi-iface[0].key=$PASSWORD
+		fi
+		
+		local USER_NETWORK_MODE=`nor get network_mode`
+		local USER_WAN_MODE=`nor get wan_mode`
+		local USER_STC_IP=`nor get stc_ip`
+		local USER_STC_MASK=`nor get stc_mask`
+		local USER_STC_GW=`nor get stc_gw`
+		local USER_STC_DNS1=`nor get stc_dns1`
+		local USER_STC_DNS2=`nor get stc_dns2`
+		local USER_SMB_PASSWORD=`nor get smb_password`
+		local USER_SMB_ENABLE=`nor get smb_enable`
+		local USER_SMB_ANONYMOUS_EN=`nor get smb_anonymous_en`
+		local USER_FTP_PASSWORD=`nor get ftp_password`
+		local USER_FTP_ENABLE=`nor get ftp_enable`
+		local USER_FTP_ANONYMOUS_EN=`nor get ftp_anonymous_en`
+		local USER_DMS_ENABLE=`nor get dms_enable`
+		local USER_DMS_NAME=`nor get dms_name`
+		local AIRPLAY_NAME=`nor get airplay_name`
+		
+		if [ "$USER_NETWORK_MODE" = "2" ]; then
+			uci delete wireless.@wifi-iface[1].network
+			uci set ushare.@ushare[0].interface=wlan0
+			if [ "$USER_WAN_MODE" = "static" ]; then
+				[ -n "$USER_STC_IP" -a "$USER_STC_IP" != "unknow" ] && uci set network.wan.ipaddr=$USER_STC_IP
+				[ -n "$USER_STC_MASK" -a "$USER_STC_MASK" != "unknow" ] && uci set network.wan.netmask=$USER_STC_MASK
+				[ -n "$USER_STC_GW" -a "$USER_STC_GW" != "unknow" ] && uci set network.wan.gateway=$USER_STC_GW
+				if [ -n "$USER_STC_DNS1" -a "$USER_STC_DNS1" != "unknow" ] && [ -n "$USER_STC_DNS2" -a "$USER_STC_DNS2" != "unknow" ]; then
+					uci set network.wan.dns='$USER_STC_DNS1 $USER_STC_DNS2'
+				else
+					[ -n "$USER_STC_DNS1" -a "$USER_STC_DNS1" != "unknow" ] && uci set network.wan.dns=$USER_STC_DNS1
+					[ -n "$USER_STC_DNS2" -a "$USER_STC_DNS2" != "unknow" ] && uci set network.wan.dns=$USER_STC_DNS2
+				fi
+			fi
+		fi
+		
+		[ -n "$USER_SMB_PASSWORD" -a "$USER_SMB_PASSWORD" != "unknow" ] && uci set samba.@samba[0].password=$USER_SMB_PASSWORD
+		[ -n "$USER_SMB_ENABLE" -a "$USER_SMB_ENABLE" != "unknow" ] && uci set samba.@samba[0].enabled=$USER_SMB_ENABLE
+		[ -n "$USER_SMB_ANONYMOUS_EN" -a "$USER_SMB_ANONYMOUS_EN" != "unknow" ] && {
+			if [ "$USER_SMB_ANONYMOUS_EN" = "1" ]; then
+				uci delete samba.@sambashare[0].users
+				uci set samba.@sambashare[0].guest_ok=yes
+			else
+				uci set samba.@sambashare[0].users=airmusic
+				uci set samba.@sambashare[0].guest_ok=no
+			fi
+		}
+		[ -n "$USER_FTP_PASSWORD" -a "$USER_FTP_PASSWORD" != "unknow" ] && uci set vsftpd.@vsftpd[0].password=$USER_FTP_PASSWORD
+		[ -n "$USER_FTP_ENABLE" -a "$USER_FTP_ENABLE" != "unknow" ] && uci set vsftpd.@vsftpd[0].enabled=$USER_FTP_ENABLE
+		[ -n "$USER_FTP_ANONYMOUS_EN" -a "$USER_FTP_ANONYMOUS_EN" != "unknow" ] && uci set vsftpd.@vsftpd[0].anonymous_en=$USER_FTP_ANONYMOUS_EN
+		[ -n "$USER_DMS_ENABLE" -a "$USER_DMS_ENABLE" != "unknow" ] && uci set ushare.@ushare[0].enabled=$USER_DMS_ENABLE
+		[ -n "$USER_DMS_NAME" -a "$USER_DMS_NAME" != "unknow" ] && uci set ushare.@ushare[0].servername=$USER_DMS_NAME
+		[ -n "$AIRPLAY_NAME" -a "$USER_DMS_NAME" != "unknow" ] && uci set shair.@shairname[0].name="$AIRPLAY_NAME"
+		cfg set flag=0
+	fi
+#----------------
+	local WWANSSID=`nor get wwanssid`
+	if [ -n "$WWANSSID" -a "$WWANSSID" != "unknow" ]; then
+		uci set wireless.@wifi-iface[1].ssid="$WWANSSID"
+	else
+		uci set wireless.@wifi-iface[1].ssid=Disabled
+	fi
+	local WWANPWD=`nor get wwanpwd`
+	if [ -n "$WWANPWD" -a "$WWANPWD" != "unknow" ]; then
+		uci set wireless.@wifi-iface[1].key="$WWANPWD"
+	else
+		uci set wireless.@wifi-iface[1].key=88888888
+	fi
+	local WWANENCRY=`nor get wwanencry`
+	if [ -n "$WWANENCRY" -a "$WWANENCRY" != "unknow" ]; then
+		uci set wireless.@wifi-iface[1].encryption="$WWANENCRY"
+	else
+		uci set wireless.@wifi-iface[1].encryption=psk2
+	fi
+	local WWANCHAN=`nor get wwanchan`
+	if [ -n "$WWANCHAN" -a "$WWANCHAN" != "unknow" ]; then
+		uci set wireless.radio0.channel="$WWANCHAN"
+		if [ "$WWANCHAN" -le 7 ]; then
+		    uci set wireless.radio0.htmode="HT40+"
+	    else
+		    uci set wireless.radio0.htmode="HT40-"
+	    fi
+	else
+		uci set wireless.radio0.channel=1
+		uci set wireless.radio0.htmode="HT40+"
+	fi
+	uci commit
+###########
+	
+	mkdir -p /var/run
+	mkdir -p /var/log
+	mkdir -p /var/lock
+	mkdir -p /var/state
+	mkdir -p /tmp/.uci
+	chmod 0700 /tmp/.uci
+	touch /var/log/wtmp
+	touch /var/log/lastlog
+	touch /tmp/resolv.conf.auto
+	ln -sf /tmp/resolv.conf.auto /tmp/resolv.conf
+	grep -q debugfs /proc/filesystems && /bin/mount -o noatime -t debugfs debugfs /sys/kernel/debug
+	[ "$FAILSAFE" = "true" ] && touch /tmp/.failsafe
+
+	/sbin/kmodloader
+
+	# allow wifi modules time to settle
+	sleep 1
+
+	/sbin/wifi detect > /tmp/wireless.tmp
+	[ -s /tmp/wireless.tmp ] && {
+		cat /tmp/wireless.tmp >> /etc/config/wireless
+	}
+	rm -f /tmp/wireless.tmp
+
+	uci_apply_defaults
+	
+	# temporary hack until configd exists
+	/sbin/reload_config
+
+	# create /dev/root if it doesn't exist
+	[ -e /dev/root -o -h /dev/root ] || {
+		rootdev=$(awk 'BEGIN { RS=" "; FS="="; } $1 == "root" { print $2 }' < /proc/cmdline)
+		[ -n "$rootdev" ] && ln -s "$rootdev" /dev/root
+	}
+}

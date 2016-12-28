@@ -1,0 +1,11 @@
+#!/bin/sh
+killall dmicRecord
+sleep 2
+local ps_var=$(ps -w|grep dmicRecord|grep -v "grep")
+if [ -n "$ps_var" ]; then
+    killall -9 dmicRecord
+fi
+#sync
+#sync
+#echo 3 > /proc/sys/vm/drop_caches
+dmicRecord &

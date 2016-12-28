@@ -1,0 +1,73 @@
+diff -urN a/block.c b/block.c
+--- a/block.c	2016-01-13 14:44:12.227408000 +0800
++++ b/block.c	2016-01-19 14:12:52.453037000 +0800
+@@ -832,6 +832,9 @@
+ 				//system(cmd);
+ 			}
+ 			handle_swapfiles(true);
++			memset(cmd,0,sizeof(cmd));
++			snprintf(cmd, sizeof (cmd),  "rm /tmp/notify/disk || touch /tmp/notify/disk");
++			system(cmd);
+ 		}
+ 		return err;
+ 	}
+@@ -962,6 +965,9 @@
+ 			{
+ 				system("samba_ushare_hotplug &");
+ 			}
++			memset(cmd,0,sizeof(cmd));
++			snprintf(cmd, sizeof (cmd),  "rm /tmp/notify/disk || touch /tmp/notify/disk");
++			system(cmd);
+ 		}
+ 		return err;
+ 	}
+@@ -1082,6 +1088,9 @@
+ 				//system(cmd);
+ 			}
+ 			handle_swapfiles(true);
++			memset(cmd,0,sizeof(cmd));
++			snprintf(cmd, sizeof (cmd),  "rm /tmp/notify/disk || touch /tmp/notify/disk");
++			system(cmd);
+ 		}
+ 		return err;
+ 	}
+@@ -1211,6 +1220,9 @@
+ 			{
+ 				system("samba_ushare_hotplug &");
+ 			}
++			memset(cmd,0,sizeof(cmd));
++			snprintf(cmd, sizeof (cmd),  "rm /tmp/notify/disk || touch /tmp/notify/disk");
++			system(cmd);
+ 		}
+ 		return err;
+ 	}
+@@ -1256,6 +1268,9 @@
+ 		}
+ 		ERROR("unmounted %s (%s)\n",
+ 			pr->dev, mp);
++		memset(cmd,0,sizeof(cmd));
++		snprintf(cmd, sizeof (cmd),  "rm /tmp/notify/disk || touch /tmp/notify/disk");
++		system(cmd);
+ 	}
+ 
+ 	return err;
+@@ -1292,6 +1307,9 @@
+ 				system(cmd);
+ 				system("samba_ushare_hotplug &");
+ 			}
++			memset(cmd,0,sizeof(cmd));
++			snprintf(cmd, sizeof (cmd),  "rm /tmp/notify/disk || touch /tmp/notify/disk");
++			system(cmd);
+ 		}
+ 
+ 		return 0;
+@@ -1342,6 +1360,9 @@
+ 				system(cmd);
+ 				system("samba_ushare_hotplug &");
+ 			}
++			memset(cmd,0,sizeof(cmd));
++			snprintf(cmd, sizeof (cmd),  "rm /tmp/notify/disk || touch /tmp/notify/disk");
++			system(cmd);
+ 		}
+ 
+ 		return 0;

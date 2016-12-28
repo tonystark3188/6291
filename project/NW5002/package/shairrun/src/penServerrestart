@@ -1,0 +1,13 @@
+#!/bin/sh
+killall penServer
+sleep 2
+local ps_var=$(ps -w|grep penServer|grep -v "grep")
+if [ -n "$ps_var" ]; then
+    killall -9 penServer
+fi
+local PORT=$(uci get shair.@shairname[0].port)
+#sync
+#sync
+#echo 3 > /proc/sys/vm/drop_caches
+penServer --port "$PORT" &
+

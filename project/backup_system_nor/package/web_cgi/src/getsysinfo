@@ -1,0 +1,48 @@
+#!/bin/sh  
+eval `sh proccgi.sh $*`
+
+echo -e  "Content-type:text/html\r\n\r\n"
+echo " "
+wget -q http://127.0.0.1:9000/getsysinfo -O /tmp/getsysinfo
+
+ssid=`cfg get ssid |awk -F "=" '{print $2}'`
+
+key=`cat /tmp/getsysinfo`
+#echo "$key"
+
+result=`echo "$key" | awk -F "," '{print $1}'|awk -F " " '{print $2}'`
+is_net_ok=`echo "$key" | awk -F "," '{print $2}' |awk -F " " '{print $1}'`
+is_license_ok=`echo "$key" | awk -F "," '{print $3}' |awk -F " " '{print $1}'`
+is_bind_ok=`echo "$key" | awk -F "," '{print $4}' |awk -F " " '{print $1}'`
+
+#active key
+bind_active_key=`echo "$key" | awk -F "," '{print $5}' |awk -F "\"" '{print $2}'`
+if [ "$bind_active_key" == " \"\"" ];then
+	bind_active_key=""
+fi
+#echo "$bind_active_key"
+
+is_disk_ok=`echo "$key" | awk -F "," '{print $6}' |awk -F " " '{print $1}`
+version=`echo "$key" | awk -F "," '{print $7}' |awk -F "\"" '{print $2}'`
+user_name=`echo "$key" | awk -F "," '{print $8}' |awk -F "\"" '{print $2}'`
+is_ever_binded=`echo "$key" | awk -F "," '{print $9}' |awk -F " " '{print $1}`
+userid=`echo "$key" | awk -F "," '{print $10}' |awk -F "\"" '{print $2}`
+vip_level=`echo "$key" | awk -F "," '{print $11}' |awk -F " " '{print $1}`
+
+if [ "$vip_level" == "" ];then
+	vip_level=0
+fi
+#echo "$QUERY_STRING"
+func="$FORM_callback"
+#echo "$func"
+if [ "$func" == "" ];then
+	echo "{\"result\":$result,\"is_net_ok\":$is_net_ok,\"is_license_ok\":$is_license_ok,\
+\"is_bind_ok\":$is_bind_ok,\"bind_active_key\":\"$bind_active_key\",\
+\"is_disk_ok\":$is_disk_ok,\"version\":\"$version\",\"user_name\":\"$user_name\",\"is_ever_binded\":$is_ever_binded,\"box_name\":\"$ssid\",\"userid\":\"$userid\",\"vip_level\":$vip_level}"
+
+else	
+
+	echo "$func({\"result\":$result,\"is_net_ok\":$is_net_ok,\"is_license_ok\":$is_license_ok,\
+\"is_bind_ok\":$is_bind_ok,\"bind_active_key\":\"$bind_active_key\",\
+\"is_disk_ok\":$is_disk_ok,\"version\":\"$version\",\"user_name\":\"$user_name\",\"is_ever_binded\":$is_ever_binded,\"box_name\":\"$ssid\",\"userid\":\"$userid\",\"vip_level\":$vip_level})"
+fi

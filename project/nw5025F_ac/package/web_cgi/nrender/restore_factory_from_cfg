@@ -1,0 +1,87 @@
+#!/bin/sh
+#var_mac=`cfg get mac`
+#if [ "$var_mac" != "" ];then
+#	echo "cfg set $var_mac"
+#	cfg_no_write_mtd set $var_mac
+#fi
+
+var_host_name=`cfg get host_name`
+if [ "$var_host_name" != "" ];then
+	echo "cfg set $var_host_name"
+	cfg_no_write_mtd set $var_host_name
+fi
+#var_ip=`cfg get ip`
+#if [ "$var_ip" != "" ];then
+#	echo "cfg set $var_ip"
+#	cfg_no_write_mtd set $var_ip
+#fi
+var_dhcp_start=`cfg get dhcp_start`
+if [ "$var_dhcp_start" != "" ];then
+	echo "cfg set $var_dhcp_start"
+	cfg_no_write_mtd set $var_dhcp_start
+fi
+var_dhcp_end=`cfg get dhcp_end`
+if [ "$var_dhcp_end" != "" ];then
+	echo "cfg set $var_dhcp_end"
+	cfg_no_write_mtd set $var_dhcp_end
+fi
+var_fw_version=`cfg get fw_version`
+if [ "$var_fw_version" != "" ];then
+	echo "cfg set $var_fw_version"
+	cfg_no_write_mtd set $var_fw_version
+fi
+var_model_name=`cfg get model_name`
+if [ "$var_model_name" != "" ];then
+	echo "cfg set $var_model_name"
+	cfg_no_write_mtd set $var_model_name
+fi
+var_model_number=`cfg get model_number`
+if [ "$var_model_number" != "" ];then
+	echo "cfg set $var_model_number"
+	cfg_no_write_mtd set $var_model_number
+fi
+var_model_description=`cfg get model_description`
+if [ "$var_model_description" != "" ];then
+	echo "cfg set $var_model_description"
+	cfg_no_write_mtd set $var_model_description
+fi
+var_manufacturer=`cfg get manufacturer`
+if [ "$var_manufacturer" != "" ];then
+	echo "cfg set $var_manufacturer"
+	cfg_no_write_mtd set $var_manufacturer
+fi
+var_url_manufacturer=`cfg get url_manufacturer`
+if [ "$var_url_manufacturer" != "" ];then
+	echo "cfg set $var_url_manufacturer"
+	cfg_no_write_mtd set $var_url_manufacturer
+fi
+var_smb_usr_name=`cfg get smb_usr_name`
+if [ "$var_smb_usr_name" != "" ];then
+	echo "cfg set $var_smb_usr_name"
+	cfg_no_write_mtd set $var_smb_usr_name
+fi
+var_smb_usr_pwd=`cfg get smb_usr_pwd`
+if [ "$var_smb_usr_pwd" != "" ];then
+	echo "cfg set $var_smb_usr_pwd"
+	cfg_no_write_mtd set $var_smb_usr_pwd
+fi
+var_smb_guest_ok=`cfg get smb_guest_ok`
+if [ "$var_smb_guest_ok" != "" ];then
+	echo "cfg set $var_smb_guest_ok"
+	cfg_no_write_mtd set $var_smb_guest_ok
+fi
+var_smb_enabled=`cfg get smb_enabled`
+if [ "$var_smb_enabled" != "" ];then
+	echo "cfg set $var_smb_enabled"
+	cfg_no_write_mtd set $var_smb_enabled
+fi
+var_dms_name=`cfg get dms_name`
+if [ "$var_dms_name" != "" ];then
+	echo "cfg set $var_dms_name"
+	cfg_no_write_mtd set $var_dms_name
+fi
+var_dms_enalbe=`cfg get dms_enable`
+if [ "$var_dms_enalbe" != "" ];then
+	echo "cfg set $var_dms_enalbe"
+	cfg_no_write_mtd set $var_dms_enalbe
+fi

@@ -1,0 +1,16 @@
+diff -uNr ffmpeg-0.7.12-old/libavutil/mem.c ffmpeg-0.7.12-1118/libavutil/mem.c
+--- ffmpeg-0.7.12-old/libavutil/mem.c	2013-10-31 11:10:01.000000000 +0800
++++ ffmpeg-0.7.12-1118/libavutil/mem.c	2013-11-18 13:41:10.000000000 +0800
+@@ -166,7 +166,11 @@
+     if (ptr)
+         free((char*)ptr - ((char*)ptr)[-1]);
+ #else
+-    free(ptr);
++if (ptr)
++{    
++	free(ptr);
++  ptr = NULL;
++}
+ #endif
+ }
+ 

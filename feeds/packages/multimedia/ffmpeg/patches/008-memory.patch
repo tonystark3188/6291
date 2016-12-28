@@ -1,0 +1,256 @@
+diff -uNr ffmpeg-0.7.12-old/libavcodec/avpacket.c ffmpeg-0.7.12-1118/libavcodec/avpacket.c
+--- ffmpeg-0.7.12-old/libavcodec/avpacket.c	2013-10-31 11:10:01.000000000 +0800
++++ ffmpeg-0.7.12-1118/libavcodec/avpacket.c	2013-11-18 13:41:10.000000000 +0800
+@@ -30,7 +30,8 @@
+ 
+ void av_destruct_packet(AVPacket *pkt)
+ {
+-    av_free(pkt->data);
++    if(pkt->data)
++        av_free(pkt->data);
+     pkt->data = NULL; pkt->size = 0;
+ }
+ 
+@@ -39,6 +40,8 @@
+     pkt->pts   = AV_NOPTS_VALUE;
+     pkt->dts   = AV_NOPTS_VALUE;
+     pkt->pos   = -1;
++    pkt->data = NULL;
++    pkt->size = 0;
+     pkt->duration = 0;
+     pkt->convergence_duration = 0;
+     pkt->flags = 0;
+--- ffmpeg-0.7.12-old/libavformat/aviobuf.c	2012-04-10 01:05:30.000000000 +0800
++++ ffmpeg-0.7.12-1118/libavformat/aviobuf.c	2013-11-18 14:30:48.868875000 +0800
+@@ -36,7 +36,7 @@
+  * protocols.
+  */
+ #define SHORT_SEEK_THRESHOLD 4096
+-
++extern int __CloseFlag;
+ static void fill_buffer(AVIOContext *s);
+ #if !FF_API_URL_RESETBUF
+ static int url_resetbuf(AVIOContext *s, int flags);
+@@ -634,6 +634,8 @@
+ 
+     size1 = size;
+     while (size > 0) {
++     if(__CloseFlag)
++         return AVERROR_EOF;
+         len = s->buf_end - s->buf_ptr;
+         if (len > size)
+             len = size;
+@@ -641,6 +643,10 @@
+             if(size > s->buffer_size && !s->update_checksum){
+                 if(s->read_packet)
+                     len = s->read_packet(s->opaque, buf, size);
++        if(__CloseFlag)
++        {     // av_log(NULL,AV_LOG_ERROR,"              (2) avio_read AVERROR_EXIT\n");
++               return AVERROR_EOF;
++        }
+                 if (len <= 0) {
+                     /* do not modify buffer if EOF reached so that a seek back can
+                     be done without rereading data */
+@@ -662,6 +668,11 @@
+                     break;
+             }
+         } else {
++		   if(__CloseFlag)
++            {
++               //av_log(NULL,AV_LOG_ERROR,"              (2) avio_read AVERROR_EXIT\n");
++               return AVERROR_EOF;
++            }
+             memcpy(buf, s->buf_ptr, len);
+             buf += len;
+             s->buf_ptr += len;
+diff -uNr ffmpeg-0.7.12-old/libavformat/avio.c ffmpeg-0.7.12-1118/libavformat/avio.c
+--- ffmpeg-0.7.12-old/libavformat/avio.c	2012-04-10 01:05:30.000000000 +0800
++++ ffmpeg-0.7.12-1118/libavformat/avio.c	2013-11-18 13:56:14.000000000 +0800
+@@ -29,7 +29,7 @@
+ #include "network.h"
+ #endif
+ #include "url.h"
+-
++extern int __CloseFlag;
+ #if FF_API_URL_CLASS
+ /** @name Logging context. */
+ /*@{*/
+@@ -293,7 +293,12 @@
+ 
+     len = 0;
+     while (len < size_min) {
++	if(__CloseFlag)
++    {  //av_log(NULL,AV_LOG_ERROR,"\n\n                                                      oh! my god no no no ,return AVERROR_EXIT\n\n");
++       return AVERROR_EOF;
++    }
+         ret = transfer_func(h, buf+len, size-len);
++
+         if (ret == AVERROR(EINTR))
+             continue;
+         if (h->flags & AVIO_FLAG_NONBLOCK)
+diff -uNr ffmpeg-0.7.12-old/libavformat/http.c ffmpeg-0.7.12-1118/libavformat/http.c
+--- ffmpeg-0.7.12-old/libavformat/http.c	2012-04-10 01:05:30.000000000 +0800
++++ ffmpeg-0.7.12-1118/libavformat/http.c	2013-11-18 16:26:26.697000000 +0800
+@@ -37,7 +37,7 @@
+ /* used for protocol handling */
+ #define BUFFER_SIZE 1024
+ #define MAX_REDIRECTS 8
+-
++extern int __CloseFlag;
+ typedef struct {
+     const AVClass *class;
+     URLContext *hd;
+@@ -173,6 +173,8 @@
+ static int http_getc(HTTPContext *s)
+ {
+     int len;
++   if(__CloseFlag)
++       return AVERROR_EOF;
+     if (s->buf_ptr >= s->buf_end) {
+         len = ffurl_read(s->hd, s->buffer, BUFFER_SIZE);
+         if (len < 0) {
+diff -uNr ffmpeg-0.7.12-old/libavformat/tcp.c ffmpeg-0.7.12-1118/libavformat/tcp.c
+--- ffmpeg-0.7.12-old/libavformat/tcp.c	2012-04-10 01:05:30.000000000 +0800
++++ ffmpeg-0.7.12-1118/libavformat/tcp.c	2013-11-18 14:00:54.000000000 +0800
+@@ -29,7 +29,7 @@
+ #include <poll.h>
+ #endif
+ #include <sys/time.h>
+-
++extern int __CloseFlag;
+ typedef struct TCPContext {
+     int fd;
+ } TCPContext;
+@@ -165,7 +165,10 @@
+ {
+     TCPContext *s = h->priv_data;
+     int ret;
+-
++   if(__CloseFlag)
++       return AVERROR_EOF;
++   // if(!(h->is_connected))
++   //    return AVERROR_EOF;
+     if (!(h->flags & AVIO_FLAG_NONBLOCK)) {
+         ret = ff_network_wait_fd(s->fd, 0);
+         if (ret < 0)
+@@ -179,7 +182,10 @@
+ {
+     TCPContext *s = h->priv_data;
+     int ret;
+-
++   if(__CloseFlag)
++       return AVERROR_EOF;
++   // if(!(h->is_connected))
++    //   return AVERROR_EOF;
+     if (!(h->flags & AVIO_FLAG_NONBLOCK)) {
+         ret = ff_network_wait_fd(s->fd, 1);
+         if (ret < 0)
+diff -uNr ffmpeg-0.7.12-old/libavformat/utils.c ffmpeg-0.7.12-1118/libavformat/utils.c
+--- ffmpeg-0.7.12-old/libavformat/utils.c	2013-11-07 14:42:11.000000000 +0800
++++ ffmpeg-0.7.12-1118/libavformat/utils.c	2013-11-18 14:14:30.000000000 +0800
+@@ -39,13 +39,18 @@
+ #include <time.h>
+ #include <strings.h>
+ #include <stdarg.h>
++#include <pthread.h>
++#include <unistd.h>
+ #if CONFIG_NETWORK
+ #include "network.h"
+ #endif
+ 
+ #undef NDEBUG
+ #include <assert.h>
+-
++static pthread_mutex_t close_mutex;
++int __CloseFlag = 0;
++#define CLOSE_LOCK  pthread_mutex_lock(&close_mutex)
++#define CLOSE_UNLOCK pthread_mutex_unlock(&close_mutex)
+ /**
+  * @file
+  * various utility functions for use within FFmpeg
+@@ -333,11 +338,18 @@
+ 
+ int av_get_packet(AVIOContext *s, AVPacket *pkt, int size)
+ {
+-    int ret= av_new_packet(pkt, size);
++    int ret= 0;
++
++    if(__CloseFlag)
++    {
++       av_log(NULL,AV_LOG_ERROR,"            22s == NULL av_get_packet\n");
++	   av_free_packet(pkt);
++       return AVERROR_EOF;
++    }
+ 
++    ret = av_new_packet(pkt, size);
+     if(ret<0)
+         return ret;
+-
+     pkt->pos= avio_tell(s);
+ 
+     ret= avio_read(s, pkt->data, size);
+@@ -698,7 +710,9 @@
+     int ret = 0;
+     AVFormatParameters ap = { 0 };
+     AVDictionary *tmp = NULL;
+-
++    CLOSE_LOCK;
++     __CloseFlag = 0;
++    CLOSE_UNLOCK;
+     if (!s && !(s = avformat_alloc_context()))
+         return AVERROR(ENOMEM);
+     if (fmt)
+@@ -805,6 +819,8 @@
+         }
+ 
+         av_init_packet(pkt);
++		if(__CloseFlag)
++        {return AVERROR_EOF;}
+         ret= s->iformat->read_packet(s, pkt);
+         if (ret < 0) {
+             if (!pktl || ret == AVERROR(EAGAIN))
+@@ -1262,7 +1278,16 @@
+         } else {
+             AVPacket cur_pkt;
+             /* read next packet */
+-            ret = av_read_packet(s, &cur_pkt);
++            if(__CloseFlag)
++            {
++               av_log(NULL,AV_LOG_ERROR,"(2)av_read_frame_internal AVERROR_EXIT\n");
++               return AVERROR_EOF;
++            }
++
++
++            ret = av_read_packet(s, &cur_pkt);           // av_log(NULL,AV_LOG_ERROR," \n\n                    av_read_frame_internaldfsasff%d  %d\n\n",ret,AVERROR_EXIT);
++            if(ret == AVERROR_EOF || __CloseFlag)
++            { return AVERROR_EOF;}
+             if (ret < 0) {
+                 if (ret == AVERROR(EAGAIN))
+                     return ret;
+@@ -1341,6 +1366,8 @@
+     const int genpts= s->flags & AVFMT_FLAG_GENPTS;
+ 
+     for(;;){
++        if(__CloseFlag)
++            return AVERROR_EOF;
+         pktl = s->packet_buffer;
+         if (pktl) {
+             AVPacket *next_pkt= &pktl->pkt;
+@@ -2773,7 +2800,16 @@
+ 
+ void av_close_input_file(AVFormatContext *s)
+ {
+-    AVIOContext *pb = (s->iformat->flags & AVFMT_NOFILE) || (s->flags & AVFMT_FLAG_CUSTOM_IO) ?
++    AVIOContext *pb = NULL;
++
++     CLOSE_LOCK;
++     __CloseFlag = 1;
++     CLOSE_UNLOCK;//av_log(NULL,AV_LOG_ERROR,"enter av_close_input_file %d\n",__CloseFlag);
++     usleep(100000);
++
++    if(NULL == s)
++        return;
++    pb = (s->iformat->flags & AVFMT_NOFILE) || (s->flags & AVFMT_FLAG_CUSTOM_IO) ?
+                        NULL : s->pb;
+     av_close_input_stream(s);
+     if (pb)

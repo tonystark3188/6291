@@ -1,0 +1,22 @@
+#!/bin/sh
+local name=$(uci get wireless.@wifi-iface[0].ssid)
+local wanip=$(ifconfig wlan0 | grep 'inet addr' | awk '{print $2}'|awk -F : '{print $2}')
+local lanip=192.168.222.254
+echo $lanip
+
+local UID=Upnp-NW5025F-1_0-$(cfg get mac | awk -F = '{print $2}')
+local socketport=8112
+killall deviceAdvertised
+
+local ps_var=$(ps -w|grep friendly|grep -v "grep")
+if [ -n "$ps_var" ]; then
+    killall -9 deviceAdvertised
+fi
+
+if [ "$wanip" = "" ]; then
+      deviceAdvertised --friendly-name "$name" --ip-address $lanip --uuid $UID --socket-port $socketport &
+      exit
+fi
+#echo 3 > /proc/sys/vm/drop_caches
+deviceAdvertised --friendly-name "$name" --ip-address $lanip --uuid $UID --socket-port $socketport &
+deviceAdvertised --friendly-name "$name" --ip-address $wanip --uuid $UID --socket-port $socketport &

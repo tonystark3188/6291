@@ -1,0 +1,15 @@
+#!/bin/sh /etc/rc.common
+
+START=50
+
+RUN_D=/tmp/aria2
+
+start() {
+	mkdir /tmp/mnt/SD-disk-1/.aria2
+	touch /tmp/mnt/SD-disk-1/.aria2/tasks.list
+        aria2c --conf-path=/etc/aria2.conf -D
+}
+
+stop() {
+        killall aria2c
+}

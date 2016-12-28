@@ -1,0 +1,16 @@
+#!/bin/sh
+. /lib/netifd/wpa_setup.sh
+
+touch /tmp/WPSing
+
+echo timer > /sys/class/leds/longsys\:blue\:led/trigger
+echo 300 > /sys/class/leds/longsys\:blue\:led/delay_on
+echo 300 > /sys/class/leds/longsys\:blue\:led/delay_off
+
+#local wpa_state=ps|grep wpa_supplicant|grep -v "grep"
+#if [ -z $wpa_state ]; then
+	killall wpa_supplicant
+	start_wpa_supplicant
+#fi
+sleep 1
+wpa_cli -p /var/run/wpa_supplicant wps_pbc

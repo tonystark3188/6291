@@ -1,0 +1,368 @@
+diff -urN a/include/httpd.h b/include/httpd.h
+--- a/include/httpd.h	2015-07-13 11:23:00.176081975 +0800
++++ b/include/httpd.h	2015-07-13 11:27:55.694845502 +0800
+@@ -474,6 +474,28 @@
+ 				 */
+ #define OK 0			/**< Module has handled this stage. */
+ 
++//#define DEBUG
++#ifdef DEBUG
++#define p_debug(args...) do{\
++        struct timeval tnow;\
++        FILE *fp = fopen("/dev/console","w");\
++        if(fp){\
++                gettimeofday(&tnow, NULL);\
++                fprintf(fp,"[DM_SERVER][%08d.%06d][%s][-%d] ", (unsigned int)tnow.tv_sec, (unsigned int)tnow.tv_usec, __FUNCTION__, __LINE__);\
++                fprintf(fp,##args);\
++                fprintf(fp,"\n");\
++                fclose(fp);\
++        }\
++}while(0)
++#else
++#define p_debug(...)  
++#endif
++
++#define DIVIDE_PAGE    
++//#define MAX_FILE_LIMIT
++#define MAX_FILE_COUNT            1024
++#define HTTP_GET_FILE_TOO_LARGE   512
++#define PAGE_SIZE                 256
+ 
+ /**
+  * @defgroup HTTP_Status HTTP Status Codes
+diff -urN a/modules/dav/fs/repos.c b/modules/dav/fs/repos.c
+--- a/modules/dav/fs/repos.c	2015-07-13 11:18:19.836412979 +0800
++++ b/modules/dav/fs/repos.c	2015-07-13 11:25:06.557372002 +0800
+@@ -1406,6 +1406,16 @@
+     return dav_fs_deleteset(info->pool, resource);
+ }
+ 
++static DIR* warn_opendir(const char *path)
++{
++	DIR *dp;
++	p_debug("opendir '%s'", path);
++	dp = opendir(path);
++	if (!dp)
++		p_debug("can't warn_opendir '%s'", path);
++	return dp;
++}
++
+ /* ### move this to dav_util? */
+ /* Walk recursively down through directories, *
+  * including lock-null resources as we go.    */
+@@ -1417,28 +1427,40 @@
+     int isdir = fsctx->res1.collection;
+     apr_finfo_t dirent;
+     apr_dir_t *dirp;
++	DIR *dir;
++	struct dirent *entry;
+ 
++	#ifdef MAX_FILE_LIMIT
++	int i = 0,
++	#endif
++	#ifdef DIVIDE_PAGE
++	int j = 0;
++	int page_num = fsctx->params->page_num; 
++	char *total_page = fsctx->params->total_page;
++	char *current_page = fsctx->params->current_page;
++	#endif
++	
+     /* ensure the context is prepared properly, then call the func */
+     err = (*params->func)(&fsctx->wres,
+                           isdir
+                           ? DAV_CALLTYPE_COLLECTION
+                           : DAV_CALLTYPE_MEMBER);
++	
+     if (err != NULL) {
+         return err;
+     }
+-
++	
+     if (depth == 0 || !isdir) {
+         return NULL;
+     }
+-
+     /* put a trailing slash onto the directory, in preparation for appending
+      * files to it as we discovery them within the directory */
+     dav_check_bufsize(pool, &fsctx->path1, DAV_BUFFER_PAD);
+     fsctx->path1.buf[fsctx->path1.cur_len++] = '/';
+     fsctx->path1.buf[fsctx->path1.cur_len] = '\0';        /* in pad area */
+-
+     /* if a secondary path is present, then do that, too */
+     if (fsctx->path2.buf != NULL) {
++		p_debug(">>>>>>>>>>fsctx->path2.buf != NULL");
+         dav_check_bufsize(pool, &fsctx->path2, DAV_BUFFER_PAD);
+         fsctx->path2.buf[fsctx->path2.cur_len++] = '/';
+         fsctx->path2.buf[fsctx->path2.cur_len] = '\0';        /* in pad area */
+@@ -1452,16 +1474,35 @@
+     /* a file is the default; we'll adjust if we hit a directory */
+     fsctx->res1.collection = 0;
+     fsctx->res2.collection = 0;
+-
++	
++	#ifdef MAX_FILE_LIMIT
++	dir = warn_opendir(fsctx->path1.buf);
++	if (dir == NULL) {
++		return dav_new_error(pool, HTTP_NOT_FOUND, 0, NULL);
++	}
++	while ((entry = readdir(dir)) != NULL) {
++		i++;
++	}
++	closedir(dir);
++	i = i - 2;
++	p_debug("count file = %d,MAX_FILE_COUNT=%d", i, MAX_FILE_COUNT);
++	if(i >= MAX_FILE_COUNT)
++	{
++		p_debug("i = %d,error_id = %d,MAX_FILE_COUNT=%d",i,dav_new_error(pool, HTTP_INTERNAL_SERVER_ERROR, 0, NULL)->error_id, MAX_FILE_COUNT);
++			return dav_new_error(pool, HTTP_INTERNAL_SERVER_ERROR, 0, NULL);   
++	}
++	#endif
++	
+     /* open and scan the directory */
+     if ((apr_dir_open(&dirp, fsctx->path1.buf, pool)) != APR_SUCCESS) {
+         /* ### need a better error */
+         return dav_new_error(pool, HTTP_NOT_FOUND, 0, NULL);
+     }
+-    while ((apr_dir_read(&dirent, APR_FINFO_DIRENT, dirp)) == APR_SUCCESS) {
++	p_debug("scanning file start");
++		
++	while ((apr_dir_read(&dirent, APR_FINFO_DIRENT, dirp)) == APR_SUCCESS) {
+         apr_size_t len;
+         apr_status_t status;
+-
+         len = strlen(dirent.name);
+ 
+         /* avoid recursing into our current, parent, or state directories */
+@@ -1469,7 +1510,6 @@
+               && (len == 1 || (dirent.name[1] == '.' && len == 2))) {
+             continue;
+         }
+-
+         if (params->walk_type & DAV_WALKTYPE_AUTH) {
+             /* ### need to authorize each file */
+             /* ### example: .htaccess is normally configured to fail auth */
+@@ -1485,6 +1525,23 @@
+             continue;
+         }
+ 
++		#ifdef DIVIDE_PAGE
++		if(page_num != 0)
++		{
++			if((j<(page_num-1)*PAGE_SIZE) || (j>=page_num*PAGE_SIZE))
++			{
++				j++;
++				//p_debug("out page=%d,j=%d", page_num, j);
++				continue;
++			}
++			else
++			{
++				j++;
++				//p_debug("in page=%d,j=%d", page_num, j);
++			}		
++		}
++		#endif
++
+         /* append this file onto the path buffer (copy null term) */
+         dav_buffer_place_mem(pool, &fsctx->path1, dirent.name, len + 1, 0);
+ 
+@@ -1558,7 +1615,16 @@
+             /* assert: res1.exists == 1 */
+         }
+     }
++	p_debug("scanning one dir finished");
+ 
++	#ifdef DIVIDE_PAGE
++	if(page_num != 0)
++	{
++		sprintf(total_page, "%d", (j-1)/PAGE_SIZE + 1);
++		sprintf(current_page, "%d", page_num);
++	}
++	#endif
++	
+     /* ### check the return value of this? */
+     apr_dir_close(dirp);
+ 
+@@ -1768,6 +1834,7 @@
+ static dav_error * dav_fs_walk(const dav_walk_params *params, int depth,
+                                dav_response **response)
+ {
++	p_debug("access");
+     /* always return the error, and any/all multistatus responses */
+     return dav_fs_internal_walk(params, depth, 0, NULL, response);
+ }
+diff -urN a/modules/dav/main/mod_dav.c b/modules/dav/main/mod_dav.c
+--- a/modules/dav/main/mod_dav.c	2015-07-13 11:20:44.996628398 +0800
++++ b/modules/dav/main/mod_dav.c	2015-07-13 11:25:22.787956769 +0800
+@@ -525,6 +525,36 @@
+     return ap_pass_brigade(r->output_filters, bb);
+ }
+ 
++
++/* Finish a multistatus response started by dav_begin_multistatus: */
++static apr_status_t my_dav_finish_multistatus(request_rec *r,
++                                           apr_bucket_brigade *bb,
++                                           char *total_page, char *current_page)
++{
++	apr_bucket *b;
++
++	p_debug("total_page = %s,current_page = %s", total_page,current_page);
++	ap_fputs(r->output_filters, bb, "<D:dividepage>" DEBUG_CR);
++		ap_fputs(r->output_filters, bb, "<D:current_page>");
++		ap_fputs(r->output_filters, bb, current_page);
++		ap_fputs(r->output_filters, bb, "</D:current_page>" DEBUG_CR);
++		
++		ap_fputs(r->output_filters, bb, "<D:total_page>");
++		ap_fputs(r->output_filters, bb, total_page);
++		ap_fputs(r->output_filters, bb, "</D:total_page>" DEBUG_CR);
++	ap_fputs(r->output_filters, bb, "</D:dividepage>" DEBUG_CR);
++		
++    ap_fputs(r->output_filters, bb, "</D:multistatus>" DEBUG_CR);
++
++    /* indicate the end of the response body */
++    b = apr_bucket_eos_create(r->connection->bucket_alloc);
++    APR_BRIGADE_INSERT_TAIL(bb, b);
++
++    /* deliver whatever might be remaining in the brigade */
++    return ap_pass_brigade(r->output_filters, bb);
++}
++
++
+ static void dav_send_multistatus(request_rec *r, int status,
+                                  dav_response *first,
+                                  apr_array_header_t *namespaces)
+@@ -732,6 +762,7 @@
+                                                  label, use_checked_in,
+                                                  res_p);
+     if (err != NULL) {
++		p_debug("err1 = %s",err);
+         err = dav_push_error(r->pool, err->status, 0,
+                              "Could not fetch resource information.", err);
+         return err;
+@@ -826,6 +857,15 @@
+     dav_error *err;
+     int status;
+ 
++	apr_table_t *e;
++	e = r->subprocess_env;
++	const char *My_value = apr_table_get(e, "QUERY_STRING");
++	const char *my_env = getenv("QUERY_STRING");
++	//const char *My_value = apr_table_get(r->headers_in, "My_Value");
++	//const char *My_depth = apr_table_get(r->headers_in, "Depth");
++	p_debug("dav_method_get My_value = %s,My_depth = %s", My_value, my_env);
++
++
+     /* This method should only be called when the resource is not
+      * visible to Apache. We will fetch the resource from the repository,
+      * then create a subrequest for Apache to handle.
+@@ -1983,6 +2023,7 @@
+ 
+     if (dav_get_resource_state(r, resource) == DAV_RESOURCE_NULL) {
+         /* Apache will supply a default error for this. */
++		p_debug("http not find");
+         return HTTP_NOT_FOUND;
+     }
+ 
+@@ -2079,9 +2120,47 @@
+     dav_begin_multistatus(ctx.bb, r, HTTP_MULTI_STATUS,
+                           doc ? doc->namespaces : NULL);
+ 
++	#ifdef DIVIDE_PAGE
++	const char *Page_Num = apr_table_get(r->headers_in, "Page_Num");
++	if(Page_Num != NULL)
++	{
++		ctx.w.page_num = atoi(Page_Num);
++		p_debug("ctx.w.page_num = %d", ctx.w.page_num);
++		ctx.w.total_page = (char*)calloc(16, sizeof(char));
++		ctx.w.current_page = (char*)calloc(16, sizeof(char));
++	}
++	else
++	{
++		ctx.w.page_num = 0;
++	}
++	#endif
++
+     /* Have the provider walk the resource. */
+     err = (*resource->hooks->walk)(&ctx.w, depth, &multi_status);
+ 
++	#ifdef MAX_FILE_LIMIT
++	if((err != NULL) && (500 == err->status))
++	{
++		p_debug("err->status = %d,err->error_id = %d",err->status,err->error_id);
++		#ifdef DIVIDE_PAGE
++		if(ctx.w.page_num != 0)
++		{
++			if(ctx.w.total_page != NULL)
++				free(ctx.w.total_page);
++			if(ctx.w.current_page != NULL)
++				free(ctx.w.current_page);
++		}
++		#endif
++		if(err->desc != NULL)
++			free(err->desc);
++		if(err->namespace != NULL)
++			free(err->namespace);
++		if(err->tagname != NULL)
++			free(err->tagname);
++		return HTTP_INTERNAL_SERVER_ERROR;
++	}
++	#endif
++	
+     if (ctx.w.lockdb != NULL) {
+         (*ctx.w.lockdb->hooks->close_lockdb)(ctx.w.lockdb);
+     }
+@@ -2098,10 +2177,36 @@
+                              " a multistatus PROPFIND response.", err);
+         dav_log_err(r, err, APLOG_ERR);
+         r->connection->aborted = 1;
++		#ifdef DIVIDE_PAGE
++		if(ctx.w.page_num != 0)
++		{
++			if(ctx.w.total_page != NULL)
++				free(ctx.w.total_page);
++			if(ctx.w.current_page != NULL)
++				free(ctx.w.current_page);
++		}
++		#endif
+         return DONE;
+     }
+ 
+-    dav_finish_multistatus(r, ctx.bb);
++	#ifdef DIVIDE_PAGE
++	p_debug("ctx.w.page_num = %d, ctx.w.total_page = %s, tx.w.current_page = %s",\ 
++		ctx.w.page_num, ctx.w.total_page, ctx.w.current_page);
++	if(ctx.w.page_num != 0)
++	{
++		my_dav_finish_multistatus(r, ctx.bb, ctx.w.total_page, ctx.w.current_page);
++		if(ctx.w.total_page != NULL)
++			free(ctx.w.total_page);
++		if(ctx.w.current_page != NULL)
++			free(ctx.w.current_page);
++	}
++	else
++	{
++		dav_finish_multistatus(r, ctx.bb);
++	}
++	#else
++	dav_finish_multistatus(r, ctx.bb);
++	#endif
+ 
+     /* the response has been sent. */
+     return DONE;
+diff -urN a/modules/dav/main/mod_dav.h b/modules/dav/main/mod_dav.h
+--- a/modules/dav/main/mod_dav.h	2015-07-13 11:20:49.077329271 +0800
++++ b/modules/dav/main/mod_dav.h	2015-07-13 11:25:30.137331536 +0800
+@@ -1648,6 +1648,14 @@
+     /* lock database to enable walking LOCKNULL resources */
+     dav_lockdb *lockdb;
+ 
++	/*the page_num from APP send*/
++	int page_num;
++
++	/*the current_page return to APP*/
++	char *current_page;
++
++	/*the total_page return to APP*/
++	char *total_page;
+ } dav_walk_params;
+ 
+ /* directory tree walking context */

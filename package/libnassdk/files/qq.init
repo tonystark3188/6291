@@ -1,0 +1,29 @@
+#!/bin/sh /etc/rc.common
+
+START=100
+
+
+start() {
+	
+	qqsn=`cat /etc/qq/Guid_file.txt`
+	sn=`cfg get qqsn | awk -F "=" {'print $2'}`
+	license=`cfg get license | awk -F "=" {'print $2'}`
+	
+	if [ "$qqsn" != "" ];then
+		/usr/sbin/nasdemo_monitor &
+	else 
+ 		if [ "$sn" != "" ];then
+             echo $sn >/etc/qq/Guid_file.txt
+             echo $license >/etc/qq/licence.sign.file.txt
+             /usr/sbin/nasdemo_monitor &
+        else 
+             echo "SN is empty ..."
+        fi
+	fi
+
+}
+
+stop() {
+	killall -9 nasdemo
+	killall -9 nasdemo_monitor
+}

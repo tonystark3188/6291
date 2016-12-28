@@ -1,0 +1,54 @@
+--- a/block.c
++++ b/block.c
+@@ -773,7 +773,7 @@ static int mount_device(struct blkid_str
+ 			if(strstr(device,"mmc") != NULL)
+ 			{	
+ 				memset(_target,0,sizeof(_target));
+-				strcpy(_target,"/tmp/mnt/SD-disk-");
++				strcpy(_target,"/tmp/mnt/USB-disk-");
+ 				strcat(_target,device);
+ 				target = _target;
+ 			}
+@@ -885,14 +885,14 @@ static int mount_device(struct blkid_str
+ 				int cnt;
+ 				for(cnt = 0; cnt < 10; cnt++)
+ 				{
+-					num = find_min_num_from_disk(SD);
++					num = find_min_num_from_disk(USB);
+ 					if(num == -1)
+ 					{
+ 						ERROR("find_min_num_from_disk error \n");
+ 						return -1;
+ 					}
+ 					memset(target,0,sizeof(target));
+-					snprintf(target, sizeof(target), "/tmp/mnt/SD-disk-%d", num);
++					snprintf(target, sizeof(target), "/tmp/mnt/USB-disk-%d", num);
+ 					if(opendir(target) != NULL)
+ 					{
+ 						usleep(100000);
+@@ -1029,7 +1029,7 @@ static int mymount_device(struct blkid_s
+ 			if(strstr(device,"mmc") != NULL)
+ 			{	
+ 				memset(_target,0,sizeof(_target));
+-				strcpy(_target,"/tmp/mnt/SD-disk-");
++				strcpy(_target,"/tmp/mnt/USB-disk-");
+ 				strcat(_target,device);
+ 				target = _target;
+ 			}
+@@ -1134,14 +1134,14 @@ static int mymount_device(struct blkid_s
+ 				int cnt;
+ 				for(cnt = 0; cnt < 10; cnt++)
+ 				{
+-					num = find_min_num_from_disk(SD);
++					num = find_min_num_from_disk(USB);
+ 					if(num == -1)
+ 					{
+ 						ERROR("find_min_num_from_disk error \n");
+ 						return -1;
+ 					}
+ 					memset(target,0,sizeof(target));
+-					snprintf(target, sizeof(target), "/tmp/mnt/SD-disk-%d", num);
++					snprintf(target, sizeof(target), "/tmp/mnt/USB-disk-%d", num);
+ 					if(opendir(target) != NULL)
+ 					{
+ 						usleep(100000);

@@ -1,0 +1,14 @@
+diff -urN a/drivers/mmc/host/jzmmc_v12.c b/drivers/mmc/host/jzmmc_v12.c
+--- a/drivers/mmc/host/jzmmc_v12.c	2016-01-21 10:01:43.880170497 +0800
++++ b/drivers/mmc/host/jzmmc_v12.c	2016-01-21 10:02:08.432170912 +0800
+@@ -1844,8 +1844,9 @@
+ 		if(host->pdata->type == NONREMOVABLE || host->pdata->removal == NONREMOVABLE ){
+ 			gpio_direction_output(card_gpio->rst.num, 0);
+ 		}
++		/* remove by lxl, for partition tables
+ 		else
+-			mmc_remove_host(host->mmc);
++			mmc_remove_host(host->mmc);*/
+ 	}
+ 
+ }

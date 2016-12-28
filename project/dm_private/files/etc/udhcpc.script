@@ -1,0 +1,18 @@
+#!/bin/sh
+
+/sbin/ifconfig $interface $ip broadcast $broadcast netmask $subnet up
+#ip route add default gw $router
+#ip route add default via $router
+#ip route add default dev wlan0 via $ip
+route add default gw $router
+
+# get dns information
+RESOLV_CONF="/tmp/resolv.conf.auto"
+echo -n > $RESOLV_CONF
+[ -n "$domain" ] && echo search $domain >> $RESOLV_CONF
+for i in $dns ; do
+        echo adding dns $i
+        echo nameserver $i >> $RESOLV_CONF
+done;
+#iptables -t nat -A POSTROUTING -o $interface -j MASQUERADE
+#iptables -A FORWARD -s 0/0 -d 0/0 -j ACCEPT 
