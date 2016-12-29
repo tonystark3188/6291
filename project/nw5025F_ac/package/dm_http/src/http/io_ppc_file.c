@@ -9,6 +9,7 @@
  */
 
 #include "defs.h"
+#include "ppclib.h"
 
 static int
 ppc_write_file(struct stream *stream, const void *buf, size_t len)
@@ -103,7 +104,7 @@ ppc_close_file(struct stream *stream)
 }
 
 void
-ppc_get_file(struct conn *c, struct ppc_stat *stp)
+ppc_get_file(struct conn *c, struct stat *stp)
 {
 	char		date[64], lm[64], etag[64], range[64] = "";
 	size_t		n, status = 200;
@@ -119,9 +120,32 @@ ppc_get_file(struct conn *c, struct ppc_stat *stp)
 	if (c->ch.range.v_vec.len > 0 &&
 	    (n = sscanf(c->ch.range.v_vec.ptr,"bytes=%lu-%lu",&r1, &r2)) > 0) {
 		status = 206;
-		(void) ppc_fseek(c->loc.chan.fp, r1, SEEK_SET);
+		(void) ppc_fseek(c->loc.chan.fp, r1, SEEK_SET, c->token);
 		
-		cl = n == 2 ? r2 - r1 + 1: cl - r1;
+		//cl = n == 2 ? r2 - r1 + 1: cl - r1;
+		if(n == 2){
+			DMCLOG_D("stp->st_size: %lu, r1: %lu, r2: %lu", (unsigned long)stp->st_size, r1, r2);
+			if((unsigned long)stp->st_size>r1){
+				if((stp->st_size-r1)<(r2-r1)){
+					cl = (unsigned long)stp->st_size - r1;
+				}
+				else{
+					cl = r2 - r1 + 1;
+				}
+			}
+			else{
+				cl = 0;
+			}
+		}
+		else{
+			DMCLOG_D("stp->st_size: %lu, r1: %lu", (unsigned long)stp->st_size, r1);
+			if((unsigned long)stp->st_size>r1){
+				cl = cl - r1;
+			}
+			else{
+				cl = 0;
+			}
+		}
 		(void) my_snprintf(range, sizeof(range),
 		    "Content-Range: bytes %lu-%lu/%lu\r\n",
 		    r1, r1 + cl - 1, (unsigned long) stp->st_size);
@@ -130,9 +154,9 @@ ppc_get_file(struct conn *c, struct ppc_stat *stp)
 
 	/* Prepare Etag, Date, Last-Modified headers */
 	(void) strftime(date, sizeof(date), fmt, localtime(&current_time));
-	(void) strftime(lm, sizeof(lm), fmt, localtime(&stp->st_mtime_t));
+	(void) strftime(lm, sizeof(lm), fmt, localtime(&stp->st_mtime));
 	(void) my_snprintf(etag, sizeof(etag), "%lx.%lx",
-    (unsigned long) stp->st_mtime_t, (unsigned long) stp->st_size);
+    (unsigned long) stp->st_mtime, (unsigned long) stp->st_size);
 
 	/*
 	 * We do not do io_inc_head here, because it will increase 'total'

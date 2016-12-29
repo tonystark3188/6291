@@ -14,6 +14,8 @@
  */
 
 #include "defs.h"
+#include "ppclib.h"
+
 
 time_t		current_time;	/* Current UTC time		*/
 int		tz_offset;	/* Time zone offset from UTC	*/
@@ -397,7 +399,7 @@ find_index_file(struct conn *c, char *path, size_t maxpath, struct stat *stp)
  */
 #ifdef _PPCLIB_H_
 static int
-ppc_find_index_file(struct conn *c, char *path, size_t maxpath, struct ppc_stat *stp)
+ppc_find_index_file(struct conn *c, char *path, size_t maxpath, struct stat *stp)
 {
 	char		buf[FILENAME_MAX];
 	const char	*s = c->ctx->index_files;
@@ -452,7 +454,7 @@ get_path_info(struct conn *c, char *path, struct stat *stp)
 
 #ifdef _PPCLIB_H_
 static int
-ppc_get_path_info(struct conn *c, char *path, struct ppc_stat *stp)
+ppc_get_path_info(struct conn *c, char *path, struct stat *stp)
 {
 	char	*p, *e;
 	#ifdef _PPCLIB_H_
@@ -526,12 +528,7 @@ decide_what_to_do(struct conn *c)
 	char		path[URI_MAX], buf[1024];
 	struct vec	alias_uri, alias_path;
 	int is_fw_filesystem = 0;
-	#ifdef _PPCLIB_H_
-	struct ppc_stat ppc_st;
 	struct stat	st;
-	#else
-	struct stat	st;
-	#endif
 	int		rc;
 	int has_match = 0;
 #ifdef EMBEDDED
@@ -541,14 +538,14 @@ decide_what_to_do(struct conn *c)
 	url_decode(c->uri, strlen(c->uri), c->uri, strlen(c->uri) + 1);
 	remove_double_dots(c->uri);
 	
-	DBG(("decide_what_to_do: [%s]", c->uri));
+	DMCLOG_D("decide_what_to_do: [%s]", c->uri);
 	if ((c->query = strchr(c->uri, '?')) != NULL){
 		*c->query++ = '\0';
 		#ifdef _PPCLIB_H_
 		DMCLOG_D("START");
 
 		#ifdef CHECK_SSIG
-		int token_int = 0;
+		_int64_t token_int = 0;
 		char *sign_url = NULL;
 		char *access_key = NULL;
 		char *ssig = NULL;
@@ -560,7 +557,7 @@ decide_what_to_do(struct conn *c)
 				if((ssig = get_arg_from_url(c->query, SSIG_NAME)) != NULL){
 					if(!check_signature(sign_url, access_key, ssig, MATCH_SSIG_START, MATCH_SSIG_END)){
 						DMCLOG_D("match success");
-						if((token_int = atoi(access_key)) != 0){
+						if((token_int = atoll(access_key)) != 0){
 							has_match = 1;
 							c->token = token_int;
 						}						
@@ -575,7 +572,7 @@ decide_what_to_do(struct conn *c)
 		#else
 		char *p = NULL, *q = NULL;
 		char token_str[32];
-		int token_int = 0;
+		_int64_t token_int = 0;
 		if((p = strstr(c->query, ACCESS_KEY_NAME)) != NULL){
 			if((q = strchr(p, '=')) != NULL){
 				if((q++) != NULL){
@@ -585,7 +582,7 @@ decide_what_to_do(struct conn *c)
 						p = q+strlen(q);
 					memset(token_str, 0, sizeof(token_str));
 					memcpy(token_str, q, p-q);
-					if((token_int = atoi(token_str)) != 0){
+					if((token_int = atoll(token_str)) != 0){
 						c->token = token_int;
 						has_match = 1;
 					}
@@ -594,15 +591,6 @@ decide_what_to_do(struct conn *c)
 		}
 		#endif
 		#endif
-	}
-
-	if(!has_match){
-		DMCLOG_E("Forbidden:not match");
-		send_server_error(c, 403, "Forbidden");
-		return;
-	}
-	else{
-		DMCLOG_D("c->token: %d", (int)c->token);
 	}
 
 	if (strlen(c->uri) + strlen(c->ctx->document_root) >= sizeof(path)) {
@@ -746,6 +734,14 @@ decide_what_to_do(struct conn *c)
 	}
 	else
 	{
+		if(!has_match){
+			DMCLOG_E("Forbidden:not match");
+			send_server_error(c, 403, "Forbidden");
+			return;
+		}
+		else{
+			DMCLOG_D("c->token: %lld", c->token);
+		}
 #if defined(NO_AUTH)
 		if (check_authorization(c, path) != 1) {
 			send_authorization_request(c);
@@ -768,7 +764,7 @@ decide_what_to_do(struct conn *c)
 #endif /* NO_AUTH */
 		if (c->method == METHOD_PUT) {
 		#ifdef _PPCLIB_H_
-			c->status = ppc_stat(path, &ppc_st, c->token) == 0 ? 200 : 201;
+			c->status = ppc_stat(path, &st, c->token) == 0 ? 200 : 201;
 		#else
 			c->status = my_stat(path, &st) == 0 ? 200 : 201;
 		#endif
@@ -811,17 +807,17 @@ decide_what_to_do(struct conn *c)
 			else
 				send_server_error(c, 500, "DELETE Error");
 	#ifdef _PPCLIB_H_
-		} else if (ppc_get_path_info(c, path, &ppc_st) != 0) {
+		} else if (ppc_get_path_info(c, path, &st) != 0) {
 			send_server_error(c, 404, "Not Found");
-		} else if (S_ISDIR(ppc_st.st_mode) && path[strlen(path) - 1] != '/') {
+		} else if (S_ISDIR(st.st_mode) && path[strlen(path) - 1] != '/') {
 			(void) my_snprintf(buf, sizeof(buf),
 				"Moved Permanently\r\nLocation: %s/", c->uri);
 			send_server_error(c, 301, buf);
-		} else if (S_ISDIR(ppc_st.st_mode) &&
-			find_index_file(c, path, sizeof(path) - 1, &ppc_st) == -1 &&
+		} else if (S_ISDIR(st.st_mode) &&
+			find_index_file(c, path, sizeof(path) - 1, &st) == -1 &&
 			c->ctx->dirlist == 0) {
 			send_server_error(c, 403, "Directory Listing Denied");
-		} else if (S_ISDIR(ppc_st.st_mode) && c->ctx->dirlist) {
+		} else if (S_ISDIR(st.st_mode) && c->ctx->dirlist) {
 	#else
 		} else if (get_path_info(c, path, &st) != 0) {
 			send_server_error(c, 404, "Not Found");
@@ -852,11 +848,7 @@ decide_what_to_do(struct conn *c)
 				}
 				send_server_error(c, 500, "GET Directory Error");
 			}
-		#ifdef _PPCLIB_H_
-		} else if (S_ISDIR(ppc_st.st_mode) && c->ctx->dirlist == 0) {
-		#else
 		} else if (S_ISDIR(st.st_mode) && c->ctx->dirlist == 0) {
-		#endif
 			send_server_error(c, 403, "Directory listing denied");
 #if !defined(NO_CGI)
 		} else if (match_extension(path, c->ctx->cgi_extensions)) {
@@ -878,16 +870,12 @@ decide_what_to_do(struct conn *c)
 				do_ssi(c);
 			}
 #endif /* NO_CGI */
-	#ifdef _PPCLIB_H_
-		} else if (c->ch.ims.v_time && ppc_st.st_mtime_t <= c->ch.ims.v_time) {
-	#else
 		} else if (c->ch.ims.v_time && st.st_mtime <= c->ch.ims.v_time) {
-	#endif
 			send_server_error(c, 304, "Not Modified");
 #ifdef _PPCLIB_H_
 		} else if ((c->loc.chan.fp = ppc_fopen(path,
 			"r", c->token)) != NULL) {
-			ppc_get_file(c, &ppc_st);
+			ppc_get_file(c, &st);
 #else
 		} else if ((c->loc.chan.fd = my_open(path,
 			O_RDONLY | O_BINARY, 0644)) != -1) {
@@ -1169,6 +1157,7 @@ read_stream(struct stream *stream)
 	    stream->conn->rem.chan.sock,
 	    stream->io_class ? stream->io_class->name : "(null)",
 	    n, len, (unsigned long) stream->io.total, ERRNO));
+	//DMCLOG_D("read buf: %s", stream->io.buf);
 
 	/*
 	 * Close the local stream if everything was read
@@ -1200,6 +1189,7 @@ write_stream(struct stream *from, struct stream *to)
 	DBG(("write_stream (%d %s): written %d/%d bytes (errno %d)",
 	    to->conn->rem.chan.sock,
 	    to->io_class ? to->io_class->name : "(null)", n, len, ERRNO));
+	//DMCLOG_D("write buf: %s", from->io.buf);
 
 	if (n > 0)
 		io_inc_tail(&from->io, n);

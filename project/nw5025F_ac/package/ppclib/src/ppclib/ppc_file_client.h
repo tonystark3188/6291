@@ -55,7 +55,7 @@ int handle_open_task(void* arg);
 size_t handle_read_task(int fd,size_t length,char *buf);
 size_t handle_write_task(int fd,size_t length,const char *buf);
 int handle_rename_task(const char *oldname, const char *newname, _int64_t token);
-int handle_unlink_task(const char *pathname, int token);
+int handle_unlink_task(const char *pathname, _int64_t token);
 int handle_utimensat_task(const char *pathname, const struct timespec times[2], int flags, _int64_t token);
 int handle_ftruncate_task(const char *pathname, off_t length, _int64_t token);
 int handle_symlink_task(const char *oldname, const char *newname, _int64_t token);

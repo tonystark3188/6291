@@ -40,9 +40,20 @@ char *check_return_dot_path(char *src_full_path)
 		return NULL;
 	}
 
+	//deal with .  and  /
 	memcpy(tmp_full_path, src_full_path, strlen(src_full_path));
+	DMCLOG_D("tmp_full_path: %s", tmp_full_path);
 	if(strlen(tmp_full_path) > 1 && *(tmp_full_path+strlen(tmp_full_path) - 1) == '/'){
 		*(tmp_full_path+strlen(tmp_full_path) - 1) = '\0';
+	}
+	else if(strlen(tmp_full_path) == 2 && *(tmp_full_path+strlen(tmp_full_path) - 1) == '.' 
+		&& *(tmp_full_path+strlen(tmp_full_path) - 2) == '/'){
+		DMCLOG_D("YYYYYY");
+		*(tmp_full_path+strlen(tmp_full_path) - 1) = '\0';
+	}
+	else if(strlen(tmp_full_path) > 2 && *(tmp_full_path+strlen(tmp_full_path) - 1) == '.' 
+		&& *(tmp_full_path+strlen(tmp_full_path) - 2) == '/'){
+		*(tmp_full_path+strlen(tmp_full_path) - 2) = '\0';
 	}
 
 	head = tmp_full_path;
@@ -114,7 +125,7 @@ char *check_return_dot_path(char *src_full_path)
 int create_new_full_path(const char *src_path, char **dest_path, _int64_t token)
 {
 	char *work_dir_old = NULL;
-	char *work_dir_new = NULL;
+	char *src_full_path_new = NULL;
 	char *src_full_path = NULL;
 	int realloc_len = 0;
 	int is_absolute = 0;
@@ -137,8 +148,8 @@ int create_new_full_path(const char *src_path, char **dest_path, _int64_t token)
 		}
 		
 		memcpy(src_full_path, src_path, strlen(src_path));
-		*dest_path = src_full_path;
-		return 0;
+		//*dest_path = src_full_path;
+		//return 0;
 	}
 	else{
 		//DMCLOG_D("src_path : %s, strlen(src_path): %d", src_path, strlen(src_path));
@@ -191,9 +202,9 @@ int create_new_full_path(const char *src_path, char **dest_path, _int64_t token)
 		}
 	}
 
-	work_dir_new = check_return_dot_path(src_full_path);
-	if(work_dir_new != NULL){
-		*dest_path = work_dir_new;
+	src_full_path_new = check_return_dot_path(src_full_path);
+	if(src_full_path_new != NULL){
+		*dest_path = src_full_path_new;
 		safe_free(src_full_path);
 		return 0;
 	}

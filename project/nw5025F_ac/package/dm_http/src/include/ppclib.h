@@ -46,7 +46,7 @@ extern "C"{
 #endif
 
 #define PKG_NAME 			"libppc"
-#define PKG_VERSION 		"1.01.07"
+#define PKG_VERSION 		"1.01.06"
 
 #define PUBLIC_USER_NAME	"public"
 #define PUBLIC_PASSWORD		"13141314"

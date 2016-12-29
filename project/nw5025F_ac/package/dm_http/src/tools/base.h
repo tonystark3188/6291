@@ -12,6 +12,7 @@
 #include "my_debug.h"
 #include "my_json.h"
 #include <assert.h>
+#include <sys/statvfs.h>
 #include "msg.h"
 #include "util.h"
 #include "hidisk_thread.h"

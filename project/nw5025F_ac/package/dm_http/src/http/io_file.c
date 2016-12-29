@@ -109,7 +109,30 @@ get_file(struct conn *c, struct stat *stp)
 		status = 206;
 		(void) lseek(c->loc.chan.fd, r1, SEEK_SET);
 		
-		cl = n == 2 ? r2 - r1 + 1: cl - r1;
+		//cl = n == 2 ? r2 - r1 + 1: cl - r1;
+		if(n == 2){
+			DMCLOG_D("stp->st_size: %lu, r1: %lu, r2: %lu", (unsigned long)stp->st_size, r1, r2);
+			if((unsigned long)stp->st_size>r1){
+				if((stp->st_size-r1)<(r2-r1)){
+					cl = (unsigned long)stp->st_size - r1;
+				}
+				else{
+					cl = r2 - r1 + 1;
+				}
+			}
+			else{
+				cl = 0;
+			}
+		}
+		else{
+			DMCLOG_D("stp->st_size: %lu, r1: %lu", (unsigned long)stp->st_size, r1);
+			if((unsigned long)stp->st_size>r1){
+				cl = cl - r1;
+			}
+			else{
+				cl = 0;
+			}
+		}
 		(void) my_snprintf(range, sizeof(range),
 		    "Content-Range: bytes %lu-%lu/%lu\r\n",
 		    r1, r1 + cl - 1, (unsigned long) stp->st_size);

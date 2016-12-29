@@ -275,7 +275,7 @@ struct conn {
 
 	struct stream	loc;		/* Local stream			*/
 	struct stream	rem;		/* Remote stream		*/
-	const char *token;
+	_int64_t token;
 
 #if !defined(NO_SSI)
 	void			*ssi;	/* SSI descriptor		*/
@@ -324,7 +324,6 @@ struct shttpd_ctx {
 	int	auto_start;		/* Start on OS boot		*/
 	int	io_buf_size;		/* IO buffer size		*/
 	int	inetd_mode;		/* Inetd flag			*/
-	//const char *token;
 #if defined(_WIN32)
 	CRITICAL_SECTION mutex;		/* For MT case			*/
 	HANDLE		ev[2];		/* For thread synchronization */
@@ -428,9 +427,9 @@ extern int	spawn_process(struct conn *c, const char *prog,
  * io_*.c
  */
 extern const struct io_class	io_file;
-#ifdef _PPCLIB_H_
+//#ifdef _PPCLIB_H_
 extern const struct io_class	io_ppc_file;
-#endif
+//#endif
 extern const struct io_class	io_socket;
 extern const struct io_class	io_ssl;
 extern const struct io_class	io_cgi;
@@ -441,7 +440,7 @@ extern const struct io_class	io_ssi;
 extern int	put_dir(struct conn *c, const char *path);
 extern void	get_dir(struct conn *c);
 #ifdef _PPCLIB_H_
-extern void ppc_get_file(struct conn *c, struct ppc_stat *stp);
+extern void ppc_get_file(struct conn *c, struct stat *stp);
 #endif
 extern void get_file(struct conn *c, struct stat *stp);
 extern void	ssl_handshake(struct stream *stream);

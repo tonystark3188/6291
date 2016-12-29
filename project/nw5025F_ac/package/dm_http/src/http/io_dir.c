@@ -9,6 +9,7 @@
  */
 
 #include "defs.h"
+#include "ppclib.h"
 
 /*
  * For a given PUT path, create all intermediate subdirectories
@@ -20,11 +21,7 @@ put_dir(struct conn *c, const char *path)
 {
 	char		buf[FILENAME_MAX];
 	const char	*s, *p;
-	#ifdef _PPCLIB_H_
-	struct ppc_stat st;
-	#else
 	struct stat	st;
-	#endif
 	size_t		len;
 
 	for (s = p = path + 2; (p = strchr(s, '/')) != NULL; s = ++p) {
@@ -51,11 +48,7 @@ ppc_put_dir(struct conn *c, const char *path)
 {
 	char		buf[FILENAME_MAX];
 	const char	*s, *p;
-	#ifdef _PPCLIB_H_
-	struct ppc_stat st;
-	#else
 	struct stat	st;
-	#endif
 	size_t		len;
 
 	for (s = p = path + 2; (p = strchr(s, '/')) != NULL; s = ++p) {
@@ -66,7 +59,7 @@ ppc_put_dir(struct conn *c, const char *path)
 
 		/* Try to create intermediate directory */
 		
-		if (ppc_stat(buf, &st, c->token) == -1 && my_mkdir(buf, 0755) != 0)	
+		if (ppc_stat(buf, &st, c->token) == -1 && ppc_mkdir(buf, 0755, c->token) != 0)	
 			return (-1);
 
 		/* Is path itself a directory ? */
@@ -85,11 +78,7 @@ read_dir(struct stream *stream, void *buf, size_t len)
 	struct dirent	*dp = NULL;
 	char		file[FILENAME_MAX], line[FILENAME_MAX + 512],
 				size[64], mod[64];
-	#ifdef _PPCLIB_H_
-	struct ppc_stat st;
-	#else
 	struct stat	st;
-	#endif
 	struct conn	*c = stream->conn;
 	int		n, nwritten = 0;
 	const char	*slash = "";
@@ -168,13 +157,8 @@ read_dir(struct stream *stream, void *buf, size_t len)
 				(void) my_snprintf(size, sizeof(size),
 				    "%.1fM", (float) st.st_size / 1048576);
 		}
-		#ifdef _PPCLIB_H_
-		(void) strftime(mod, sizeof(mod), "%d-%b-%Y %H:%M",
-			localtime(&st.st_mtime_t));
-		#else
 		(void) strftime(mod, sizeof(mod), "%d-%b-%Y %H:%M",
 			localtime(&st.st_mtime));
-		#endif
 		memset(img_src,0,1024);
 		if(S_ISDIR(st.st_mode))
 		{

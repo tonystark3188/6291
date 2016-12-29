@@ -14,8 +14,8 @@
 #define LEVEL_NONE 		0
 
 //set debug config
-#define APPLICATION_NAME	"DM_CLIENT"
-#define DEBUG_LEVEL 		LEVEL_ERROR
+#define APPLICATION_NAME	"DM_HTTP"
+#define DEBUG_LEVEL 		LEVEL_NONE
 #define DEBUG_DIR			DIR_PRINTF
 
 

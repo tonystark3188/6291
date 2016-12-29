@@ -15,7 +15,7 @@ define Package/dm_http
   SECTION:=net
   CATEGORY:=Base system
   TITLE:=dm_http
-  DEPENDS:=+libpthread +libjson-c
+  DEPENDS:=+libpthread +libjson-c +ppclib
 endef
 
 define Build/Prepare
@@ -26,6 +26,8 @@ endef
 
 TARGET_LDFLAGS += -L$(STAGING_DIR)/usr/lib 
 TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include -I./include/ -I./ppclib/ -I./ -I./tools/ -I./file_task/ 
+
+TARGET_CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -Wl,--gc-sections
 
 define Build/Compile
 	$(MAKE) -C $(PKG_BUILD_DIR) \
