@@ -13,9 +13,8 @@
 static int
 write_file(struct stream *stream, const void *buf, size_t len)
 {	
-	stream->conn->ctx->watch_dog_time = 3000000;
 	assert(stream->chan.vf != NULL);
-	return bfavfs_fwrite(buf,1, len, stream->chan.vf);
+	return _bfavfs_fwrite(buf,1, len, stream->chan.vf);
 }
 
 static int
@@ -23,7 +22,7 @@ read_file(struct stream *stream, void *buf, size_t len)
 {
 	int n = 0;
 	assert(stream->chan.vf != NULL);
-	n = bfavfs_fread(buf,1, len,stream->chan.vf);
+	n = _bfavfs_fread(buf,1, len,stream->chan.vf);
 	return n;
 }
 
@@ -44,7 +43,7 @@ get_file(struct conn *c, struct stat *stp)
 	cl = (big_int_t) stp->st_size;
 	DMCLOG_D("cl = %lld,stp->st_size = %lld,c->offset = %lld,c->length=%lld,stp->st_mtime = %lu",cl,stp->st_size,c->offset,c->length,stp->st_mtime);
 	/* If Range: header specified, act accordingly */
-	(void) bfavfs_fseek(c->loc.chan.vf, c->offset, SEEK_SET);
+	(void) _bfavfs_fseek(c->loc.chan.vf, c->offset, SEEK_SET);
 	if(c->length <= 1)
 	{
 		cl = cl - c->offset;

@@ -19,6 +19,7 @@
 #include <errno.h>
 #include "util.h"
 #include "upload_records.h"
+#include "rfsvfs.h"
 
 
 
@@ -167,7 +168,7 @@ int del_record_from_list_for_index(struct record_dnode **head,off_t end)
 		DMCLOG_E("buile bucket object error");
 		return -1;
 	  }
-	  if((record_fd = _bfavfs_fopen(sObject,"r",token))==NULL)//改动：路径
+	  if((record_fd = bfavfs_fopen(sObject,"r",token))==NULL)//改动：路径
 	  {
 		 DMCLOG_D("fopen error[errno:%d]",errno);
 		 return -1;
@@ -187,7 +188,7 @@ int del_record_from_list_for_index(struct record_dnode **head,off_t end)
 		{
 			DMCLOG_D("add record error");
 			safe_free(sObject);
-			_bfavfs_fclose(record_fd,token);
+			bfavfs_fclose(record_fd,token);
 			return -1;
 		}
 		cur->dn_next = *dn;
@@ -195,7 +196,7 @@ int del_record_from_list_for_index(struct record_dnode **head,off_t end)
 		 i++;
 	  }
 	  safe_free(sObject);
-	  _bfavfs_fclose(record_fd,token);
+	  bfavfs_fclose(record_fd,token);
 	  return ret;
  }
  

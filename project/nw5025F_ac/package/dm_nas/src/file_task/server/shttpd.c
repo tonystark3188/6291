@@ -159,7 +159,7 @@ void
 stop_stream(struct stream *stream)
 {
 	//if close rem fd now ,we can not send upload success msg to client
-	if(!(stream->conn->cmd == FN_FILE_UPLOAD|| stream->conn->cmd == FN_FILE_GET_BACKUP_FILE || stream->conn->cmd == FN_ROUTER_SET_UPLOAD_FIRMWARE))
+	if(!(stream->conn->cmd == FN_FILE_UPLOAD||stream->conn->cmd == FN_FILE_WRITE || stream->conn->cmd == FN_FILE_GET_BACKUP_FILE || stream->conn->cmd == FN_ROUTER_SET_UPLOAD_FIRMWARE))
 	{
 		if (stream->io_class != NULL && stream->io_class->close != NULL)
 			stream->io_class->close(stream);
@@ -208,30 +208,7 @@ fail:
 	//elog(E_LOG, NULL, "open_listening_port(%d): %s", port, strerror(errno));
 	return (-1);
 }
-#if 0
-static void
-msg_write_stream(struct stream *from, struct stream *to)
-{
-	int	n, len;
-	len = io_data_len(&from->io);
-	assert(len > 0);
-	/* TODO: should be assert on CAN_WRITE flag */
-	n = msg_write_socket(to, io_data(&from->io), len);
-	DMCLOG_D("write_stream (%d %s): written %d/%d bytes (errno %d)",
-	    to->conn->rem.chan.sock,
-	    to->io_class ? to->io_class->name : "(null)", n, len, ERRNO);
-	if (n > 0)
-	{
-		io_clear(&from->io);
-		io_clear(&to->io);
-		//io_inc_tail(&from->io, n);
-	}
-	else if (n == -1 && (ERRNO == EINTR || ERRNO == EWOULDBLOCK))
-		n = n;	/* Ignore EINTR and EAGAIN */
-	else if (!(to->flags & FLAG_DONT_CLOSE))
-		stop_stream(to);
-}
-#endif
+
 static void
 write_stream(struct stream *from, struct stream *to)
 {
@@ -244,7 +221,7 @@ write_stream(struct stream *from, struct stream *to)
 	if (n > 0)
 	{
 		io_inc_tail(&from->io, n);
-		if(!(from->conn->cmd == FN_ROUTER_SET_UPLOAD_FIRMWARE||from->conn->cmd == FN_FILE_UPLOAD||from->conn->cmd == FN_FILE_GET_BACKUP_FILE))
+		if(!(from->conn->cmd == FN_ROUTER_SET_UPLOAD_FIRMWARE||from->conn->cmd == FN_FILE_UPLOAD||from->conn->cmd == FN_FILE_WRITE||from->conn->cmd == FN_FILE_GET_BACKUP_FILE))
 			to->io.total += n;
 	}
 	else if (n == -1 && (ERRNO == EINTR || ERRNO == EWOULDBLOCK || ERRNO == EAGAIN))
@@ -273,11 +250,11 @@ parse_http_request(struct conn *c)
 	}
 	file_func_process(c);
 	if(c->error != 0){
-		if(c->cmd == FN_FILE_UPLOAD||c->cmd == FN_FILE_GET_BACKUP_FILE||c->cmd == FN_FILE_GET_LIST||c->cmd == FN_FILE_GET_LSIT_BY_TYPE)
+		if(c->cmd == FN_FILE_UPLOAD||c->cmd == FN_FILE_WRITE||c->cmd == FN_FILE_GET_BACKUP_FILE||c->cmd == FN_FILE_GET_LIST||c->cmd == FN_FILE_GET_LSIT_BY_TYPE)
 			goto EXIT1;
 		goto EXIT2;
 	}
-	if(!(c->cmd == FN_FILE_DOWNLOAD ||c->cmd == FN_FILE_UPLOAD|| c->cmd == FN_FILE_GET_BACKUP_FILE \
+	if(!(c->cmd == FN_FILE_DOWNLOAD ||c->cmd == FN_FILE_UPLOAD||c->cmd == FN_FILE_WRITE|| c->cmd == FN_FILE_GET_BACKUP_FILE \
 		||c->cmd == FN_ROUTER_SET_UPLOAD_FIRMWARE || c->cmd == FN_FILE_SEARCH\
 		||c->cmd == FN_FILE_GET_LIST||c->cmd == FN_FILE_GET_LSIT_BY_TYPE\
 		||c->cmd == FN_FILE_GET_ALBUM_LIST\
@@ -550,16 +527,10 @@ msg_read_stream(struct stream *stream)
 		assert(stream->io.total <= stream->content_len);
 		if (stream->io.total == stream->content_len)
 		{
-			DMCLOG_D("stop stream");
 			stop_stream(stream);
 		}	
 	}
 }
-
-
-
-
-
 
 static void
 disconnect(struct conn *c)
@@ -568,11 +539,12 @@ disconnect(struct conn *c)
 	
 	if (c->loc.io_class != NULL && c->loc.io_class->close != NULL)
 		c->loc.io_class->close(&c->loc);
-	if(c->error == 0&&(c->cmd == FN_FILE_UPLOAD|| c->cmd == FN_FILE_GET_BACKUP_FILE || c->cmd == FN_ROUTER_SET_UPLOAD_FIRMWARE))
+	if(c->error == 0&&(c->cmd == FN_FILE_UPLOAD||c->cmd == FN_FILE_WRITE|| c->cmd == FN_FILE_GET_BACKUP_FILE || c->cmd == FN_ROUTER_SET_UPLOAD_FIRMWARE))
 	{
-		//if(c->rem.io.total == c->rem.content_len)
+		//if(c->rem.content_len == 0||(c->rem.content_len > 0&&c->rem.io.total == c->rem.content_len))
+		if(c->rem.content_len > 0 && c->rem.io.total == c->rem.content_len)
 		{
-			_bfavfs_fclose(c->record_fd,c->token);
+			bfavfs_fclose(c->record_fd,c->token);
 			del_record_from_list_for_index(&c->dn,c->length);
 			if(c->dn == NULL)
 			{
@@ -593,15 +565,18 @@ disconnect(struct conn *c)
 				_bfavfs_remove(cObject,c->token);
 				safe_free(cObject);
 				//bfavfs_fsetattr(c->des_path,c->token);
-				sync();
 			}
+			sync();
 		}
-	}
-		
+		else if(c->rem.content_len == 0){
+			sync();
+		}
+	}	
 	if(c->error == 0)
 	{
 		if(c->cmd == FN_FILE_RENAME\
-			||c->cmd == FN_FILE_UPLOAD\
+			|| c->cmd == FN_FILE_UPLOAD\
+			|| c->cmd == FN_FILE_WRITE\
 			|| c->cmd == FN_FILE_DELETE\
 			|| c->cmd == FN_FILE_COPY\
 			|| c->cmd == FN_FILE_MOVE\

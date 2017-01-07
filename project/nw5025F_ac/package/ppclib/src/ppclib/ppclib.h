@@ -46,10 +46,11 @@ extern "C"{
 #endif
 
 #define PKG_NAME 			"libppc"
-#define PKG_VERSION 		"1.01.07"
+#define PKG_VERSION 		"1.01.08"
 
 #define PUBLIC_USER_NAME	"public"
 #define PUBLIC_PASSWORD		"13141314"
+#define PUBLIC_HOMEPATH 	"/tmp/mnt"
 
 typedef struct _pkg_version{
 	char pkg_name[32];				//软件包名称
@@ -79,16 +80,16 @@ typedef struct _PFILE{
 	char	mode[8];
 	int 	fd;
 	char 	*srcPath;
-	size_t 	offset;
-	size_t 	length;
+	off_t 	offset;
+	off_t 	length;
     _int64_t 	token;
 }PFILE;
 
 typedef struct _FFILE{
 	int 	fd;
 	char 	*srcPath;
-	size_t 	offset;
-	size_t 	length;
+	off_t 	offset;
+	off_t 	length;
 	int 	flag;
 	mode_t 	mode;
     _int64_t 	token;

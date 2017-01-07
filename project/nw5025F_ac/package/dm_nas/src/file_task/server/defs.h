@@ -264,7 +264,7 @@ typedef int (*token_reset_fn)(bool isLogin,token_list_t *p_token_list);
  */
 struct shttpd_ctx {
 	int		nactive;	/* # of connections now		*/
-	uint64_t	in, out;	/* IN/OUT traffic counters	*/
+	//uint64_t	in, out;	/* IN/OUT traffic counters	*/
 	struct llhead	connections;	/* List of connections		*/
 	char	*document_root;		/* Document root		*/
 	char	*ports;			/* Listening ports		*/

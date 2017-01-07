@@ -276,7 +276,7 @@ int handle_open_task(void* arg)
 
 	if(file_info->flag & (O_WRONLY | O_CREAT))
     {
-        p_client_info.cmd = FN_FILE_UPLOAD;
+        p_client_info.cmd = FN_FILE_WRITE;
         p_client_info.desPath = file_info->srcPath;
     }
 	else{

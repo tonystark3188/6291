@@ -19,6 +19,7 @@ file_tag_handle all_file_handle[]=
     {FN_FILE_GET_LIST,DM_File_GetList,Parser_FileGetList},
     {FN_FILE_DOWNLOAD,_DM_File_Download,Parser_FileDownload},
     {FN_FILE_UPLOAD,_DM_File_Upload,Parser_FileUpload},
+    {FN_FILE_WRITE,_DM_File_Upload,Parser_FileUpload},
     {FN_FILE_MKDIR,DM_File_Mkdir,Parser_FileMkdir},
     {FN_FILE_RENAME,DM_File_Rename,Parser_FileRename},
     {FN_FILE_IS_EXIST,DM_File_Is_Exist,Parser_FileIsExist},
@@ -1006,7 +1007,6 @@ int Parser_FileUpload(ClientTheadInfo *p_client_info)
         goto EXIT;
     }
     p_client_info->content_len = JSON_GET_OBJECT_VALUE(contentLength_json,int64);
-	DMCLOG_D("sizeof(size_t): %d", sizeof(size_t));
     if(p_client_info->content_len < 0){
         usize = JSON_GET_OBJECT_VALUE(contentLength_json, int);
         p_client_info->content_len = (_int64_t)usize;

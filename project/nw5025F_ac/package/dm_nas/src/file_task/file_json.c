@@ -55,6 +55,7 @@ file_tag_handle all_file_handle[]=
 	{FN_FILE_GET_ATTR,DM_FileGetAttr,Parser_FileIsExist},
 	{FN_FILE_DOWNLOAD,DM_FileDownload,Parser_FileDownload},
 	{FN_FILE_UPLOAD,DM_FileUpload,Parser_FileUpload},
+	{FN_FILE_WRITE,DM_FileWrite,Parser_FileWrite},
 	{FN_FILE_CHECKUPLOAD,DM_FileCheckUpload,Parser_FileCheckUpload},
 	{FN_FILE_DELETE,DM_FileDelete,parser_FileDelete},
     {FN_FILE_COPY,DM_FileCopy,parser_FileCopy},
@@ -233,10 +234,10 @@ int dm_register(struct conn *c)
 	v_file_insert.v_file_info.isDir = 1;
 	S_STRNCPY(v_file_insert.bucket_name,bucket_name,MAX_BUCKET_NAME_LEN);
 	sprintf(v_file_insert.v_file_info.path,"/%s/public",bucket_name);
-	time_t now; //ÊµÀı»¯time_t½á¹¹    
-	struct tm *timenow; //ÊµÀı»¯tm½á¹¹Ö¸Õë    
+	time_t now; //êµày?¯time_t?á11    
+	struct tm *timenow; //êµày?¯tm?á11????    
 	time(&now);
-	//timeº¯Êı¶ÁÈ¡ÏÖÔÚµÄÊ±¼ä(¹ú¼Ê±ê×¼Ê±¼ä·Ç±±¾©Ê±¼ä)£¬È»ºó´«Öµ¸ønow    
+	//timeo¯êy?áè????úµ?ê±??(1ú?ê±ê×?ê±??·?±±??ê±??)??è?oó'??µ??now    
 	v_file_insert.v_file_info.atime = now;
 	v_file_insert.v_file_info.ctime = now;
 	v_file_insert.v_file_info.mtime = now;
@@ -321,7 +322,7 @@ int DM_FileDownload(struct conn *c)
 		goto EXIT;
 	
 	} 
-	//ppc_open æ¥å£æœ‰å¯èƒ½æ‰“å¼€çš„æ˜¯ç›®å½•
+	//ppc_open ????????‰??¯è???‰“??€?????¯??????
 	#if 0
 	else if (S_ISDIR(st.st_mode)&& c->src_path[strlen(c->src_path) - 1] != '/') {
 		c->error = SERVER_MOVED_LOCATION;
@@ -329,7 +330,7 @@ int DM_FileDownload(struct conn *c)
 	}
 	#endif
 	DMCLOG_D("path = %s",c->src_path);
-	if ((c->loc.chan.fd = _bfavfs_fopen(sObject,"r",(char *)c->token)) != NULL) {
+	if ((c->loc.chan.vf = _bfavfs_fopen(sObject,"r",(char *)c->token)) != NULL) {
 		get_file(c, &st);
 	} else {
 		c->error = SERVER_ERROR;
@@ -422,7 +423,7 @@ int DM_FileUpload(struct conn *c)
 		goto EXIT;
 	}
 	sObject->offset = c->offset;
-	if ((c->loc.chan.vf = _bfavfs_fopen(sObject,"a",(char *)c->token)) == NULL) {
+	if ((c->loc.chan.vf = _bfavfs_fopen(sObject,"a",c->token)) == NULL) {
 		c->loc.flags |= FLAG_CLOSED;
 		c->error = CREATE_FILE_ERROR;
 		goto EXIT;
@@ -430,14 +431,7 @@ int DM_FileUpload(struct conn *c)
 		c->loc.io_class = &io_file;
 		c->loc.flags |= FLAG_W;
 		DMCLOG_D("upload c->offset = %lld",c->offset);
-		int res = bfavfs_fseek(c->loc.chan.vf, c->offset, SEEK_SET);
-		if(res != 0)
-		{
-			DMCLOG_E("fseek %s error[%d]",c->tmp_path,errno);
-			c->loc.flags |= FLAG_CLOSED;
-			c->error = CREATE_FILE_ERROR;
-			goto EXIT;
-		}
+		_bfavfs_fseek(c->loc.chan.vf, c->offset, SEEK_SET);
 		struct stat st;
 		BucketObject *dObject = build_bucket_object(c->cfg_path,c->token);
 	    if(dObject == NULL)
@@ -466,8 +460,7 @@ int DM_FileUpload(struct conn *c)
 				goto EXIT;
 			}
 		}
-		DMCLOG_D("cfg_path = %s",c->cfg_path);
-		if((c->record_fd = _bfavfs_fopen(dObject,"w+",(char *)c->token))== NULL)
+		if((c->record_fd = bfavfs_fopen(dObject,"w+",(char *)c->token))== NULL)
 		{
 			DMCLOG_E("open file error[errno = %d]",errno);
 			c->error = ERROR_FILE_UPLOAD_CHECK;
@@ -488,6 +481,46 @@ EXIT:
 	safe_free(dObject);
 	return 0;
 }
+
+
+int DM_FileWrite(struct conn *c)
+{
+	ENTER_FUNC();
+	JObj* response_json = JSON_NEW_EMPTY_OBJECT();
+	BucketObject *dObject = NULL;
+	BucketObject *sObject = build_bucket_object(c->tmp_path,c->token);
+	if(sObject == NULL)
+	{
+		DMCLOG_E("buile bucket object error");
+		c->error = ERROR_FILE_UPLOAD_CHECK;
+		goto EXIT;
+	}
+	sObject->offset = c->offset;
+	if ((c->loc.chan.vf = _bfavfs_fopen(sObject,"a",c->token)) == NULL) {
+		c->loc.flags |= FLAG_CLOSED;
+		c->error = CREATE_FILE_ERROR;
+		goto EXIT;
+	} else {
+		c->loc.io_class = &io_file;
+		c->loc.flags |= FLAG_W;
+		DMCLOG_D("upload c->offset = %lld",c->offset);
+		_bfavfs_fseek(c->loc.chan.vf, c->offset, SEEK_SET);
+	}
+	JObj *response_data_array = JSON_NEW_ARRAY();
+	JObj* contentLength_json = JSON_NEW_EMPTY_OBJECT();
+	//c->rem.content_len = 350364;
+	DMCLOG_D("DM_FileUpload, c->rem.content_len = %lld", c->rem.content_len);
+	JSON_ADD_OBJECT(contentLength_json, "contentLength",JSON_NEW_OBJECT(c->rem.content_len,int64));
+	JSON_ARRAY_ADD_OBJECT (response_data_array,contentLength_json);
+	JSON_ADD_OBJECT(response_json, "data", response_data_array);
+EXIT:
+	file_json_to_string(c,response_json);
+	JSON_PUT_OBJECT(response_json);
+	safe_free(sObject);
+	safe_free(dObject);
+	return 0;
+}
+
 
 /*
  *  cmd = 100  get storage info
@@ -538,7 +571,7 @@ EXIT:
 }
 
 /*
- * è·å–æ–‡ä»¶åˆ—è¡¨ cmd = 101
+ * è?·??–?–??????—è?¨ cmd = 101
  */
 int DM_FileGetList(struct conn *c)
 {
@@ -568,7 +601,7 @@ EXIT:
 }
 
 /*
- * æ–‡ä»¶å¤¹åˆ›å»º cmd = 102
+ * ?–?????¤1?????o cmd = 102
  */
 int DM_FileMkdir(struct conn *c)
 {
@@ -594,7 +627,7 @@ EXIT:
 	return 0;
 }
 /*
- * æ–‡ä»¶æˆ–æ–‡ä»¶å¤¹é‡å cmd = 103
+ * ?–??????–?–?????¤1é????? cmd = 103
  */
 int DM_FileRename(struct conn *c)
 {
@@ -886,7 +919,7 @@ int DM_FileGetBackupFile(struct conn *c)
 		c->loc.flags |= FLAG_W;
 		DMCLOG_D("backup c->offset = %lld",c->offset);
 		c->offset = 0;
-		(void) bfavfs_fseek(c->loc.chan.vf, c->offset, SEEK_SET);
+		(void) _bfavfs_fseek(c->loc.chan.vf, c->offset, SEEK_SET);
 		BucketObject *cObject = build_bucket_object(c->cfg_path,c->token);
 		if(cObject == NULL)
 		{
@@ -915,7 +948,7 @@ int DM_FileGetBackupFile(struct conn *c)
 				goto EXIT;
 			}
 		}
-		if((c->record_fd = _bfavfs_fopen(cObject,"w+",c->token))== NULL)
+		if((c->record_fd = bfavfs_fopen(cObject,"w+",c->token))== NULL)
 		{
 			DMCLOG_D("open file error[errno = %d]",errno);
 			c->error = ERROR_FILE_UPLOAD_CHECK;
@@ -1499,7 +1532,7 @@ EXIT:
 }
 
 /*
- * ä¸Šä¼ æ£€æŸ¥ cmd = 108
+ * ????????€??? cmd = 108
  */
 int Parser_FileCheckUpload(struct conn *c)
 {
@@ -1551,7 +1584,7 @@ EXIT:
 	return 0;	
 }
 /*
- * ä¸Šä¼ å‘½ä»¤cmd = 107
+ * ???????‘???¤cmd = 107
  */
 int Parser_FileUpload(struct conn *c)
 {
@@ -1614,6 +1647,77 @@ int Parser_FileUpload(struct conn *c)
 	c->tmp_path = (char *)calloc(1,strlen(c->des_path)+strlen(TMP_PATH_NAME)+1);
 	assert(c->tmp_path);
 	sprintf(c->tmp_path,"%s%s",c->des_path,TMP_PATH_NAME);
+	DMCLOG_D("tmp_path = %s",c->tmp_path);
+	c->rem.content_len = c->length - c->offset;
+
+EXIT:
+	if(c->r_json != NULL)
+		JSON_PUT_OBJECT(c->r_json);
+	return 0;	
+}
+
+
+int Parser_FileWrite(struct conn *c)
+{
+	JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+	if(data_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+	if(para_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *path_json = JSON_GET_OBJECT(para_json,"path");
+	JObj *offset_json = JSON_GET_OBJECT(para_json,"offset");
+	JObj *length_json = JSON_GET_OBJECT(para_json,"length");
+	JObj *fileSize_json = JSON_GET_OBJECT(para_json,"fileSize");
+	JObj *modifyTime_json = JSON_GET_OBJECT(para_json,"modifyTime");
+	if(path_json == NULL||offset_json == NULL||length_json == NULL||fileSize_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	
+	const char *uri_src = JSON_GET_OBJECT_VALUE(path_json,string);
+	if(uri_src == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+		
+	}
+	DMCLOG_D("uri_src = %s",uri_src);
+
+	c->des_path = (char *)calloc(1,strlen(uri_src) + 1);
+	assert(c->des_path != NULL);
+    if(*uri_src == '/')
+    {	
+    	if(*(uri_src + 1) == '/')
+    	{
+			sprintf(c->des_path,"%s",uri_src + 2);
+		}else{
+			sprintf(c->des_path,"%s",uri_src + 1);
+		}
+    }else{
+        sprintf(c->des_path,"%s",uri_src);
+    }
+	
+	c->fileSize= JSON_GET_OBJECT_VALUE(fileSize_json,int64);
+	if(modifyTime_json != NULL)
+		c->modifyTime = JSON_GET_OBJECT_VALUE(modifyTime_json,int64);
+	c->offset = JSON_GET_OBJECT_VALUE(offset_json,int64);
+	c->length = JSON_GET_OBJECT_VALUE(length_json,int64);
+	
+	c->cfg_path = (char *)calloc(1,strlen(c->des_path)+strlen(CFG_PATH_NAME)+1);
+	assert(c->cfg_path != NULL);
+	sprintf(c->cfg_path,"%s%s",c->des_path,CFG_PATH_NAME);
+	DMCLOG_D("cfg_path = %s",c->cfg_path);
+	c->tmp_path = (char *)calloc(1,strlen(c->des_path)+1);
+	assert(c->tmp_path);
+	sprintf(c->tmp_path,"%s",c->des_path);
 	DMCLOG_D("tmp_path = %s",c->tmp_path);
 	c->rem.content_len = c->length - c->offset;
 
@@ -1700,7 +1804,7 @@ EXIT:
 	return 0;	
 }
 /*
- * æ–‡ä»¶å¤¹åˆ›å»º cmd = 102
+ * ?–?????¤1?????o cmd = 102
  */
 int Parser_FileMkdir(struct conn *c)
 {
@@ -1752,7 +1856,7 @@ EXIT:
 	return 0;	
 }
 /*
- * æ–‡ä»¶æˆ–æ–‡ä»¶å¤¹é‡å cmd = 103
+ * ?–??????–?–?????¤1é????? cmd = 103
  */
 int Parser_FileRename(struct conn *c)
 {
@@ -1813,7 +1917,7 @@ EXIT:
 }
 
 /*
- * åˆ¤æ–­æ–‡ä»¶æˆ–æ–‡ä»¶å¤¹æ˜¯å¦å­˜åœ¨ cmd = 104
+ * ??¤?–-?–??????–?–?????¤1??¯??|?-???¨ cmd = 104
  */
 int Parser_FileIsExist(struct conn *c)
 {
@@ -1857,7 +1961,7 @@ EXIT:
 	return 0;	
 }
 /*
- *æ–‡ä»¶æˆ–æ–‡ä»¶å¤¹åˆ é™¤ cmd = 109
+ *?–??????–?–?????¤1???é?¤ cmd = 109
  */
 int parser_FileDelete(struct conn *c)
 {

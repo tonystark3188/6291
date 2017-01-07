@@ -58,6 +58,13 @@ int ppc_initialise()
 	if(0 != res){
 		return FAIL;
 	}
+
+	res = InitLinklist();
+	if(res)
+	{
+		DMCLOG_E("InitLinklist failed...");
+		return FAIL;
+	}
 	
 	return SUCCESS;
 }
@@ -79,6 +86,8 @@ int ppc_uninitialise()
 	if(0 != res){
 		return FAIL;
 	}
+
+	ReleaseLinklist();
 	
 	return SUCCESS;
 }
@@ -268,6 +277,7 @@ FILE *ppc_fopen(const char *path, const char *mode, _int64_t token)
  */
 size_t ppc_fread(void *buffer, size_t size, size_t count, FILE *fp)
 {
+	int ret = 0;
 	int v_fd = (int)fp;
 	int socket_fd = get_socket_fd_from_ppc_fd_list(v_fd);
 	if(socket_fd < 0){
@@ -276,7 +286,10 @@ size_t ppc_fread(void *buffer, size_t size, size_t count, FILE *fp)
 
 	ssize_t read_len = handle_fread_task(socket_fd, count, buffer);
 	if(read_len > 0){
-		inc_offset_for_ppc_fd_list(v_fd, read_len);
+		ret = inc_offset_for_ppc_fd_list(v_fd, (off_t)read_len);
+		if(ret){
+			return FAIL;
+		}
 	}
 
 	return read_len;
@@ -287,6 +300,7 @@ size_t ppc_fread(void *buffer, size_t size, size_t count, FILE *fp)
  */
 size_t ppc_fwrite(const void* buffer, size_t size, size_t count, FILE *fp)
 {
+	int ret = 0;
 	int v_fd = (int)fp;
 	int socket_fd = get_socket_fd_from_ppc_fd_list(v_fd);
 	if(socket_fd < 0){
@@ -295,7 +309,10 @@ size_t ppc_fwrite(const void* buffer, size_t size, size_t count, FILE *fp)
 	
 	ssize_t write_len = handle_fwrite_task(socket_fd,count,buffer);
 	if(write_len > 0){
-		inc_offset_for_ppc_fd_list(v_fd, write_len);
+		ret = inc_offset_for_ppc_fd_list(v_fd, (off_t)write_len);
+		if(ret){
+			return FAIL;
+		}
 	}
 
 	return write_len;
@@ -407,7 +424,7 @@ off_t ppc_ftell(FILE *fp, _int64_t token)
 {
 	int ret = 0;
 	int v_fd = 0;
-	size_t offset = 0;
+	off_t offset = 0;
 	fd_info *open_fd_info = NULL;
 	
 	if(fp == NULL){
@@ -1002,6 +1019,7 @@ int ppc_close(int fd)
  */
 ssize_t ppc_read(int fd, void *buf, size_t count)
 {
+	int ret = 0;
 	int socket_fd = get_socket_fd_from_ppc_fd_list(fd);
 	if(socket_fd < 0){
 		return FAIL;
@@ -1009,7 +1027,10 @@ ssize_t ppc_read(int fd, void *buf, size_t count)
 
 	ssize_t read_len = handle_read_task(socket_fd, count, buf);
 	if(read_len > 0){
-		inc_offset_for_ppc_fd_list(fd, read_len);
+		ret = inc_offset_for_ppc_fd_list(fd, (off_t)read_len);
+		if(ret){
+			return FAIL;
+		}
 	}
 
 	return read_len;
@@ -1020,6 +1041,7 @@ ssize_t ppc_read(int fd, void *buf, size_t count)
  */
 ssize_t ppc_write(int fd, void *buf, size_t count)
 {
+	int ret = 0;
 	int socket_fd = get_socket_fd_from_ppc_fd_list(fd);
 	if(socket_fd < 0){
 		return FAIL;
@@ -1027,7 +1049,10 @@ ssize_t ppc_write(int fd, void *buf, size_t count)
 	
 	ssize_t write_len = handle_write_task(socket_fd, count, buf);
 	if(write_len > 0){
-		inc_offset_for_ppc_fd_list(fd, write_len);
+		ret = inc_offset_for_ppc_fd_list(fd, (off_t)write_len);
+		if(ret){
+			return FAIL;
+		}
 	}
 
 	return write_len;
@@ -1039,7 +1064,7 @@ ssize_t ppc_write(int fd, void *buf, size_t count)
 off_t ppc_lseek(int fd, off_t offset ,int whence, _int64_t token)
 {
 	int ret = 0;
-	size_t seek_offset = 0;
+	off_t seek_offset = 0;
 	fd_info *open_fd_info = NULL;
 	ret = get_info_from_ppc_fd_list(fd, &open_fd_info);
 	if(ret || (open_fd_info == NULL) || (open_fd_info->path == NULL)){
@@ -1074,7 +1099,7 @@ off_t ppc_lseek(int fd, off_t offset ,int whence, _int64_t token)
 	}
 
 	// TODO: openÎªwriteÊ±£¬file_lenÎª0
-	if(seek_offset > open_fd_info->file_len){
+	if(!(open_fd_info->flag & (O_WRONLY | O_CREAT)) && (seek_offset > open_fd_info->file_len)){
 		DMCLOG_E("seek_offset(%lld) is longer than file length(%lld)!!!", seek_offset, open_fd_info->file_len);
 		safe_free(open_fd_info->path);
 		safe_free(open_fd_info);
@@ -1260,7 +1285,7 @@ ssize_t ppc_pwrite(int fd, void *buf, size_t count, off_t offset, _int64_t token
 	
 	ssize_t write_len = handle_write_task(file_info->fd, count, buf);
 	if(write_len > 0){
-		set_offset_for_ppc_fd_list(fd, write_len + offset);
+		set_offset_for_ppc_fd_list(fd, (off_t)write_len + offset);
 	}
 
 	safe_free(open_fd_info->path);
@@ -1274,6 +1299,7 @@ ssize_t ppc_pwrite(int fd, void *buf, size_t count, off_t offset, _int64_t token
   */
 ssize_t ppc_writev(int fd, const struct iovec *iov, int cnt, _int64_t token)
 {
+	int ret = 0;
 	int num = 0;
 	ssize_t write_len = 0;
 	ssize_t write_all = 0;
@@ -1290,10 +1316,13 @@ ssize_t ppc_writev(int fd, const struct iovec *iov, int cnt, _int64_t token)
 	for(num = 0; num < cnt; num++){	
 		write_len = handle_write_task(socket_fd, iov[num].iov_len, (char *)(iov[num].iov_base));
 		if(write_len > 0){
-			inc_offset_for_ppc_fd_list(fd, write_len);
+			ret = inc_offset_for_ppc_fd_list(fd, (off_t)write_len);
+			if(ret){
+				return FAIL;
+			}
 		}
 		else{
-			DMCLOG_D("handle_write_task fail");
+			DMCLOG_E("handle_write_task fail");
 			return FAIL;
 		}
 		write_all += write_len;

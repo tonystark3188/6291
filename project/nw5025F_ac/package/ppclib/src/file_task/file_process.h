@@ -97,7 +97,7 @@ extern "C"{
 #define FN_FILE_FTRUNCATE		142
 #define FN_FILE_FALLOCATE		143
 #define FN_FILE_STATVFS			144
-
+#define FN_FILE_WRITE			145
 
 
 int file_process(ClientTheadInfo *p_client_info);

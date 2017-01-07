@@ -28,6 +28,7 @@ int del_info_for_ppc_token_list(_int64_t token);
 int get_info_from_ppc_token_list(token_info **p_token_info, _int64_t token);
 int update_work_dir_for_ppc_token_list(char *work_dir, _int64_t token);
 char *get_work_dir_from_ppc_token_list(_int64_t token);
+int DeleteNodeByVuid(int vuid);
 int free_ppc_token_list();
 
 #ifdef __cplusplus

@@ -17,6 +17,9 @@ SOURCE_FILES += $(wildcard $(SRC_FILE_PATH)/*.c)
 SRC_PPCLIB_PATH = ./ppclib
 SOURCE_FILES += $(wildcard $(SRC_PPCLIB_PATH)/*.c)
 
+SRC_TOKENLIST_PATH = ./token_list
+SOURCE_FILES += $(wildcard $(SRC_TOKENLIST_PATH)/*.c)
+
 TEST_FILES += $(SOURCE_FILES)
 
 LIB_STATIC_FILES_OBJS = $(patsubst %.c,%.o,$(SOURCE_FILES))

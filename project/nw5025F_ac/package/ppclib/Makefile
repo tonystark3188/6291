@@ -48,6 +48,7 @@ define Package/ppclib/install
 	$(CP) $(PKG_BUILD_DIR)/*.a $(STAGING_DIR)/usr/lib
 	$(CP) $(PKG_BUILD_DIR)/ppclib/*.h $(STAGING_DIR)/usr/include/$(PKG_NAME)
 	$(CP) $(PKG_BUILD_DIR)/tools/*.h $(STAGING_DIR)/usr/include/$(PKG_NAME)
+	$(CP) $(PKG_BUILD_DIR)/token_list/*.h $(STAGING_DIR)/usr/include/$(PKG_NAME)
 	#$(INSTALL_BIN) ./files/$(PKG_NAME).init $(1)/etc/init.d/$(PKG_NAME)
 	
 endef

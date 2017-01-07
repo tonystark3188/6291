@@ -82,10 +82,11 @@ typedef enum DMDiskClientCommand {
     DM_FileFSeek = 204,
 	DM_FileWrite = 202,//文件上传
     DM_FileRead =  203,//文件上传
-    DM_FileSeek = 205,
+    DM_FileSeekRead = 205,
     DM_FilePWrite = 206,//文件上传
     DM_FilePRead =  207,//文件上传
     DM_FileWritev = 208,//文件上传
+	DM_FileSeekWrite = 209,
 } DMDiskClientCommand;
 
 int test_fread(char *src_path,char *des_path, _int64_t token)
@@ -292,11 +293,11 @@ int test_write(char *src_path,char *des_path, _int64_t token)
     return 0;
 }
 
-int test_seek_tell(char *src_path,char *des_path, _int64_t token)
+int test_seek_read(char *src_path,char *des_path, _int64_t token)
 {
     size_t per_bytes = 0;
     size_t total_bytes = 0;
-	 off_t seek_offset = 0;
+	off_t seek_offset = 0;
 
 	DMCLOG_M("START test_seek_tell !!!!!!!!!");
     int des_fd = open(des_path,O_WRONLY | O_CREAT,0644);
@@ -326,11 +327,16 @@ int test_seek_tell(char *src_path,char *des_path, _int64_t token)
         DMCLOG_D("haved read %lu ",total_bytes);
         write(des_fd, buffer, per_bytes);
 
-		seek_offset = ppc_lseek(src_fd, total_bytes, SEEK_SET, token);
+		//seek_offset = ppc_lseek(src_fd, total_bytes, SEEK_SET, token);
 		//seek_offset = ppc_lseek(src_fd, total_bytes - 9207537, SEEK_END, token);
-		//seek_offset = ppc_lseek(src_fd, 0, SEEK_CUR, token);
+		seek_offset = ppc_lseek(src_fd, 0, SEEK_CUR, token);
+		//seek_offset = ppc_lseek(src_fd, 0, SEEK_SET, token);
+		if(seek_offset < 0){
+			DMCLOG_D("seek offset(%lld) fail", seek_offset);
+			return -1;
+		}
 		
-		DMCLOG_D("seek_offset %d ",total_bytes);
+		DMCLOG_D("seek_offset %lld ", seek_offset);
     }while(1);
     
     ppc_close(src_fd);
@@ -338,6 +344,62 @@ int test_seek_tell(char *src_path,char *des_path, _int64_t token)
 	DMCLOG_M("END test_seek_tell !!!!!!!!!");
     return 0;
 }
+
+int test_seek_write(char *src_path,char *des_path, _int64_t token)
+{
+    ssize_t per_bytes = 0;
+    size_t write_bytes = 0;
+    size_t total_bytes = 0;
+	off_t seek_offset = 0;
+	
+    DMCLOG_M("START test_seek_write !!!!!!!!!");
+    int src_fd = open(src_path,O_RDONLY,0644);
+    if(src_fd < 0){
+        DMCLOG_E("%s open error",src_path);
+        return -1;
+    }
+	
+    int des_fd = ppc_open(des_path, O_WRONLY, 0, token);
+    //int des_fd = ppc_open(des_path, O_CREAT, 0, token);
+    if(des_fd < 0)
+    {
+        printf("ppc open error\n");
+        return -1;
+    }
+    char buffer[16384] = {0};
+	memset(buffer, 0, sizeof(buffer));
+	
+    do{
+        per_bytes = read(src_fd, buffer, sizeof(buffer));
+        if(per_bytes <= 0)
+        {
+            printf("read finish\n");
+            break;
+        }
+        DMCLOG_D("per_bytes = %zu",per_bytes);
+        write_bytes = ppc_write(des_fd, buffer, per_bytes);
+        if(write_bytes > 0)
+        {
+            total_bytes += write_bytes;
+            DMCLOG_D("haved writed %lu ",total_bytes);
+        }
+
+		//seek_offset = ppc_lseek(des_fd, total_bytes, SEEK_SET, token);
+		seek_offset = ppc_lseek(des_fd, 0, SEEK_CUR, token);
+		if(seek_offset < 0){
+			DMCLOG_D("seek offset(%lld) fail", seek_offset);
+			return -1;
+		}
+		
+		DMCLOG_D("seek_offset %lld ", seek_offset);
+    }while(write_bytes >0);
+    
+    ppc_close(des_fd);
+    close(src_fd);
+	DMCLOG_M("END test_seek_write !!!!!!!!!");
+    return 0;
+}
+
 
 int test_pread(char *src_path,char *des_path, _int64_t token)
 {
@@ -567,12 +629,6 @@ static ssize_t dm_stream_write(int seq,void *buf,ssize_t writeSize)
     return len;
 }
 
-//    DMCLOG_D("int length:%lu",sizeof(int));
-//    DMCLOG_D("unsigned length:%lu",sizeof(unsigned));
-//    DMCLOG_D("long length:%lu",sizeof(long));
-//    DMCLOG_D("unsigned long length:%lu",sizeof(unsigned long));
-//        scanf("%d",&cmd);
-
 int main(int argc,char *argv[])
 {
     int res = 0;
@@ -708,11 +764,16 @@ int main(int argc,char *argv[])
             command = DM_FileWrite;
             sprintf(src,"%s/%s",ROOT_PATH,cmd[1]);
             sprintf(des,"%s",cmd[2]);
-		}else if(!strcmp(cmd[0],"ppc_seek"))
+		}else if(!strcmp(cmd[0],"ppc_seek_read"))
         {
-            command = DM_FileSeek;
+            command = DM_FileSeekRead;
             sprintf(src,"%s",cmd[1]);
             sprintf(des,"%s/%s",ROOT_PATH,cmd[2]);
+		}else if(!strcmp(cmd[0],"ppc_seek_write"))
+        {
+            command = DM_FileSeekWrite;
+            sprintf(src,"%s/%s",ROOT_PATH,cmd[1]);
+            sprintf(des,"%s",cmd[2]);
 		}else if(!strcmp(cmd[0],"ppc_pread"))
         {
             command = DM_FilePRead;
@@ -1017,11 +1078,18 @@ int main(int argc,char *argv[])
                 test_writev(src, des, utoken);
             }
                 break;
-			case DM_FileSeek:
+			case DM_FileSeekRead:
             {
                 DMCLOG_D("src = %s",src);
                 DMCLOG_D("des = %s",des);
-                test_seek_tell(src, des,utoken);
+                test_seek_read(src, des, utoken);
+            }
+                break;
+			case DM_FileSeekWrite:
+            {
+                DMCLOG_D("src = %s",src);
+                DMCLOG_D("des = %s",des);
+                test_seek_write(src, des, utoken);
             }
                 break;
 			case DM_FdGetFileList:

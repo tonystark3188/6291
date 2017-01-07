@@ -131,6 +131,7 @@ extern "C"{
 #define FN_FILE_FTRUNCATE				142
 #define FN_FILE_FALLOCATE				143
 #define FN_FILE_STATVFS					144
+#define FN_FILE_WRITE					145
 
 
 /**********************************file client module****************************************************/
@@ -143,7 +144,8 @@ int DM_FileDownload(struct conn *c);
 int DM_FileCheckUpload(struct conn *c);
 
 int DM_FileUpload(struct conn *c);
-/*
+
+int DM_FileWrite(struct conn *c);
 
 /*
  * 获取磁盘信息 cmd = 100
@@ -206,6 +208,8 @@ int Parser_FileCheckUpload(struct conn *c);
  * 上传命令cmd = 107
  */
 int Parser_FileUpload(struct conn *c);
+
+int Parser_FileWrite(struct conn *c);
 
 /*
  * 获取磁盘信息 cmd = 100

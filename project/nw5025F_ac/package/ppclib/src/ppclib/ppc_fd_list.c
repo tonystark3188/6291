@@ -109,7 +109,7 @@ int del_info_for_ppc_fd_list(int v_fd)
 	return ret;
 }
 
-int inc_offset_for_ppc_fd_list(int v_fd, size_t offset)
+int inc_offset_for_ppc_fd_list(int v_fd, off_t offset)
 {
 	int ret = -1;
 	fd_info *item;
@@ -126,11 +126,11 @@ int inc_offset_for_ppc_fd_list(int v_fd, size_t offset)
 					}
 				}
 				else{
-					if(item->offset + offset <= item->file_len){
+					//if(item->offset + offset <= item->file_len){
 						item->offset += offset;
 						ret = 0;
 						break;
-					}				
+					//}				
 				}
 			}
 		}
@@ -139,7 +139,7 @@ int inc_offset_for_ppc_fd_list(int v_fd, size_t offset)
 	return ret;
 }
 
-int set_offset_for_ppc_fd_list(int v_fd, size_t offset)
+int set_offset_for_ppc_fd_list(int v_fd, off_t offset)
 {
 	int ret = -1;
 	fd_info *item;
@@ -156,11 +156,11 @@ int set_offset_for_ppc_fd_list(int v_fd, size_t offset)
 					}
 				}
 				else{
-					if(offset <= item->file_len){
+					//if(offset <= item->file_len){
 						item->offset = offset;
 						ret = 0;
 						break;
-					}				
+					//}				
 				}
 			}
 		}

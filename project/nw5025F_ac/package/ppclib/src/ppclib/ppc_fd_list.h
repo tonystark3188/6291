@@ -40,8 +40,8 @@ typedef struct _fd_info
 int init_ppc_fd_list();
 int add_info_for_ppc_fd_list(fd_info *p_fd_info);
 int del_info_for_ppc_fd_list(int v_fd);
-int inc_offset_for_ppc_fd_list(int v_fd, size_t offset);
-int set_offset_for_ppc_fd_list(int v_fd, size_t offset);
+int inc_offset_for_ppc_fd_list(int v_fd, off_t offset);
+int set_offset_for_ppc_fd_list(int v_fd, off_t offset);
 int get_socket_fd_from_ppc_fd_list(int v_fd);
 int ch_socket_fd_for_ppc_fd_list(int v_fd, int socket_fd);
 int get_info_from_ppc_fd_list(int v_fd, fd_info **p_info);
