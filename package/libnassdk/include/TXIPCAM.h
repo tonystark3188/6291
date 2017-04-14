@@ -21,6 +21,7 @@ enum definition {
 	def_high	= 3,	//高
 };
 
+
 // 云台(PTZ)旋转方向
 enum rotate_direction {
 	rotate_direction_left	= 1,	//左
@@ -57,6 +58,13 @@ typedef struct _tx_ipcamera_notify {
 	 * return : 0代表调整失败， 非0代表调整成功。
 	*/
 	int (*on_control_rotate)(int rotate_direction, int rotate_degree);
+
+	/**
+	 * 接口说明：ipcamera变倍控制回调
+	 * param zoom			 :  放大或者缩小, 负值表缩小，负值代表放大。
+	 * return : 0代表调整失败， 非0代表调整成功。
+	*/
+	int (*on_control_zoom)(int zoom);
 } tx_ipcamera_notify;
 
 
@@ -124,6 +132,7 @@ typedef struct _tx_history_video_notify
 {
 	/**
 	 * 接口说明: 查询历史视频信息 step1
+	 * param: channel     多路设备用于区分通道，单通道设备可以忽略。默认值为1. 手Q6.5.5支持
 	 * param: last_time   手机QQ分段拉取历史视频信息，last_time为时间轴末端的时间(unix时间戳），例如时间轴示意图中的2:30
 	 * param: max_count   请求的时间区间数目
 	 * param: count       实际返回的区间数目
@@ -131,7 +140,7 @@ typedef struct _tx_history_video_notify
 	 *
      * 特别说明：在回调处理里面，先确认有没有sd存储卡，若不存在，请将count值赋值为 -1。我们会将没有SD存储卡这个情况，通知给手Q，做界面处理。
      */
-	void (*on_fetch_history_video)(unsigned int last_time, int max_count, int *count, tx_history_video_range * range_list);
+	void (*on_fetch_history_video)(int channel, unsigned int last_time, int max_count, int *count, tx_history_video_range * range_list);
 
 	/**
 	 * 接口说明: 播放历史视频 step2
@@ -169,6 +178,21 @@ SDK_API void tx_set_history_video_data(unsigned char *pcEncData, int nEncDataLen
  * 向SDK填充历史音频数据
  */
 SDK_API void tx_set_history_audio_data(tx_audio_encode_param *param, unsigned char *pcEncData, int nEncDataLen, unsigned long long nTimeStamps);
+
+
+/**
+ * 设置初始的清晰度, 必须在tx_start_av_service之前调用
+ * definition: 要设置的清晰度，具体取值参见 enum definition
+*/
+SDK_API void tx_set_init_video_definition(int definition);
+
+/**
+ * 设置【无用户观看时tx_av_callback.on_stop_camera】通知的超时时间
+ * 默认无用户观察时，1分钟才会调用on_stop_camera，开发者可以修改这里的值，控制超时的时间，
+ * 超时时间(ms), 最小值支持20*1000ms
+*/
+SDK_API void tx_set_stop_camera_timeout(int interval);
+
 CXX_EXTERN_END
 
 #endif // __IPCAMERA_H__

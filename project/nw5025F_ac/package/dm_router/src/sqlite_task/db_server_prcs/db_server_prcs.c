@@ -55,7 +55,6 @@ int get_disk_mark_info(char *path)
 
 static int add_disk_to_list(void *self,char *uuid ,char *path, char *dev_node)
 {
-	ENTER_FUNC();
 	DiskTaskObj *diskTask = (DiskTaskObj *)self;
 	if(diskTask == NULL||uuid == NULL || path == NULL || dev_node == NULL)
 	{
@@ -99,6 +98,8 @@ static int add_disk_to_list(void *self,char *uuid ,char *path, char *dev_node)
         DMCLOG_D("start_scan_task failed");
         return -1;
     }
+
+    encrypt_file_init();
 	EXIT_FUNC();
 	return 0;
 }
@@ -173,61 +174,75 @@ void x1000_onDiskListDel(void *self)
 {	
 	disk_node_t *disk_node,*n;
 	DiskTaskObj *diskTask = (DiskTaskObj *)self;
-	pthread_mutex_lock(&diskTask->mutex);
-	if(&diskTask->head == NULL || dl_list_empty(&diskTask->head))
-	{
-		EXIT_FUNC();
-		pthread_mutex_unlock(&diskTask->mutex);
-		return ;
-	}
 
-	if(diskTask->event == PC_MOUNT_EVENT){
-		dl_list_for_each(disk_node,&diskTask->head,disk_node_t,node)
-		{
-			DMCLOG_D("path: %s, uuid: %s, dev_node: %s",disk_node->path, disk_node->uuid, disk_node->dev_node);
-			pthread_mutex_lock(&disk_node->mutex);
-			if(disk_node->g_db_write_task.exit_cb != NULL)
-				disk_node->g_db_write_task.exit_cb(&disk_node->g_db_write_task);
-			if(disk_node->g_db_query_task.exit_cb != NULL)
-				disk_node->g_db_query_task.exit_cb(&disk_node->g_db_query_task);
-			pthread_mutex_unlock(&disk_node->mutex);
-		    pthread_mutex_destroy(&disk_node->mutex);
-		}
-		dl_list_for_each_safe(disk_node,n,&diskTask->head,disk_node_t,node)
-		{
-			dl_list_del(&disk_node->node);
-			safe_free(disk_node);
-		}
+	int check_cnt = 0;
+	do{
+		usleep(1000);
+	}while(DB_STATUS_SCANNING == GetDmFileTableScanStatus() && (check_cnt++) < 1024);
+
+	if(check_cnt >= 1024){
+		DMCLOG_E("out scanning fail");
 	}
-	else if(diskTask->event == UDISK_EXTRACT_EVENT){
-		dl_list_for_each(disk_node,&diskTask->head,disk_node_t,node)
+	else{
+		pthread_mutex_lock(&diskTask->mutex);
+		if(&diskTask->head == NULL || dl_list_empty(&diskTask->head))
 		{
-			DMCLOG_D("path: %s, uuid: %s",disk_node->path, disk_node->uuid);
-			if(strcmp(diskTask->actionNode, disk_node->dev_node)){
-				continue;
-			}
-			pthread_mutex_lock(&disk_node->mutex);
-			if(disk_node->g_db_write_task.exit_cb != NULL)
-				disk_node->g_db_write_task.exit_cb(&disk_node->g_db_write_task);
-			if(disk_node->g_db_query_task.exit_cb != NULL)
-				disk_node->g_db_query_task.exit_cb(&disk_node->g_db_query_task);
-			pthread_mutex_unlock(&disk_node->mutex);
-		    pthread_mutex_destroy(&disk_node->mutex);
+			EXIT_FUNC();
+			pthread_mutex_unlock(&diskTask->mutex);
+			return ;
 		}
-		dl_list_for_each_safe(disk_node,n,&diskTask->head,disk_node_t,node)
-		{
-			if(strcmp(diskTask->actionNode, disk_node->dev_node)){
-				continue;
+
+		if(diskTask->event == PC_MOUNT_EVENT){		
+			dl_list_for_each(disk_node,&diskTask->head,disk_node_t,node)
+			{
+				DMCLOG_D("path: %s, uuid: %s, dev_node: %s",disk_node->path, disk_node->uuid, disk_node->dev_node);
+				pthread_mutex_lock(&disk_node->mutex);
+				if(disk_node->g_db_write_task.exit_cb != NULL)
+					disk_node->g_db_write_task.exit_cb(&disk_node->g_db_write_task);
+				if(disk_node->g_db_query_task.exit_cb != NULL)
+					disk_node->g_db_query_task.exit_cb(&disk_node->g_db_query_task);
+				pthread_mutex_unlock(&disk_node->mutex);
+			    pthread_mutex_destroy(&disk_node->mutex);
 			}
-			dl_list_del(&disk_node->node);
-			safe_free(disk_node);
+			dl_list_for_each_safe(disk_node,n,&diskTask->head,disk_node_t,node)
+			{
+				dl_list_del(&disk_node->node);
+				safe_free(disk_node);
+			}
 		}
+		else if(diskTask->event == UDISK_EXTRACT_EVENT){
+			dl_list_for_each(disk_node,&diskTask->head,disk_node_t,node)
+			{
+				DMCLOG_D("path: %s, uuid: %s",disk_node->path, disk_node->uuid);
+				if(strcmp(diskTask->actionNode, disk_node->dev_node)){
+					continue;
+				}
+				pthread_mutex_lock(&disk_node->mutex);
+				if(disk_node->g_db_write_task.exit_cb != NULL)
+					disk_node->g_db_write_task.exit_cb(&disk_node->g_db_write_task);
+				if(disk_node->g_db_query_task.exit_cb != NULL)
+					disk_node->g_db_query_task.exit_cb(&disk_node->g_db_query_task);
+				pthread_mutex_unlock(&disk_node->mutex);
+			    pthread_mutex_destroy(&disk_node->mutex);
+			}
+			dl_list_for_each_safe(disk_node,n,&diskTask->head,disk_node_t,node)
+			{
+				if(strcmp(diskTask->actionNode, disk_node->dev_node)){
+					continue;
+				}
+				dl_list_del(&disk_node->node);
+				safe_free(disk_node);
+			}
+		}
+		else{
+			DMCLOG_E("UNKNOW EVENT: %d", diskTask->event);
+		}
+		pthread_mutex_unlock(&diskTask->mutex);
+		uint16_t sign = get_database_sign();
+		sign++;
+		set_database_sign(sign);
+		dm_cycle_change_inotify(data_base_changed);
 	}
-	pthread_mutex_unlock(&diskTask->mutex);
-	uint16_t sign = get_database_sign();
-	sign++;
-	set_database_sign(sign);
-	dm_cycle_change_inotify(data_base_changed);
 	EXIT_FUNC();
 }
 

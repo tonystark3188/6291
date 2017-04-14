@@ -310,7 +310,7 @@ void changeMacStr(char *instr, char *outstr)
 	outstr[13]=0;
 }
 
-#if defined(WIFI_DRIVER_WEXT)
+//#if defined(WIFI_DRIVER_WEXT)
 /*------------------------------------------------------------------*/
 /*
  * Output the link statistics, taking care of formating
@@ -1126,8 +1126,8 @@ crealloc:
 	free(buffer);
 	return(0);
 }
-#else defined(WIFI_DRIVER_NL80211)
-static int cgi_get_scan_nl80211(char *	ifname, ap_list_info_t *p_ap_list)
+//#else defined(WIFI_DRIVER_NL80211)
+int cgi_get_scan_nl80211(char *ifname, ap_list_info_t *p_ap_list)
 {
 	int i = 0, j = 0;
 	ap_list_info_t ap_list_all;
@@ -1212,7 +1212,94 @@ static int cgi_get_scan_nl80211(char *	ifname, ap_list_info_t *p_ap_list)
 	}
 	return 0;
 }
-#endif
+
+int cgi_get_scan_nl80211_add_network(char *ifname, char *ssid, ap_info_t *p_ap_info)
+{
+	int ret = 0;
+	int wifi_channel;
+	char uci_option_str[64]="\0";
+	char tmp_str[64];
+	char cmd_str[64];
+	ap_list_info_t *scan_ap_list = NULL;
+	int wifi_mode = get_wifi_mode();
+
+	if(ifname == NULL || ssid == NULL || p_ap_info == NULL){
+		ret = -1;
+		goto EXIT;
+	}
+
+	scan_ap_list = (ap_list_info_t *)malloc(sizeof(ap_list_info_t));
+	if(scan_ap_list == NULL){
+		ret = -1;
+		goto EXIT;
+	}
+
+	memset(scan_ap_list, 0, sizeof(ap_list_info_t));
+	ret = get_scan_list_nl80211_add_network(ifname, ssid, scan_ap_list);
+	if(0 == ret){
+		if(scan_ap_list->count == 0){
+			memset(scan_ap_list, 0, sizeof(ap_list_info_t));
+			ret = get_scan_list_nl80211_add_network(ifname, ssid, scan_ap_list);
+			if (ret){
+				ret = -1;
+				goto EXIT;
+			}
+		}
+	}
+	else{
+		if(wifi_mode == M5G){
+			memset(uci_option_str, '\0', 64);
+			memset(tmp_str, '\0', 64);
+			memset(cmd_str, '\0', 64);
+			strcpy(uci_option_str,"wireless2.@wifi[0].ch5g"); 
+			ret = uci_get_option_value(uci_option_str, tmp_str);
+			if (ret){
+				ret = -1;
+				goto EXIT;
+			}
+			sprintf(cmd_str, "wl down;wl channel %s;wl up", tmp_str);			
+			system(cmd_str);
+			
+			memset(scan_ap_list, 0, sizeof(ap_list_info_t));
+			ret = get_scan_list_nl80211_add_network(ifname, ssid, scan_ap_list);
+			DMCLOG_D("p_ap_list->count: %d", scan_ap_list->count);
+			if (ret){
+				ret = -1;
+				goto EXIT;
+			}
+		}
+		else{
+			ret = -1;
+			goto EXIT;
+		}
+	}
+
+	if(scan_ap_list->count != 0){
+		wifi_channel = scan_ap_list->ap_info[0].channel;
+		if(!((wifi_mode == M2G && wifi_channel <= 14 && wifi_channel > 0) 
+			|| (wifi_mode == M5G && wifi_channel >= 36))){
+			ret = -1;
+			goto EXIT;
+		}
+		else{
+			strcpy(p_ap_info->ssid, scan_ap_list->ap_info[0].ssid);
+			strcpy(p_ap_info->mac, scan_ap_list->ap_info[0].mac);
+			strcpy(p_ap_info->encrypt, scan_ap_list->ap_info[0].encrypt);
+			strcpy(p_ap_info->tkip_aes, scan_ap_list->ap_info[0].tkip_aes);
+			p_ap_info->channel = scan_ap_list->ap_info[0].channel;
+			p_ap_info->wifi_signal = scan_ap_list->ap_info[0].wifi_signal;
+		}
+	}
+	else{
+		ret = -1;
+		goto EXIT;
+	}
+
+EXIT:
+	safe_free(scan_ap_list);
+	return ret;
+}
+//#endif
 #endif
 
 int dm_wlan_scan(ap_list_info_t *ap_list_info)
@@ -1294,30 +1381,59 @@ int dm_wlan_scan(ap_list_info_t *ap_list_info)
 	}
 	pclose(read_fp);
 #elif defined(OPENWRT_X1000)
-	char ifname[10];
-	memset(ifname, 0, sizeof(ifname));
-	strcpy(ifname, "wlan0");	
 	int ret;
-#if defined(WIFI_DRIVER_WEXT)
-	int skfd;	
-	if((skfd = iw_sockets_open()) < 0){
-		return ROUTER_ERRORS_SOCKET_IOCTL;
+	char ifname[10];
+	char temp_buf[32];
+	char cmd_buf[TEMP_BUFFER_SIZE];
+	
+	memset(ifname, 0, sizeof(ifname));
+	memset(cmd_buf, 0, TEMP_BUFFER_SIZE);
+	memset(temp_buf, 0, sizeof(temp_buf));
+	sprintf(cmd_buf,"wireless2.@wifi[0].wifi_module");
+	ret = uci_get_option_value(cmd_buf, &temp_buf);
+	if(-1 == ret){
+		DMCLOG_D("uci get wifi_module error");
+		return ROUTER_ERRORS_UCI;
 	}
+	DMCLOG_D("wifi_module: %s", temp_buf);
+	if(NULL != strstr(temp_buf, "MRVL8801")){
+		strcpy(ifname,"mlan0");
+		int skfd;	
+		if((skfd = iw_sockets_open()) < 0){
+			return ROUTER_ERRORS_SOCKET_IOCTL;
+		}
 
-	ap_list_info->count=0;
-	ret = cgi_get_scan(skfd, ifname, ap_list_info);
-	if(ret < 0){
-		return ROUTER_ERRORS_SOCKET_IOCTL;
-	}
+		ap_list_info->count=0;
+		ret = cgi_get_scan(skfd, ifname, ap_list_info);
+		if(ret < 0){
+			return ROUTER_ERRORS_SOCKET_IOCTL;
+		}
 
-	iw_sockets_close(skfd);
-#else defined(WIFI_DRIVER_NL80211)
-	ap_list_info->count=0;
-	ret = cgi_get_scan_nl80211(ifname, ap_list_info);
-	if(ret < 0){
-		return ROUTER_ERRORS_SOCKET_IOCTL;
+		iw_sockets_close(skfd);
 	}
-#endif
+	else{
+		strcpy(ifname,"wlan0");
+		#if defined(WIFI_DRIVER_WEXT)
+		int skfd;	
+		if((skfd = iw_sockets_open()) < 0){
+			return ROUTER_ERRORS_SOCKET_IOCTL;
+		}
+
+		ap_list_info->count=0;
+		ret = cgi_get_scan(skfd, ifname, ap_list_info);
+		if(ret < 0){
+			return ROUTER_ERRORS_SOCKET_IOCTL;
+		}
+
+		iw_sockets_close(skfd);
+		#else defined(WIFI_DRIVER_NL80211)
+		ap_list_info->count=0;
+		ret = cgi_get_scan_nl80211(ifname, ap_list_info);
+		if(ret < 0){
+			return ROUTER_ERRORS_SOCKET_IOCTL;
+		}
+		#endif
+	}	
 #endif
 #elif defined(SUPPORT_LINUX_PLATFORM)
 #endif

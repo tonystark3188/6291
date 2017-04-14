@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html >
+<head>
+	<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+	<!-- H5页面窗口自动调整到设备宽度，并禁止用户缩放页面 -->
+	<meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+	<!-- 忽略将页面中的数字识别为电话号码 -->
+	<meta name="format-detection" content="telephone=no" />
+	<!-- 忽略Android平台中对邮箱地址的识别 -->
+	<meta name="format-detection" content="email=no" />
+	<!-- ios7.0版本以后，safari上已看不到效果 -->
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<!-- 可选default、black、black-translucent -->
+	<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+
+	<title>设置</title>
+	<link rel="stylesheet" type="text/css" href="css/init.css">
+	<link rel="stylesheet" type="text/css" href="css/dialog.css">
+
+	<script type="text/javascript" src="js/jquery-1.8.2.min.js"></script>
+	<script type="text/javascript" src="js/jquery.xml2json.js"></script>
+	<script type="text/javascript" src="js/layer/layer.js"></script>
+	<script type="text/javascript" src="js/adcgi-0.0.1.js"></script>
+	<script type="text/javascript" src="js/controller/dmdialog.js"></script>
+	<script type="text/javascript" src="js/controller/info.js"></script>
+	<script type="text/javascript" src="js/controller/dmplatform.js"></script>
+
+<style type="text/css">
+	@import url(./css/init.css);
+
+	html{font-size:62.5%}
+
+	.clear{
+		clear: both;
+	}
+
+	body{
+		background: rgb(244,244,244);
+	}
+
+	#container{
+		margin-top: 16px;
+		
+	}
+	#dmui_listview{
+		width: auto;
+		background: white;
+		border-top: solid 1px rgb(224,224,224); 
+		border-bottom: solid 1px rgb(224,224,224); 
+		padding-left: 16px;
+
+	}
+
+	.listview_item_top{
+		width: auto;
+		border-bottom: solid 1px rgb(224,224,224);
+	}
+	.listview_item_middle{
+		width: auto;
+		border-bottom: solid 1px rgb(224,224,224);
+	}
+
+	.listview_item_bottom{
+		width: auto;
+	}
+
+	.item_title{
+		height: 49px;
+		line-height: 49px;
+		color: #2A2A2A;
+		font-size: 1.6rem;
+		font-weight: bold;
+		float: left;
+	}
+	.item_value{
+		height: 49px;
+		line-height: 49px;
+		float: right;
+		font-size: 1.2rem;
+		color: #BCBCBC;
+		margin-right: 16px;
+		-webkit-tap-highlight-color: rgba(0,0,0,0;);
+	}
+
+	.loading_img{
+		width: 16px;
+		height: 16px;
+		margin-top: -3px;
+		margin-left: 8px;
+	}
+	
+	.item_value_pre{
+		height: 49px;
+		line-height: 49px;
+		float: right;
+		font-size:  1.2rem;
+		color: #BCBCBC;
+		margin-right: 8px;
+	}
+	.item_value_follow{
+		height: 49px;
+		line-height: 49px;
+		float: left;
+		font-size:  1.2rem;
+		color: #BCBCBC;
+		margin-left: 16px;
+	}
+	.clickable_value{	
+		color: #EF4444;
+
+	}
+	.item_button{
+		width: 60px;
+		height: 22px;	
+		line-height: 22px;	
+		text-align: center;
+		float: right;
+		font-size: 1.1rem;
+		color: #BCBCBC;
+		margin-top: 13px;
+		margin-right: 16px;
+
+		-webkit-tap-highlight-color: rgba(0,0,0,0;);
+		border: solid 1px #EF4444;
+		border-radius: 3px;
+	}
+	.msg_box{
+		width: 400px;
+		height: 400px;
+		border: solid 1px rgb(224,224,224);
+		border-radius: 5px;
+	}
+	
+</style>
+
+
+</head>
+<body>
+	<div id="container">
+		<div id="dmui_listview">
+			<div id="content">
+				<div id="item_battery" class="listview_item_top">
+					<div class="item_title">随身看电量</div>
+					<div class="item_value" id="power_percent"></div>
+					<div class="clear"></div>
+				</div>
+				
+				<div id="item_capacity" class="listview_item_middle">
+					<div class="item_title">已使用容量</div>
+					<div class="item_value_follow" id="used_percent"></div>
+					<div class="item_button" id="format_disk"><span  class="clickable_value" >格式化</span></div>
+					<div class="item_value_pre" ><img id="loading" class="loading_img" src="img/loading.gif"  style="display:none" /></div>
+					<div class="clear"></div>
+				</div>
+				
+				<div id="item_user" class="listview_item_middle">
+					<div class="item_title">现在连接人数</div>
+					<div class="item_value" id="users">人</div>
+					<div class="clear"></div>
+				</div>
+
+				<div id="item_workmode" class="listview_item_bottom">
+					<div class="item_title">当前模式</div>
+					<div class="item_value_follow" id="workmode"> </div>
+					<div class="item_button" id="switch_workmode"><span  class="clickable_value" >切换模式</span></div>
+					<div class="item_value_pre" ><img id="workmode_loading" class="loading_img" src="img/loading.gif"  style="display:none" /></div>
+					<div class="clear"></div>
+				</div>				
+			</div>
+		</div>
+		<!--<div class="msg_box"></div>-->
+	</div>
+</body>
+</html>

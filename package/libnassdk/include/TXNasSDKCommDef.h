@@ -27,6 +27,10 @@ typedef enum enum_file_type_def_internal {
 	file_type_other = 0 //其他文件
 }nas_file_type;
 
+struct nas_file_type_dir{
+	int 		file_type;
+	const char	*dir_name;
+};
 
 struct NasFile{
 	char path[1024];		 //文件路径

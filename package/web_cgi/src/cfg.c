@@ -46,7 +46,8 @@ char *g_cfg_parameter[] = {
 	[22] = "dms_enable",        [23] = "flag",
 	[24] = "qqsn",              [25] = "license", 
 	[26] = "version_flag",		[27] = "wifi_module",
-	[28] = "radio_band",		[29] = NULL,
+	[28] = "radio_band",		[29] = "dmdownload_id",
+	[30] = "root_pwd",			[31] = NULL,
 	
 };	
 
@@ -57,7 +58,7 @@ static void usage(void)
 	printf("config parameters are: mac ssid encryption password ip dhcp_start dhcp_end wpa_cipher\n");
 	printf("	set 		: cfg set parameter=value \n");
 	printf("	get 		: cfg get parameter\n");
-	printf("	list 	: show all cfg parameter and value\n");
+	printf("	list 		: show all cfg parameter and value\n");
 	printf("	checkflag 	: check whether config parameters has been set\n");
 	printf("	setflag 	: set the flag to 1\n");
 	printf("	clearflag 	: set the flag to 0\n");

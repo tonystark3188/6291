@@ -101,6 +101,7 @@ define Build/Configure
 		ap_cv_void_ptr_lt_long=no \
 		ac_cv_func_initgroups=no \
 		enable_qos=no \
+		enable_rewrite=yes \
 		--enable-dav \
 		--with-mpm=worker \
 		--sysconfdir=/usr/mips/conf \

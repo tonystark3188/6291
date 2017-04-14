@@ -27,7 +27,7 @@
 #include "config.h"
 #include "util.h"
 #include "search_task.h"
-
+#include "encrypt_file.h"
 
 typedef int (*API_FUNC)(struct conn *c);
 typedef int (*PARSE_FUN)(struct conn *c);
@@ -115,6 +115,22 @@ file_tag_handle all_file_handle[]=
 	{FN_FILE_CHECK_BACKUP_FILE,DM_FileCheckBackupFile,Parser_FileCheckBackupFile},
 	{FN_FILE_CHECK_BACKUP_FILE_LIST,DM_FileCheckBackupFileList,Parser_FileCheckBackupFileList},
 	{FN_FILE_IS_BACKUP_EXISTED,DM_FileIsBackupExisted,Parser_FileIsBackupFile},
+	{FN_ENCRYPT_FILE_IS_EXIST,DM_EncryptFileIsExsit,Parser_EncryptFileIsExsit},
+	{FN_ENCRYPT_FILE,DM_EncryptFile,Parser_EncryptFile},
+	{FN_ENCRYPT_DIR,DM_EncryptDir,Parser_EncryptDir},	
+	{FN_ENCRYPT_FILE_GET_LIST,DM_EncryptFileGetList,Parser_EncryptFileGetList},
+	{FN_ENCRYPT_FILE_DOWNLOAD,DM_EncryptFileDownload,Parser_EncryptFileDownload},
+	{FN_ENCRYPT_FILE_DECRYPT,DM_EncryptFileDecrypt,Parser_EncryptFileDecrypt},
+	{FN_ENCRYPT_FILE_DELETE,DM_EncryptFileDelete,parser_EncryptFileDelete},
+	{FN_VAULT_IS_OPEN,DM_VaultIsOpen,parser_VaultIsOpen},
+	{FN_VAULT_OPEN,DM_VaultOpen,parser_VaultOpen},
+	{FN_VAULT_CLOSE,DM_VaultClose,parser_VaultClose},	
+	{FN_VAULT_LOGIN,DM_VaultLogin,parser_VaultLogin},	
+	{FN_VAULT_LOGOUT,DM_VaultLogout,parser_VaultLogout},	
+	{FN_VAULT_IS_EMPTY,DM_VaultIsEmpty,parser_VaultIsEmpty},	
+	{FN_VAULT_RESET,DM_VaultReset,parser_VaultReset},	
+	{FN_VAULT_GET_TIPS,DM_VaultGetTips,parser_VaultGetTips},
+	{FN_VAULT_GET_PATH,DM_VaultGetPath,parser_VaultGetPath},
 };
 
 #define FILE_TAGHANDLE_NUM (sizeof(all_file_handle)/sizeof(all_file_handle[0]))
@@ -150,7 +166,22 @@ big_int_t get_storage_size(char *disk_path)
 	}
 	return -1;
 }
-
+static void encrypt_file_inotify_func(void *self)
+{
+    ENTER_FUNC();
+	int res = 0;
+    file_encrypt_info_t *pInfo = (file_encrypt_info_t *)self;
+	res = handle_encrypt_file_insert_cmd(pInfo->file_uuid,pInfo->src_path,pInfo->bIsRegularFile,pInfo->disk_uuid,pInfo->dest_path,pInfo->total_size);
+	if(res < 0)
+	{
+        DMCLOG_E("handle_encrypt_file_insert_cmd (%s) failed", pInfo->src_path); 
+    }
+	safe_free(pInfo->src_path);
+	safe_free(pInfo->dest_path);
+	safe_free(self);
+    EXIT_FUNC();
+    return ;
+}
 static void file_inotify_func(void *self)
 {
     ENTER_FUNC();
@@ -179,6 +210,1433 @@ get_path_info(struct conn *c, char *path, struct stat *stp)
 	if (my_stat(path, stp) == 0)
 		return (0);
 	return (-1);
+}
+int parser_VaultIsOpen(struct conn *c){
+
+   return 0;
+}
+int DM_VaultIsOpen(struct conn *c){
+	int ret;
+	char *skey = (char *)malloc(MAX_KEY_LEN+1);
+ 	JObj* response_json = JSON_NEW_EMPTY_OBJECT();	
+	if(skey == NULL)
+	{
+		c->error = DM_ERROR_ALLOCATE_MEM;
+		goto EXIT;
+	}
+	memset(skey,0,MAX_KEY_LEN+1);
+	
+	ret = nor_get_key(skey);
+	if(ret != 0)
+	{
+		safe_free(skey);
+		c->error = DM_ERROR_ENCRYPT_KEY_FAIL;
+		goto EXIT;		
+ 	}
+ 	c->error = 0;
+	DMCLOG_D("skey=(%s)",skey);
+	if(skey[0] != '\0'){
+		c->status = 1;
+	}else {
+		c->status = 0;
+	}
+
+	JObj *response_data_array = JSON_NEW_ARRAY();
+	JObj* status_json = JSON_NEW_EMPTY_OBJECT();
+	JSON_ADD_OBJECT(status_json, "status",JSON_NEW_OBJECT(c->status,int));
+	JSON_ARRAY_ADD_OBJECT (response_data_array,status_json);
+	JSON_ADD_OBJECT(response_json, "data", response_data_array);
+	
+EXIT:
+	file_json_to_string(c,response_json);
+	JSON_PUT_OBJECT(response_json);
+	return 0;
+}
+
+int parser_VaultOpen(struct conn *c){
+	JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+	if(data_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+	if(para_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	
+	JObj *password_json = JSON_GET_OBJECT(para_json,"password");
+	if(password_json == NULL)
+	{
+
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}	
+	char *password = JSON_GET_OBJECT_VALUE(password_json,string);
+	if(password == NULL && strlen(password)>63)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    strcpy(c->password,password);
+    
+	JObj *tips_json = JSON_GET_OBJECT(para_json,"tips");
+	if(tips_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+
+	char *tips = JSON_GET_OBJECT_VALUE(tips_json,string);
+    if(tips == NULL && strlen(tips)>255)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    strcpy(c->tips, tips);
+EXIT:
+    if(c->r_json != NULL)
+        JSON_PUT_OBJECT(c->r_json);
+    return 0;	    
+}
+
+int DM_VaultOpen(struct conn *c){
+	int ret;
+	char *skey = (char *)malloc(MAX_KEY_LEN+1);
+	JObj* response_json = JSON_NEW_EMPTY_OBJECT();
+	if(skey == NULL)
+	{
+		c->error = DM_ERROR_ALLOCATE_MEM;
+		goto EXIT;
+	}
+	memset(skey,0,MAX_KEY_LEN+1);
+	
+	ret = nor_get_key(skey);
+	if(ret != 0)
+	{
+		safe_free(skey);
+		c->error = DM_ERROR_VAULT_SET_PASSWD_FAIL;
+		goto EXIT;		
+ 	}
+ 	c->error = 0;
+ 	
+	if(skey[0] != '\0'){
+	// ���벻Ϊ�գ�������������
+		c->error = DM_ERROR_VAULT_SET_PASSWD_FAIL;
+		goto EXIT;		
+	}else {
+		ret = store_key(c->password);
+			if(ret != 0){
+			c->error = DM_ERROR_VAULT_SET_PASSWD_FAIL;
+			return -1;
+		}
+		ret = store_tips(c->tips);
+			if(ret != 0){
+			c->error = DM_ERROR_VAULT_SET_TIPS_FAIL;
+			return -1;
+		}
+	}
+/*	char *token = (char *)malloc(VAULT_TOKEN_LEN+1);
+	if(token == NULL)
+	{
+		c->error = DM_ERROR_ALLOCATE_MEM;
+		goto EXIT;
+	}
+	memset(token,0,VAULT_TOKEN_LEN+1);
+//	ret = get_token(token);
+
+	sprintf(token,"%d",time(NULL));
+	ret = set_token(token);
+	
+	if(ret != 0){
+		c->error = DM_ERROR_VAULT_GET_TOKEN_FAIL;
+		goto EXIT;
+	}
+	c->error = 0;
+
+	
+	JObj* token_json = JSON_NEW_EMPTY_OBJECT();
+
+	JSON_ADD_OBJECT(token_json, "token",JSON_NEW_OBJECT(token,string));
+*/
+	JObj *response_data_array = JSON_NEW_ARRAY();
+//	JSON_ARRAY_ADD_OBJECT (response_data_array,token_json);
+	JSON_ADD_OBJECT(response_json, "data", response_data_array);
+	
+EXIT:
+	file_json_to_string(c,response_json);
+	JSON_PUT_OBJECT(response_json);
+	return 0;
+}
+
+int parser_VaultClose(struct conn *c){
+	JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+	if(data_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+	if(para_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	
+	JObj *password_json = JSON_GET_OBJECT(para_json,"password");
+	if(password_json == NULL)
+	{
+
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}	
+	char *password = JSON_GET_OBJECT_VALUE(password_json,string);
+	if(password == NULL && strlen(password)>64)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    strcpy(c->password,password);
+/*    
+	JObj *token_json = JSON_GET_OBJECT(para_json,"token");
+	if(token_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+
+	char *token = JSON_GET_OBJECT_VALUE(token_json,string);
+    if(token == NULL && strlen(token)>VAULT_TOKEN_LEN)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    strcpy(c->token, token);
+    */
+EXIT:
+    if(c->r_json != NULL)
+        JSON_PUT_OBJECT(c->r_json);
+    return 0;	    
+}
+int DM_VaultClose(struct conn *c){
+	JObj* response_json = JSON_NEW_EMPTY_OBJECT();
+	int ret = check_key(c->password);
+	if(ret != 0){
+		c->error = DM_ERROR_VAULT_CHECK_PASSWD_FAIL;
+		goto EXIT;
+	}
+	
+	c->cmd = FN_FILE_GET_LIST;//get file list
+	c->src_path = (char*)calloc(1,strlen(SAFE_BOX_PATH)+1);
+	strcpy(c->src_path,SAFE_BOX_PATH);
+	
+    char *tmp = strrchr(c->src_path,'/');
+    c->disk_root = (char*)calloc(1,strlen(c->src_path)+1);
+    //DMCLOG_D("src_path=%s,%d,tmp=%s",c->src_path,(tmp - c->src_path),tmp);
+	memcpy(c->disk_root,c->src_path,tmp - c->src_path);
+	
+    //assert(c->disk_root != NULL);
+    //sprintf(c->disk_root,"%s/%s",DOCUMENT_ROOT,c->disk_name);
+    DMCLOG_D("disk_root = %s",c->disk_root);
+
+	c->loc.flags |= FLAG_W;
+	DMCLOG_D("c->disk_uuid=%s",c->disk_uuid);
+	EnterCriticalSection(&c->ctx->mutex);
+	ret = read_mark_file(c->disk_root,c->disk_uuid);
+	LeaveCriticalSection(&c->ctx->mutex);
+	if(ret < 0)
+	{
+        DMCLOG_D("encrypt (%s) failed, ret(0x%x)", c->src_path, ret);
+        c->error = ERROR_GET_DISK_INFO;  
+		goto EXIT;
+    }
+	ret = check_vault_is_empty(c);
+	if(ret != 0){
+		c->error = DM_ERROR_VAULT_EMPTY_ERROR;
+		goto EXIT;
+	}
+	if(c->count == 0) 
+	{
+		c->status = 0;
+	}
+	else 
+	{
+		c->status = 1;
+		c->error = DM_ERROR_VAULT_NOT_EMPTY;
+		goto EXIT;
+
+	}
+
+	c->cmd = FN_VAULT_CLOSE;
+
+	if(rm(VAULT_TOKEN_PATH)<0){
+		c->error = DM_ERROR_VAULT_EMPTY_ERROR;
+		//goto EXIT;
+	}
+	if(rm(ENC_KEY_PATH)<0){
+		c->error = DM_ERROR_VAULT_EMPTY_ERROR;
+		//goto EXIT;
+	}
+	c->error = 0;
+		
+EXIT:
+
+	file_json_to_string(c,response_json);
+	JSON_PUT_OBJECT(response_json);
+	return 0;
+}
+int parser_VaultLogin(struct conn *c){
+	JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+	if(data_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+	if(para_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	
+	JObj *password_json = JSON_GET_OBJECT(para_json,"password");
+	if(password_json == NULL)
+	{
+
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}	
+	char *password = JSON_GET_OBJECT_VALUE(password_json,string);
+	if(password == NULL && strlen(password)>64)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    strcpy(c->password,password);
+    
+EXIT:
+    if(c->r_json != NULL)
+        JSON_PUT_OBJECT(c->r_json);
+    return 0;	    
+}
+int DM_VaultLogin(struct conn *c){
+	ENTER_FUNC();
+	int ret = 0;
+	JObj* response_json = JSON_NEW_EMPTY_OBJECT();	
+	ret = check_key(c->password);
+	if(ret != 0)
+	{
+		c->error = DM_ERROR_VAULT_CHECK_PASSWD_FAIL;
+		goto EXIT;
+	}	
+/*	char *token = (char *)malloc(VAULT_TOKEN_LEN+1);
+	if(token == NULL)
+	{
+		c->error = DM_ERROR_ALLOCATE_MEM;
+		goto EXIT;
+	}
+	memset(token,0,VAULT_TOKEN_LEN+1);
+	ret = get_token(token);
+	if(ret < 0){//token is empty
+		sprintf(token,"%d",time(NULL));
+		ret = set_token(token);	
+		if(ret != 0){
+			c->error = DM_ERROR_VAULT_GET_TOKEN_FAIL;
+			goto EXIT;
+		}
+	}
+
+
+*/	c->error = 0;
+
+	JObj *response_data_array = JSON_NEW_ARRAY();
+	JSON_ADD_OBJECT(response_json, "data", response_data_array);
+	
+EXIT:
+	file_json_to_string(c,response_json);
+	JSON_PUT_OBJECT(response_json);
+	return 0;	
+}
+int parser_VaultLogout(struct conn *c){
+
+	JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+	if(data_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+	if(para_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}	
+
+EXIT:
+    if(c->r_json != NULL)
+        JSON_PUT_OBJECT(c->r_json);
+    return 0;	    
+}
+int DM_VaultLogout(struct conn *c){
+	JObj* response_json = JSON_NEW_EMPTY_OBJECT();	
+
+	c->error = 0;
+EXIT:
+	file_json_to_string(c,response_json);
+	JSON_PUT_OBJECT(response_json);
+	return 0;		
+}
+int parser_VaultIsEmpty(struct conn *c){
+	parser_VaultIsOpen(c);
+}
+int DM_VaultIsEmpty(struct conn *c){
+	JObj* response_json = JSON_NEW_EMPTY_OBJECT();	
+
+	int ret = 0;
+	c->cmd = FN_FILE_GET_LIST;//get file list
+	c->src_path = (char*)calloc(1,strlen(SAFE_BOX_PATH)+1);
+	strcpy(c->src_path,SAFE_BOX_PATH);
+	
+    char *tmp = strrchr(c->src_path,'/');
+    c->disk_root = (char*)calloc(1,strlen(c->src_path)+1);
+    //DMCLOG_D("src_path=%s,%d,tmp=%s",c->src_path,(tmp - c->src_path),tmp);
+	memcpy(c->disk_root,c->src_path,tmp - c->src_path);
+	
+    //assert(c->disk_root != NULL);
+    //sprintf(c->disk_root,"%s/%s",DOCUMENT_ROOT,c->disk_name);
+    //DMCLOG_D("disk_root = %s",c->disk_root);
+
+	c->loc.flags |= FLAG_W;
+	//DMCLOG_D("c->disk_uuid=%s",c->disk_uuid);
+	EnterCriticalSection(&c->ctx->mutex);
+	ret = read_mark_file(c->disk_root,c->disk_uuid);
+	LeaveCriticalSection(&c->ctx->mutex);
+	if(ret < 0)
+	{
+        DMCLOG_D("encrypt (%s) failed, ret(0x%x)", c->src_path, ret);
+        c->error = ERROR_GET_DISK_INFO;  
+		goto EXIT;
+    }
+    
+	ret = check_vault_is_empty(c);
+	if(ret != 0){
+		c->error = DM_ERROR_VAULT_SET_PASSWD_FAIL;
+		goto EXIT;
+	}
+	if(c->count == 0) 
+		c->status = 0;
+	else 
+		c->status = 1;
+
+	c->cmd = FN_VAULT_IS_EMPTY;
+	
+	JObj *response_data_array = JSON_NEW_ARRAY();
+	JObj* status_json = JSON_NEW_EMPTY_OBJECT();
+	JSON_ADD_OBJECT(status_json, "status",JSON_NEW_OBJECT(c->status,int));
+	JSON_ARRAY_ADD_OBJECT (response_data_array,status_json);
+	JSON_ADD_OBJECT(response_json, "data", response_data_array);
+EXIT:
+	file_json_to_string(c,response_json);
+	JSON_PUT_OBJECT(response_json);
+	return 0;		
+}
+
+int parser_VaultReset(struct conn *c){
+	JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+	if(data_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+	if(para_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	
+	JObj *password_json = JSON_GET_OBJECT(para_json,"password");
+	if(password_json == NULL)
+	{
+
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}	
+	char *password = JSON_GET_OBJECT_VALUE(password_json,string);
+	if(password == NULL && strlen(password)>64)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    strcpy(c->password,password);
+
+	JObj *new_password_json = JSON_GET_OBJECT(para_json,"new_password");
+	if(new_password_json == NULL)
+	{
+
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}	
+	char *new_password = JSON_GET_OBJECT_VALUE(new_password_json,string);
+	if(new_password == NULL && strlen(new_password)>64)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    strcpy(c->new_password,new_password);
+
+
+	JObj *tips_json = JSON_GET_OBJECT(para_json,"tips");
+	if(tips_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+
+	char *tips = JSON_GET_OBJECT_VALUE(tips_json,string);
+    if(tips == NULL && strlen(tips)>255)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    strcpy(c->tips, tips);
+    
+EXIT:
+    if(c->r_json != NULL)
+        JSON_PUT_OBJECT(c->r_json);
+    return 0;	    
+}
+int DM_VaultReset(struct conn *c){
+	ENTER_FUNC();
+	int ret = 0;
+	JObj* response_json = JSON_NEW_EMPTY_OBJECT();	
+	ret = check_key(c->password);
+	if(ret != 0)
+	{
+		c->error = DM_ERROR_VAULT_CHECK_PASSWD_FAIL;
+		goto EXIT;
+	}	
+/*	ret = check_token(c->token);
+	if(ret != 0){
+		c->error = DM_ERROR_VAULT_TOKEN_ERROR;
+		goto EXIT;
+	}
+*/	ret = store_key(c->new_password);
+	if(ret != 0){
+		c->error = DM_ERROR_VAULT_SET_PASSWD_FAIL;
+		goto EXIT;
+	}
+	ret = store_tips(c->tips);
+	if(ret != 0){
+		c->error = DM_ERROR_VAULT_SET_TIPS_FAIL;
+		goto EXIT;
+	}
+	c->error = 0;
+	
+EXIT:
+	file_json_to_string(c,response_json);
+	JSON_PUT_OBJECT(response_json);
+	return 0;		
+}
+int parser_VaultGetTips(struct conn *c){
+	JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+	if(data_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+	if(para_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+
+EXIT:
+    if(c->r_json != NULL)
+        JSON_PUT_OBJECT(c->r_json);
+    return 0;
+}
+int DM_VaultGetTips(struct conn *c){
+	JObj* response_json = JSON_NEW_EMPTY_OBJECT();
+	int ret;
+/*	int ret = check_token(c->token);
+	if(ret != 0)
+	{
+		c->error = DM_ERROR_VAULT_TOKEN_ERROR;
+		goto EXIT;
+	}	
+*/
+	char *tips = (char *)malloc(VAULT_TIPS_LEN+1);
+	
+	if(tips == NULL)
+	{
+		c->error = DM_ERROR_ALLOCATE_MEM;
+		goto EXIT;
+	}
+	memset(tips,0,VAULT_TIPS_LEN+1);
+	ret = get_tips(tips);
+	if(ret != 0){
+		c->error = DM_ERROR_VAULT_GET_TIPS_FAIL;
+		goto EXIT;
+	}
+	c->error = 0;
+	JObj *response_data_array = JSON_NEW_ARRAY();
+	JObj* tips_json = JSON_NEW_EMPTY_OBJECT();
+
+	JSON_ADD_OBJECT(tips_json, "tips",JSON_NEW_OBJECT(tips,string));
+	JSON_ARRAY_ADD_OBJECT (response_data_array,tips_json);
+	JSON_ADD_OBJECT(response_json, "data", response_data_array);
+	
+EXIT:
+	file_json_to_string(c,response_json);
+	JSON_PUT_OBJECT(response_json);
+	return 0;	
+	
+}
+int parser_VaultGetPath(struct conn *c){
+	JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+	if(data_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+	if(para_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+        
+EXIT:
+    if(c->r_json != NULL)
+        JSON_PUT_OBJECT(c->r_json);
+    return 0;
+}
+
+int DM_VaultGetPath(struct conn *c){
+	JObj* response_json = JSON_NEW_EMPTY_OBJECT();
+	int ret;
+/*	int ret = check_token(c->token);
+	if(ret != 0)
+	{
+		c->error = DM_ERROR_VAULT_TOKEN_ERROR;
+		goto EXIT;
+	}	
+*/
+	JObj *response_data_array = JSON_NEW_ARRAY();
+	JObj *path_json = JSON_NEW_EMPTY_OBJECT();
+
+	JSON_ADD_OBJECT(path_json, "path",JSON_NEW_OBJECT(SAFE_BOX_PATH,string));
+	JSON_ARRAY_ADD_OBJECT (response_data_array,path_json);
+	JSON_ADD_OBJECT(response_json, "data", response_data_array);
+	
+EXIT:
+	file_json_to_string(c,response_json);
+	JSON_PUT_OBJECT(response_json);
+	return 0;		
+}
+
+int DM_EncryptFileIsExsit(struct conn *c){
+	ENTER_FUNC();
+	int ret = 0;
+	//int status = 0;
+	DMCLOG_D("c->disk_uuid=%s",c->disk_uuid);
+	EnterCriticalSection(&c->ctx->mutex);
+	ret = read_mark_file(c->disk_root,c->disk_uuid);
+	LeaveCriticalSection(&c->ctx->mutex);
+	if(ret < 0)
+	{
+        DMCLOG_D("make_dirs(%s) failed, ret(0x%x)", c->src_path, ret);
+        c->error = ERROR_GET_DISK_INFO;  
+		goto EXIT;
+    }	
+	char *encrypted_path = NULL;
+	ret = handle_encrypt_file_query_cmd(c->disk_uuid, c->src_path, &encrypted_path);
+	if(ret == EDB_RECORD_NOT_EXIST)
+	{
+		c->status = 0;
+	}else if(ret == RET_SUCCESS)
+	{
+		c->status = 1;
+	}else{
+		c->error = ret;
+		c->status = -1;
+	}
+	
+	JObj* response_json = JSON_NEW_EMPTY_OBJECT();
+	JObj *response_data_array = JSON_NEW_ARRAY();
+	JObj* status_json = JSON_NEW_EMPTY_OBJECT();
+	JSON_ADD_OBJECT(status_json, "status",JSON_NEW_OBJECT(c->status,int));
+	JSON_ARRAY_ADD_OBJECT (response_data_array,status_json);
+	JSON_ADD_OBJECT(response_json, "data", response_data_array);
+	c->ctx->watch_dog_time = WATCH_DOG_SYNC_TIMEOUT;
+EXIT:
+	file_json_to_string(c,response_json);
+	JSON_PUT_OBJECT(response_json);
+	EXIT_FUNC();
+	return 0;
+}
+int Parser_EncryptFileIsExsit(struct conn *c){
+	ENTER_FUNC();
+	JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+	if(data_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+	if(para_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+/*	JObj *token_json = JSON_GET_OBJECT(para_json,"token");
+	if(token_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	char *token = JSON_GET_OBJECT_VALUE(token_json,string);
+	DMCLOG_D("token=%s",token);
+	if(strlen(token)>sizeof(c->token))
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+			goto EXIT;
+	}
+	strcpy(c->token,token);
+*/
+    JObj *path_json = JSON_GET_OBJECT(para_json,"path");
+    if(path_json == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    char *path = JSON_GET_OBJECT_VALUE(path_json,string);
+    if(path == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+	
+    if (strlen(path) + strlen(DOCUMENT_ROOT) >= URI_MAX) {
+        c->error = PATH_TOO_LONGTH;
+        goto EXIT;
+    }
+	char *uri_src = JSON_GET_OBJECT_VALUE(path_json,string);
+	if(uri_src == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+    char *tmp = strchr(uri_src,'/');
+	memcpy(c->disk_name,uri_src,tmp - uri_src);
+	DMCLOG_D("disk_name = %s",c->disk_name);
+    c->disk_root = (char *)calloc(1,strlen(DOCUMENT_ROOT) + strlen(c->disk_name) + 2 );
+    assert(c->disk_root != NULL);
+    sprintf(c->disk_root,"%s/%s",DOCUMENT_ROOT,c->disk_name);
+    DMCLOG_D("disk_root = %s",c->disk_root);
+	if (strlen(uri_src) + strlen(DOCUMENT_ROOT) >= URI_MAX) {
+		c->error = PATH_TOO_LONGTH;
+		goto EXIT;
+	}
+    c->src_path = (char *)calloc(1, strlen(path) + strlen(DOCUMENT_ROOT) + 2);
+    assert(c->src_path != NULL);
+    if(*path == '/')
+    {
+        sprintf(c->src_path, "%s%s",DOCUMENT_ROOT,path);
+    }else{
+        sprintf(c->src_path, "%s/%s",DOCUMENT_ROOT,path);
+    }
+    DMCLOG_D("c->src_path = %s",c->src_path);
+	
+EXIT:
+	if(c->r_json != NULL)
+		JSON_PUT_OBJECT(c->r_json);
+	EXIT_FUNC();
+	
+	return 0;	
+
+}
+
+int create_insert_to_db_task(file_encrypt_info_t *pInfo)
+{
+    ENTER_FUNC();
+    PTHREAD_T tid_file_task;
+    int rslt = 0;
+   /* 
+    dest_path = (file_encrypt_info_t *)calloc(1,sizeof(file_encrypt_info_t));
+	S_STRNCPY(pInfo->file_uuid,c->file_uuid,FILE_UUID_LEN);
+	S_STRNCPY(pInfo->disk_uuid,c->disk_uuid,DISK_UUID_LEN);
+	pInfo->bIsRegularFile = 1;
+	pInfo->path = (char *)calloc(1,strlen(c->src_path) + 1);
+	strcpy(pInfo->path,c->src_path);
+	
+	pInfo->dest_path = (char *)calloc(1,strlen(c->dest_path) + 1);
+	strcpy(pInfo->path,c->dest_path);
+*/
+	
+    if (0 != (rslt = PTHREAD_CREATE(&tid_file_task, NULL, (void *)encrypt_file_inotify_func,pInfo)))
+    {
+        DMCLOG_D("create save encrypted file task failed!");
+        rslt = -1;
+        return rslt;
+    }
+    PTHREAD_DETACH(tid_file_task);
+    EXIT_FUNC();
+    return rslt;
+}
+
+int DM_EncryptFile(struct conn *c){
+
+	ENTER_FUNC();
+	int res = 0;
+
+	c->loc.flags |= FLAG_W;
+	DMCLOG_D("c->disk_uuid=%s",c->disk_uuid);
+	EnterCriticalSection(&c->ctx->mutex);
+	res = read_mark_file(c->disk_root,c->disk_uuid);
+	LeaveCriticalSection(&c->ctx->mutex);
+	if(res < 0)
+	{
+        DMCLOG_D("encrypt (%s) failed, ret(0x%x)", c->src_path, res);
+        c->error = ERROR_GET_DISK_INFO;  
+		goto EXIT;
+    }
+	int bIsRegularFile = 0;
+	res = create_encrypt_task(c);
+	if(res < 0)
+	{
+		DMCLOG_D("encrypt (%s) failed", c->src_path);
+		c->error = DM_ERROR_ENCRYPT_SAVE_FAIL;
+		goto EXIT;
+	}
+
+EXIT:
+	EXIT_FUNC();
+	return 0;
+}
+
+int Parser_EncryptFile(struct conn *c)
+{
+    JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+    if(data_json == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+    if(para_json == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+ 
+    JObj *seq_json = JSON_GET_OBJECT(para_json,"seq");
+    if(seq_json == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    c->seq = JSON_GET_OBJECT_VALUE(seq_json,int);
+
+	/* get the path of search */
+    JObj *encrypt_file_path_json = JSON_GET_OBJECT(para_json,"encrypt_file_path");
+    if(encrypt_file_path_json == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    char *encrypt_file_path = JSON_GET_OBJECT_VALUE(encrypt_file_path_json,string);
+    if(encrypt_file_path == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+	
+    if (strlen(encrypt_file_path) + strlen(DOCUMENT_ROOT) >= URI_MAX) {
+        c->error = PATH_TOO_LONGTH;
+        goto EXIT;
+    }
+	char *uri_src = JSON_GET_OBJECT_VALUE(encrypt_file_path_json,string);
+	if(uri_src == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+    char *tmp = strchr(uri_src,'/');
+	memcpy(c->disk_name,uri_src,tmp - uri_src);
+	DMCLOG_D("disk_name = %s",c->disk_name);
+    c->disk_root = (char *)calloc(1,strlen(DOCUMENT_ROOT) + strlen(c->disk_name) + 2 );
+    assert(c->disk_root != NULL);
+    sprintf(c->disk_root,"%s/%s",DOCUMENT_ROOT,c->disk_name);
+    DMCLOG_D("disk_root = %s",c->disk_root);
+	if (strlen(uri_src) + strlen(DOCUMENT_ROOT) >= URI_MAX) {
+		c->error = PATH_TOO_LONGTH;
+		goto EXIT;
+	}
+    c->src_path = (char *)calloc(1, strlen(encrypt_file_path) + strlen(DOCUMENT_ROOT) + 2);
+    assert(c->src_path != NULL);
+    if(*encrypt_file_path == '/')
+    {
+        sprintf(c->src_path, "%s%s",DOCUMENT_ROOT,encrypt_file_path);
+    }else{
+        sprintf(c->src_path, "%s/%s",DOCUMENT_ROOT,encrypt_file_path);
+    }
+    DMCLOG_D("c->src_path = %s",c->src_path);
+EXIT:
+    if(c->r_json != NULL)
+        JSON_PUT_OBJECT(c->r_json);
+    return 0;	
+}
+
+int DM_EncryptFileDecrypt(struct conn *c){
+	ENTER_FUNC();
+	int res = 0;
+
+	c->loc.flags |= FLAG_W;
+	DMCLOG_D("c->disk_uuid=%s",c->disk_uuid);
+	EnterCriticalSection(&c->ctx->mutex);
+	res = read_mark_file(c->disk_root,c->disk_uuid);
+	LeaveCriticalSection(&c->ctx->mutex);
+	if(res < 0)
+	{
+        DMCLOG_D("make_dirs(%s) failed, ret(0x%x)", c->src_path, res);
+        c->error = ERROR_GET_DISK_INFO;  
+		goto EXIT;
+    }
+	res = create_decrypt_task(c);
+	if(res < 0)
+	{
+		DMCLOG_D("decrypt (%s) for (%s) failed", c->des_path, c->src_path);
+		c->error = ERROR_FILE_SEARCH;
+		goto EXIT;
+	}	
+EXIT:
+	EXIT_FUNC();
+	return 0;
+}
+int Parser_EncryptFileDecrypt(struct conn *c){
+    JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+    if(data_json == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+    if(para_json == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+
+    JObj *seq_json = JSON_GET_OBJECT(para_json,"seq");
+    if(seq_json == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    c->seq = JSON_GET_OBJECT_VALUE(seq_json,int);
+	JObj *dest_path_json = JSON_GET_OBJECT(para_json,"des_path");
+    if(dest_path_json == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    char *dest_file_path = JSON_GET_OBJECT_VALUE(dest_path_json,string);
+    if(dest_file_path == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    c->des_path = (char *)calloc(1, strlen(dest_file_path) + strlen(DOCUMENT_ROOT) + 2);
+    //sprintf(c->des_path, "%s/%s",DOCUMENT_ROOT,dest_file_path);
+    if(*dest_file_path == '/')
+    {
+        sprintf(c->des_path, "%s%s",DOCUMENT_ROOT,dest_file_path);
+    }else{
+        sprintf(c->des_path, "%s/%s",DOCUMENT_ROOT,dest_file_path);
+    }
+    DMCLOG_D("c->des_path = %s",c->des_path);
+	/* get the path of search */
+    JObj *encrypt_file_path_json = JSON_GET_OBJECT(para_json,"encrypt_file_path");
+    if(encrypt_file_path_json == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    char *encrypt_file_path = JSON_GET_OBJECT_VALUE(encrypt_file_path_json,string);
+    if(encrypt_file_path == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+	
+    if (strlen(encrypt_file_path) + strlen(DOCUMENT_ROOT) >= URI_MAX) {
+        c->error = PATH_TOO_LONGTH;
+        goto EXIT;
+    }
+	char *uri_src = JSON_GET_OBJECT_VALUE(encrypt_file_path_json,string);
+	if(uri_src == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+    char *tmp = strchr(uri_src,'/');
+	memcpy(c->disk_name,uri_src,tmp - uri_src);
+	DMCLOG_D("disk_name = %s",c->disk_name);
+    c->disk_root = (char *)calloc(1,strlen(DOCUMENT_ROOT) + strlen(c->disk_name) + 2 );
+    assert(c->disk_root != NULL);
+    sprintf(c->disk_root,"%s/%s",DOCUMENT_ROOT,c->disk_name);
+    DMCLOG_D("disk_root = %s",c->disk_root);
+	if (strlen(uri_src) + strlen(DOCUMENT_ROOT) >= URI_MAX) {
+		c->error = PATH_TOO_LONGTH;
+		goto EXIT;
+	}    
+    c->src_path = (char *)calloc(1, strlen(encrypt_file_path) + strlen(DOCUMENT_ROOT) + 2);
+    assert(c->src_path != NULL);
+    if(*encrypt_file_path == '/')
+    {
+        sprintf(c->src_path, "%s%s",DOCUMENT_ROOT,encrypt_file_path);
+    }else{
+        sprintf(c->src_path, "%s/%s",DOCUMENT_ROOT,encrypt_file_path);
+    }
+
+    DMCLOG_D("c->src_path = %s",c->src_path);
+EXIT:
+    if(c->r_json != NULL)
+        JSON_PUT_OBJECT(c->r_json);
+    return 0;	
+}
+int DM_EncryptDir(struct conn *c){
+
+	ENTER_FUNC();
+	int res = 0;
+
+	c->loc.flags |= FLAG_W;
+	DMCLOG_D("c->disk_uuid=%s",c->disk_uuid);
+	EnterCriticalSection(&c->ctx->mutex);
+	res = read_mark_file(c->disk_root,c->disk_uuid);
+	LeaveCriticalSection(&c->ctx->mutex);
+	if(res < 0)
+	{
+        DMCLOG_D("encrypt (%s) failed, ret(0x%x)", c->src_path, res);
+        c->error = ERROR_GET_DISK_INFO;  
+		goto EXIT;
+    }
+	res = create_encrypt_task(c);
+	if(res < 0)
+	{
+		DMCLOG_D("encrypt for (%s) failed", c->src_path);
+		c->error = ERROR_FILE_SEARCH;
+		goto EXIT;
+	}	
+EXIT:
+	EXIT_FUNC();
+	return 0;
+}
+int Parser_EncryptDir(struct conn *c){
+//TODO
+    JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+    if(data_json == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+    if(para_json == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+
+    JObj *seq_json = JSON_GET_OBJECT(para_json,"seq");
+    if(seq_json == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    c->seq = JSON_GET_OBJECT_VALUE(seq_json,int);
+
+	/* get the path of search */
+    JObj *encrypt_dir_path_json = JSON_GET_OBJECT(para_json,"encrypt_file_path");
+    if(encrypt_dir_path_json == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+    char *encrypt_dir_path = JSON_GET_OBJECT_VALUE(encrypt_dir_path_json,string);
+    if(encrypt_dir_path == NULL)
+    {
+        c->error = REQUEST_FORMAT_ERROR;
+        goto EXIT;
+    }
+	char *uri_src = JSON_GET_OBJECT_VALUE(encrypt_dir_path_json,string);
+	if(uri_src == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+    char *tmp = strchr(uri_src,'/');
+	memcpy(c->disk_name,uri_src,tmp - uri_src);
+	DMCLOG_D("disk_name = %s",c->disk_name);
+    c->disk_root = (char *)calloc(1,strlen(DOCUMENT_ROOT) + strlen(c->disk_name) + 2 );
+    assert(c->disk_root != NULL);
+    sprintf(c->disk_root,"%s/%s",DOCUMENT_ROOT,c->disk_name);
+    DMCLOG_D("disk_root = %s",c->disk_root);
+	if (strlen(uri_src) + strlen(DOCUMENT_ROOT) >= URI_MAX) {
+		c->error = PATH_TOO_LONGTH;
+		goto EXIT;
+	}
+    if (strlen(encrypt_dir_path) + strlen(DOCUMENT_ROOT) >= URI_MAX) {
+        c->error = PATH_TOO_LONGTH;
+        goto EXIT;
+    }
+    c->src_path = (char *)calloc(1, strlen(encrypt_dir_path) + strlen(DOCUMENT_ROOT) + 2);
+    assert(c->src_path != NULL);
+    if(*encrypt_dir_path == '/')
+    {
+        sprintf(c->src_path, "%s%s",DOCUMENT_ROOT,encrypt_dir_path);
+    }else{
+        sprintf(c->src_path, "%s/%s",DOCUMENT_ROOT,encrypt_dir_path);
+    }
+    DMCLOG_D("c->src_path = %s",c->src_path);
+EXIT:
+    if(c->r_json != NULL)
+        JSON_PUT_OBJECT(c->r_json);
+    return 0;	
+}
+int DM_EncryptFileDownload(struct conn *c)
+{
+	//TODO dmclient will not download from here now.
+	JObj* response_json = JSON_NEW_EMPTY_OBJECT();
+	struct stat	st;
+    int res = 0;
+/*  res = check_token(c->token);
+    if(res != 0)
+    {
+            c->error = DM_ERROR_VAULT_TOKEN_ERROR;
+            goto EXIT;
+    }
+*/      if (get_enc_path_info(c) != 0) {
+            c->error = FILE_IS_NOT_EXIST;
+            goto EXIT;
+    }
+	JObj *response_data_array = JSON_NEW_ARRAY();
+	JObj* contentLength_json = JSON_NEW_EMPTY_OBJECT();
+	JSON_ADD_OBJECT(contentLength_json, "contentLength",JSON_NEW_OBJECT(c->loc.content_len,int64));
+	JSON_ADD_OBJECT(contentLength_json, "modifyTime",JSON_NEW_OBJECT(c->modifyTime,int64));
+	//DMCLOG_D("c->loc.content_len=%lld",c->loc.content_len);	
+	c->des_path = NULL;// = (char*)calloc(1,MAX_ENCRYPT_PATH_SIZE);
+	//find the encrypted file path
+	res = handle_encrypt_file_query_cmd(c->disk_uuid, c->src_path,&c->des_path);
+	if(res != RET_SUCCESS){
+		//c->error = 
+		return res;
+	}
+	DMCLOG_D("des_path = %s",c->des_path);
+	//DMCLOG_D("c->loc.content_len=%lld",c->loc.content_len);	
+	if (get_fuser_flag() == AIRDISK_OFF_PC&&(c->loc.chan.fd = my_open(c->des_path,
+	    O_RDONLY | O_BINARY, 0644)) != -1) {
+	    //DMCLOG_D("c->loc.content_len=%lld",c->loc.content_len);	
+	    //DMCLOG_D("c->loc.chan.fd =%d",c->loc.chan.fd );
+	    my_enc_set_key(&c->loc);
+	    //DMCLOG_D("c->loc.content_len=%lld",c->loc.content_len);	
+		get_enc_file(c);
+	} else {
+		c->error = SERVER_ERROR;
+	}		
+
+	//DMCLOG_D("DM_File_Download, c->loc.content_len = %lld", c->loc.content_len);
+
+	JSON_ARRAY_ADD_OBJECT (response_data_array,contentLength_json);
+	JSON_ADD_OBJECT(response_json, "data", response_data_array);
+EXIT:
+	file_json_to_string(c,response_json);
+	JSON_PUT_OBJECT(response_json);
+	return 0;
+}
+
+int Parser_EncryptFileDownload(struct conn *c)
+{
+	JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+	if(data_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+	if(para_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *path_json = JSON_GET_OBJECT(para_json,"path");
+	JObj *offset_json = JSON_GET_OBJECT(para_json,"offset");
+	JObj *length_json = JSON_GET_OBJECT(para_json,"length");
+
+	char *uri_src = JSON_GET_OBJECT_VALUE(path_json,string);
+	if(uri_src == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	if (strlen(uri_src) + strlen(DOCUMENT_ROOT) >= URI_MAX) {
+		c->error = PATH_TOO_LONGTH;
+		goto EXIT;
+	}
+	char *tmp = strchr(uri_src,'/');
+	memcpy(c->disk_name,uri_src,tmp - uri_src);
+	//DMCLOG_D("disk_name = %s",c->disk_name);
+	c->disk_root = (char *)calloc(1,strlen(DOCUMENT_ROOT) + strlen(c->disk_name) + 2 );
+	assert(c->disk_root != NULL);
+	sprintf(c->disk_root,"%s/%s",DOCUMENT_ROOT,c->disk_name);
+	//DMCLOG_D("disk_root = %s",c->disk_root);
+
+	EnterCriticalSection(&c->ctx->mutex);
+	int res = read_mark_file(c->disk_root,c->disk_uuid);
+	LeaveCriticalSection(&c->ctx->mutex);
+	if(res < 0)
+	{
+        c->error = ERROR_GET_DISK_INFO;  
+		goto EXIT;
+    }	
+	c->src_path = (char *)calloc(1,strlen(uri_src) + strlen(DOCUMENT_ROOT) + 2);
+	assert(c->src_path != NULL);
+    if(*uri_src == '/')
+    {
+        sprintf(c->src_path,"%s%s",DOCUMENT_ROOT,uri_src);
+    }else{
+        sprintf(c->src_path,"%s/%s",DOCUMENT_ROOT,uri_src);
+    }
+	c->offset = JSON_GET_OBJECT_VALUE(offset_json,int64);
+	//DMCLOG_D("c->offset = %lld",c->offset);
+	c->length = JSON_GET_OBJECT_VALUE(length_json,int64);
+EXIT:
+	if(c->r_json != NULL)
+		JSON_PUT_OBJECT(c->r_json);
+	return 0;		
+}
+
+int DM_EncryptFileGetList(struct conn *c)
+{
+	ENTER_FUNC();
+	int res =0;
+/*	= check_token(c->token);
+	if(res != 0)
+	{
+		c->error = DM_ERROR_VAULT_TOKEN_ERROR;
+		goto EXIT;
+	}
+
+	if(!is_enc_dir_exist(c->src_path))
+	{
+		c->loc.flags |= FLAG_CLOSED;
+		c->error = ERROR_GET_FILE_LIST;
+		goto EXIT;
+	}
+*/	
+
+	EnterCriticalSection(&c->ctx->mutex);
+	res = read_mark_file(c->disk_root,c->disk_uuid);
+	LeaveCriticalSection(&c->ctx->mutex);
+	DMCLOG_D("c->disk_uuid=%s",c->disk_uuid);
+	if(res < 0)
+	{
+        DMCLOG_D("DM_EncryptFileGetList(%s) failed, ret(0x%x)", c->disk_root, res);
+        c->error = ERROR_GET_DISK_INFO;  
+		goto EXIT;
+    }
+
+	c->loc.chan.dir.path = c->src_path;
+	DMCLOG_D("dir.path = %s",c->src_path);
+//	get_enc_dir(c);
+	all_get_dir(c);
+EXIT:	
+	EXIT_FUNC();
+	return 0;
+}
+
+int Parser_EncryptFileGetList(struct conn *c)
+{
+	JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+	if(data_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+	if(para_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	
+	JObj *offset_json = JSON_GET_OBJECT(para_json,"offset");
+	if(offset_json != NULL)
+	{
+		c->offset = JSON_GET_OBJECT_VALUE(offset_json,int);
+	}
+	JObj *length_json = JSON_GET_OBJECT(para_json,"length");
+	if(length_json != NULL)
+	{
+		c->length = JSON_GET_OBJECT_VALUE(length_json,int);
+	}
+	JObj *pageNum_json = JSON_GET_OBJECT(para_json,"pageNum");
+	if(pageNum_json != NULL)
+	{
+		c->pageNum = JSON_GET_OBJECT_VALUE(pageNum_json,int);
+		if(c->pageNum < 0)
+		{
+			c->length = -1;//adapter old client sdk
+		}
+	}
+	
+	JObj *path_json = JSON_GET_OBJECT(para_json,"path");
+	if(path_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	char *uri_src = JSON_GET_OBJECT_VALUE(path_json,string);
+	if(uri_src == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	DMCLOG_D("uri = %s",uri_src);
+	get_disk_name(uri_src,c->disk_name);
+    DMCLOG_D("disk_name = %s",c->disk_name);
+	
+    c->disk_root = (char *)calloc(1,strlen(DOCUMENT_ROOT) + strlen(c->disk_name) + 2 );
+    assert(c->disk_root != NULL);
+    sprintf(c->disk_root,"%s/%s",DOCUMENT_ROOT,c->disk_name);
+    DMCLOG_D("disk_root = %s",c->disk_root);
+	if (strlen(uri_src) + strlen(DOCUMENT_ROOT) >= URI_MAX) {
+		c->error = PATH_TOO_LONGTH;
+		goto EXIT;
+	}	
+	DMCLOG_D("uri = %s",uri_src);
+	if (strlen(uri_src) + strlen(DOCUMENT_ROOT) >= URI_MAX) {
+		c->error = PATH_TOO_LONGTH;
+		goto EXIT;
+	}
+	c->src_path = (char *)calloc(1,strlen(uri_src) + strlen(DOCUMENT_ROOT) + 2+1);
+	assert(c->src_path != NULL);
+    if(*uri_src == '/')
+    {
+        sprintf(c->src_path,"%s%s",DOCUMENT_ROOT,uri_src);
+    }else{
+        sprintf(c->src_path,"%s/%s",DOCUMENT_ROOT,uri_src);
+    }
+
+	char *lc = get_last_char(c->src_path, '/');
+	if(lc != NULL){
+		*lc = 0;
+	}
+	
+	DMCLOG_E("src_path = %s",c->src_path);
+	DMCLOG_E("cmd = %d,error = %d",c->cmd,c->error);
+EXIT:
+	if(c->r_json != NULL)
+		JSON_PUT_OBJECT(c->r_json);
+	return 0;	
+}
+
+int DM_EncryptFileDelete(struct conn *c)
+{
+	ENTER_FUNC();
+	int res = 0;
+	JObj* response_json;
+
+	EnterCriticalSection(&c->ctx->mutex);
+	res = read_mark_file(c->disk_root,c->disk_uuid);
+	LeaveCriticalSection(&c->ctx->mutex);
+	if(res < 0)
+	{
+        c->error = ERROR_GET_DISK_INFO;  
+		goto EXIT;
+    }
+
+	c->loc.flags |= FLAG_W;
+	res = create_encrypt_del_task(c);
+	if(res < 0)
+	{
+	    DMCLOG_D("delete(%s) failed", c->src_path);
+	    c->error = ERROR_FILE_DELETE;
+	    goto EXIT;
+	}
+	c->ctx->watch_dog_time = WATCH_DOG_SYNC_TIMEOUT;	
+EXIT:
+	response_json = JSON_NEW_EMPTY_OBJECT();
+	file_json_to_string(c,response_json);
+	JSON_PUT_OBJECT(response_json);
+	EXIT_FUNC();
+	return 0;
+}
+/*
+ *�ļ����ļ���ɾ�� cmd = 206
+ */
+int parser_EncryptFileDelete(struct conn *c)
+{
+	JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
+	if(data_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
+	if(para_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *path_json = JSON_GET_OBJECT(para_json,"path");
+	if(path_json == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	JObj *seq_json = JSON_GET_OBJECT(para_json,"seq");
+    if(seq_json != NULL)
+    {
+    	c->del_seq = JSON_GET_OBJECT_VALUE(seq_json,int);
+    }
+    
+	char *uri_src = JSON_GET_OBJECT_VALUE(path_json,string);
+	if(uri_src == NULL)
+	{
+		c->error = REQUEST_FORMAT_ERROR;
+		goto EXIT;
+	}
+	DMCLOG_D("uri_src = %s",uri_src);
+	if (strlen(uri_src) + strlen(DOCUMENT_ROOT) >= URI_MAX) {
+		c->error = PATH_TOO_LONGTH;
+		goto EXIT;
+	}
+
+    get_disk_name(uri_src,c->disk_name);
+	DMCLOG_D("disk_name = %s",c->disk_name);
+	c->disk_root = (char *)calloc(1,strlen(DOCUMENT_ROOT) + strlen(c->disk_name) + 2 );
+	assert(c->disk_root != NULL);
+	sprintf(c->disk_root,"%s/%s",DOCUMENT_ROOT,c->disk_name);
+	DMCLOG_D("disk_root = %s",c->disk_root);
+	c->src_path = (char *)calloc(1,strlen(uri_src) + strlen(DOCUMENT_ROOT) + 2);
+	assert(c->src_path != NULL);
+    if(*uri_src == '/')
+    {
+        sprintf(c->src_path,"%s%s",DOCUMENT_ROOT,uri_src);
+    }else{
+        sprintf(c->src_path,"%s/%s",DOCUMENT_ROOT,uri_src);
+    }
+	
+	DMCLOG_D("c->src_path = %s",c->src_path);
+EXIT:
+	if(c->r_json != NULL)
+		JSON_PUT_OBJECT(c->r_json);
+	return 0;	
 }
 
 int DM_FileDownload(struct conn *c)
@@ -240,7 +1698,7 @@ int DM_FileCheckUpload(struct conn *c)
 	 
 	JObj* data_json = JSON_NEW_EMPTY_OBJECT();
 	DMCLOG_D("file check upload,status = %d",c->status);
-	if(c->status == 1)//存在未完成的tmp文件。
+	if(c->status == 1)//??????tmp???
 	{
 		//my_stat(c->tmp_path,&statbuf);  
     	//off_t file_size = statbuf.st_size;
@@ -297,7 +1755,7 @@ int DM_FileUpload(struct conn *c)
 		(void) lseek64(c->loc.chan.fd, c->offset, SEEK_SET);
 		if(my_stat(c->cfg_path, &st) != 0)
 		{
-			//如果记录文件块起始地址的配置文件不存在，则将信息写入
+			//???????????????????,??????
 			int i = 0;
 			off_t percent = c->fileSize/THREAD_COUNT;
 			c->dn = NULL;
@@ -407,18 +1865,18 @@ char *dm_file_inotify(int cmd ,int error)
 	JSON_ADD_OBJECT(header_json, "error", JSON_NEW_OBJECT(error,int));
 	JSON_ADD_OBJECT(response_json, "header", header_json);
 	char *response_str = JSON_TO_STRING(response_json);
+	DMCLOG_D("response_str=%s",response_str);
 	if(response_str == NULL)
 	{
 		return NULL;
 	}
 	buf = (char *)calloc(1,strlen(response_str) + 1);
-	if(buf == NULL)
-		return NULL;
+	assert(buf != NULL);
 	strcpy(buf,response_str);
 	JSON_PUT_OBJECT(response_json);
-	return buf;
+
 	EXIT_FUNC();
-	
+	return buf;
 }
 
 int dm_file_search_inotify(int cmd, int error,char *buf)
@@ -446,6 +1904,55 @@ int dm_file_search_inotify(int cmd, int error,char *buf)
     DMCLOG_D("buf = %s",buf);
     EXIT_FUNC();
 	return 0;
+}
+
+char *dm_file_encrypt_inotify(int error,file_encrypt_info_t *pInfo,struct file_dnode *dn)
+{
+	int i = 0;
+    char *send_buf = NULL;
+    int res_sz = 0;
+    int seq = 0;
+    //int error = 0;
+	//file_info_t *item;
+
+//	DMCLOG_D("status: %d", pInfo->status);
+    JObj* response_json = JSON_NEW_EMPTY_OBJECT();
+    JObj* header_json=JSON_NEW_EMPTY_OBJECT();
+    JObj *response_data_array = JSON_NEW_ARRAY();
+    JObj* para_info = JSON_NEW_EMPTY_OBJECT();
+    JSON_ADD_OBJECT(para_info, "status",JSON_NEW_OBJECT(pInfo->status,int));
+	JSON_ADD_OBJECT(para_info, "seq",JSON_NEW_OBJECT(pInfo->encrypt_seq,int));
+	JSON_ADD_OBJECT(para_info, "finished_size",JSON_NEW_OBJECT(pInfo->finished_size,int64));
+	JSON_ADD_OBJECT(para_info, "total_size",JSON_NEW_OBJECT(pInfo->total_size,int64));	
+	JSON_ADD_OBJECT(para_info, "file_name",JSON_NEW_OBJECT(dn->name,string));
+	JSON_ADD_OBJECT(para_info, "file_path",JSON_NEW_OBJECT(dn->fullname+strlen(DOCUMENT_ROOT),string));
+	JSON_ADD_OBJECT(para_info, "total_num",JSON_NEW_OBJECT(pInfo->total_num,int));	
+	JSON_ADD_OBJECT(para_info, "finished_num",JSON_NEW_OBJECT(pInfo->finished_num,int));	
+	//JSON_ADD_OBJECT(p_json, member, member_json)(para_info, "encrypt_file_path",JSON_NEW_OBJECT(pInfo->encrypt_file_path,string));	
+
+    JSON_ARRAY_ADD_OBJECT (response_data_array,para_info);
+    JSON_ADD_OBJECT(response_json, "data", response_data_array);
+    JSON_ADD_OBJECT(header_json, "cmd", JSON_NEW_OBJECT(pInfo->cmd,int));
+    JSON_ADD_OBJECT(header_json, "seq", JSON_NEW_OBJECT(pInfo->encrypt_seq,int));
+    JSON_ADD_OBJECT(header_json, "error", JSON_NEW_OBJECT(error,int));
+    JSON_ADD_OBJECT(response_json, "header", header_json);
+    char *response_str = JSON_TO_STRING(response_json);
+    if(response_str == NULL)
+    {
+        JSON_PUT_OBJECT(response_json);
+        return NULL;
+    }
+    res_sz = strlen(response_str);
+    send_buf = (char*)calloc(1,res_sz + 1);
+    if(send_buf == NULL)
+    {
+        JSON_PUT_OBJECT(response_json);
+        return NULL;
+    }
+    strcpy(send_buf,response_str);
+    DMCLOG_D("send_buf = %s",send_buf);
+    JSON_PUT_OBJECT(response_json);
+    return send_buf;
 }
 
 char *dm_file_search_list_inotify(file_search_info_t *pInfo, file_list_t *plist)
@@ -534,7 +2041,7 @@ char *dm_file_search_list_inotify(file_search_info_t *pInfo, file_list_t *plist)
 }
 
 /*
- * 获取磁盘信息 cmd = 100
+ *cmd = 100
  */
 int DM_FileGetStorage(struct conn *c)
 {
@@ -586,23 +2093,52 @@ EXIT:
 int DM_FileGetList(struct conn *c)
 {
 	ENTER_FUNC();
-	struct stat	st;
-	if(my_stat(c->src_path, &st) != 0 || S_ISDIR(st.st_mode) == 0)
+	unsigned db_count = 0;
+	int res = 0;
+	unsigned io_count = 0;
+	EnterCriticalSection(&c->ctx->mutex);
+	res = read_mark_file(c->disk_root,c->disk_uuid);
+	LeaveCriticalSection(&c->ctx->mutex);
+	if(res < 0)
 	{
-		c->loc.flags |= FLAG_CLOSED;
-		c->error = ERROR_GET_FILE_LIST;
+        c->error = ERROR_GET_DISK_INFO;  
 		goto EXIT;
+    }
+	res = handle_get_file_list_count_by_path_cmd(0,&db_count,c->src_path,c->disk_uuid);
+	if(res != 0)
+	{
+        c->error = ERROR_GET_FILE_LIST;  
+		goto EXIT;
+    }
+
+	if(strncmp(c->src_path,SAFE_BOX_PATH,strlen(SAFE_BOX_PATH)) == 0){
+		all_get_dir(c);
+	}else {
+		io_count = dm_getDirCnt(c->src_path);
+		DMCLOG_D("io_count = %u,db_count = %u",io_count,db_count);
+		if(io_count != db_count)
+		{
+			struct stat	st;
+			if(my_stat(c->src_path, &st) != 0 || S_ISDIR(st.st_mode) == 0)
+			{
+				c->loc.flags |= FLAG_CLOSED;
+				c->error = ERROR_GET_FILE_LIST;
+				goto EXIT;
+			}
+			c->loc.chan.dir.path = c->src_path;
+			DMCLOG_D("dir.path = %s",c->src_path);
+			get_dir(c);
+		}else{
+			all_get_dir(c);
+		}
 	}
-	c->loc.chan.dir.path = c->src_path;
-	DMCLOG_D("dir.path = %s",c->src_path);
-	get_dir(c);
 EXIT:	
 	EXIT_FUNC();
 	return 0;
 }
 
 /*
- * 文件夹创建 cmd = 102
+ * cmd = 102
  */
 int DM_FileMkdir(struct conn *c)
 {
@@ -642,7 +2178,7 @@ EXIT:
 	return 0;
 }
 /*
- * 文件或文件夹重名 cmd = 103
+ * ???????? cmd = 103
  */
 int DM_FileRename(struct conn *c)
 {
@@ -687,7 +2223,7 @@ EXIT:
 	return 0;
 }
 /*
- * 判断文件或文件夹是否存在 cmd = 104
+ * ???????????? cmd = 104
  */
 int DM_FileIsExist(struct conn *c)
 {
@@ -705,7 +2241,7 @@ EXIT:
 	return 0;
 }
 /*
- * 获取文件或文件夹属性 cmd = 105
+ * ?????????? cmd = 105
  */
 int DM_FileGetAttr(struct conn *c)
 {
@@ -819,6 +2355,49 @@ int del_file_inotify(const char *path,del_info_t *pInfo)
 	}
     return 0;
 }
+static void del_encrypt_inotify_func(void *self)
+{
+    ENTER_FUNC();
+    copy_info_t *pInfo = (copy_info_t *)self;
+    char *source_file = pInfo->src_path;
+    int res = 0;
+    DMCLOG_D("source_file = %s,pInfo->disk_uuid = %s",source_file,pInfo->disk_uuid);
+  	
+	res = handle_file_delete_cmd(pInfo->src_path,pInfo->disk_uuid);
+	if(res < 0)
+	{
+        DMCLOG_D("db rm(%s) failed, ret(0x%x)", pInfo->src_path, res);
+        EXIT_FUNC();
+		goto EXIT;
+    }
+EXIT:
+    safe_free(source_file);
+	safe_free(self);
+    EXIT_FUNC();
+    return ;
+}
+
+static void encrypt_del_inotify_func(void *self)
+{
+    ENTER_FUNC();
+    copy_info_t *pInfo = (copy_info_t *)self;
+    char *source_file = pInfo->src_path;
+    int res = 0;
+    DMCLOG_D("source_file = %s,pInfo->disk_uuid = %s",source_file,pInfo->disk_uuid);
+  	
+	res = handle_encrypt_file_delete_cmd(pInfo->src_path,pInfo->disk_uuid);
+	if(res < 0)
+	{
+        DMCLOG_D("db rm(%s) failed, ret(0x%x)", pInfo->src_path, res);
+        EXIT_FUNC();
+		goto EXIT;
+    }
+EXIT:
+    safe_free(source_file);
+	safe_free(self);
+    EXIT_FUNC();
+    return ;
+}
 
 static void del_inotify_func(void *self)
 {
@@ -867,7 +2446,26 @@ EXIT:
     return ;
 }
 
-
+int create_encrypt_del_task(struct conn *c)
+{
+    ENTER_FUNC();
+    PTHREAD_T tid_del_task;
+    int rslt = 0;
+    del_info_t *pInfo = (del_info_t *)calloc(1,sizeof(del_info_t));
+	if(c->disk_uuid != NULL)
+		S_STRNCPY(pInfo->disk_uuid,c->disk_uuid,DISK_UUID_LEN);
+    pInfo->src_path = (char *)calloc(1,strlen(c->src_path) + 1);
+    strcpy(pInfo->src_path,c->src_path);
+    if (0 != (rslt = PTHREAD_CREATE(&tid_del_task, NULL, (void *)encrypt_del_inotify_func,pInfo)))
+    {
+        DMCLOG_D("del task failed!");
+        rslt = -1;
+        return rslt;
+    }
+    PTHREAD_DETACH(tid_del_task);
+    EXIT_FUNC();
+    return rslt;
+}
 
 int create_del_task(struct conn *c)
 {
@@ -922,7 +2520,6 @@ int create_del_list_task(struct conn *c)
 
 static void hide_inotify_func(void *self)
 {
-    ENTER_FUNC();
     hide_info_t *pInfo = (hide_info_t *)self;
     int res = 0;
     DMCLOG_D("source_file = %s,pInfo->disk_uuid = %s",pInfo->src_path,pInfo->disk_uuid);
@@ -931,13 +2528,11 @@ static void hide_inotify_func(void *self)
 	if(res < 0)
 	{
         DMCLOG_D("db hide(%s) failed, ret(0x%x)", pInfo->src_path, res);
-        EXIT_FUNC();
 		goto EXIT;
     }
 EXIT:
     safe_free(pInfo->src_path);
 	safe_free(pInfo);
-    EXIT_FUNC();
     return ;
 }
 
@@ -1200,7 +2795,6 @@ EXIT:
 
 int create_del_cb_task(struct conn *c)
 {
-    ENTER_FUNC();
     PTHREAD_T tid_del_task;
     int rslt = 0;
 	int i = 0;
@@ -1214,6 +2808,7 @@ int create_del_cb_task(struct conn *c)
 	strcpy(pInfo->disk_uuid,c->disk_uuid);
 	pInfo->file_dnode = c->file_dnode;
 	pInfo->file_list = (char **)calloc(1,(c->fileNum + 1)*sizeof(char *));
+    assert(pInfo->file_list != NULL);
 	for(i = 0; i < c->fileNum; i++)
 	{
 		pInfo->file_list[i] = (char *)calloc(1,strlen(c->file_dnode[i]) + 1);
@@ -1227,7 +2822,6 @@ int create_del_cb_task(struct conn *c)
         return rslt;
     }
     PTHREAD_DETACH(tid_del_task);
-    EXIT_FUNC();
     return rslt;
 }
 
@@ -1409,7 +3003,8 @@ int copy_file_inotify(const char *source, const char *dest,copy_info_t *pInfo)
     int retval = 1;
 	int enRet = 0;
 	pInfo->des_path = dest;
-	if(*pInfo->flags & FLAG_CLOSED) 
+	DMCLOG_D("pInfo->des_path = %s,pInfo->flag = %d,pInfo->status = %d",pInfo->des_path,*pInfo->flags,pInfo->quit_status);
+	if(pInfo->quit_status == -1) 
 	{
 		DMCLOG_E("quit the del task");
 		return 0;
@@ -1465,12 +3060,14 @@ int copy_file_inotify(const char *source, const char *dest,copy_info_t *pInfo)
             }
 			if(dm_get_attr_hide(source) == true)
 				dm_set_attr_hide(dest,true,false);
-			pInfo->status = 0;//dir
-			enRet = create_general_file_insert_task(pInfo);
+
+			
+			int bIsRegularFile = 0;
+			enRet = handle_file_insert_cmd(pInfo->file_uuid,pInfo->des_path,bIsRegularFile,pInfo->disk_uuid);
 			if(enRet < 0)
 			{
-		        DMCLOG_D("make_dirs(%s) failed, enRet(0x%x)",dest, enRet);
-				rm(dest);
+		        DMCLOG_D("make_dirs(%s) failed, ret(0x%x)", pInfo->des_path, enRet);
+		        rm(pInfo->des_path);
 				return 0;
 		    }
             umask(saved_umask);
@@ -1557,14 +3154,45 @@ int copy_file_inotify(const char *source, const char *dest,copy_info_t *pInfo)
 		
 		if(retval != 0)
 		{
-			pInfo->status = 1;//general file
-			enRet = create_general_file_insert_task(pInfo);
-			if(enRet < 0)
+			file_info_t *item,*n;
+			file_info_t *file_info = (file_info_t *)calloc(1,sizeof(file_info_t));
+			assert(file_info != NULL);
+		
+			struct stat statbuf;
+			lstat(pInfo->des_path, &statbuf);
+
+	    	DMCLOG_D("path = %s,file_size = %lld",pInfo->des_path,statbuf.st_size);
+	    	//��ͨ�ļ�
+			file_info->file_type = db_get_mime_type(pInfo->des_path,strlen(pInfo->des_path));
+	        file_info->file_size= statbuf.st_size;
+			file_info->create_time = statbuf.st_ctime;
+			file_info->modify_time = statbuf.st_mtime;
+			file_info->access_time = statbuf.st_atime;
+
+			strcpy(file_info->file_uuid,GENERAL_FILE_UUID);
+			file_info->path = (char *)calloc(1,strlen(pInfo->des_path) + 1);
+			assert(file_info->path != NULL);
+			strcpy(file_info->path,pInfo->des_path + strlen(DOCUMENT_ROOT));
+			file_info->name = bb_basename(file_info->path);
+			file_info->isFolder = 0;//general file
+			
+			pInfo->total_cnt++;
+			dl_list_add_tail(&pInfo->head, &file_info->next);
+		
+			if(pInfo->total_cnt == 32)
 			{
-		        DMCLOG_D("make_dirs(%s) failed, enRet(0x%x)",dest, enRet);
-				rm(dest);
-				return 0;
-		    }
+				DMCLOG_D("insert start");
+				int i = 0;
+
+				enRet = handle_file_list_insert_cmd(&pInfo->head,pInfo->disk_uuid);
+				if(enRet < 0)
+				{
+			        DMCLOG_D("insert list failed, ret(0x%x)",enRet);
+					return 0;
+			    }
+				DMCLOG_D("list insert end");
+				pInfo->total_cnt = 0;
+			}
 		}
 		else
 		{
@@ -1644,6 +3272,7 @@ extern int router_para_listen_port;
 
 static void copy_inotify_func(void *self)
 {
+	file_info_t *item,*n;
     copy_info_t *pInfo = (copy_info_t *)self;
     char *source_file = pInfo->src_path;
     char *dest_file = pInfo->des_path;
@@ -1666,8 +3295,8 @@ static void copy_inotify_func(void *self)
 		else
 			pInfo->port = router_para_listen_port;
     }
-    //1:计算需要复制的文件或者文件夹信息,并通知反向推送服务进行信息发送
-    pInfo->status = 0;//复制操作计算中
+    //1:????????????????,???????????????
+    pInfo->status = 0;//???????
     pInfo->client_fd = DM_UdpClientInit(PF_INET, pInfo->port, SOCK_DGRAM,pInfo->ip,&pInfo->clientAddr);
     if(pInfo->client_fd <= 0)
     {
@@ -1704,7 +3333,7 @@ static void copy_inotify_func(void *self)
 	}
     DMCLOG_D("total_size = %lld,nfiles = %u",pInfo->total_size,pInfo->nfiles);
     
-    //2:复制每一个文件到指定的文件夹路径，并通过反向推送服务反馈实时传输的文件信息
+    //2:????????????????,????????????????????
     
     last = dest_file;
     s_flag = cp_mv_stat(source_file, &source_stat);
@@ -1741,8 +3370,9 @@ static void copy_inotify_func(void *self)
 	}
 	DMCLOG_D("d_file_name = %s",d_file_name);
     dest = concat_path_file(last, d_file_name);
-	DMCLOG_D("dest = %s",dest);
 do_copy:
+	pInfo->total_cnt = 0;
+	dl_list_init(&pInfo->head);
     if(copy_file_inotify((const char*)source_file, dest,pInfo) == 0)
     {
         if(malloc)
@@ -1786,18 +3416,29 @@ do_copy:
 	    }
 	    PTHREAD_DETACH(tid_del_task);
 	}
-    pInfo->status = 2;
+	res = handle_file_list_insert_cmd(&pInfo->head,pInfo->disk_uuid);
+	if(res < 0)
+	{
+        DMCLOG_D("insert list failed, ret(0x%x)",res);
+		goto EXIT;
+    }
+	pInfo->status = 2;
 EXIT:
 	copy_handle_inotify(pInfo);
 	DM_DomainClientDeinit(pInfo->client_fd);
-	if(pInfo->c != NULL)
+	if(pInfo->status != -1)
 	{
 		buf = dm_file_inotify(pInfo->cmd,error); 
 		send_server_comb(pInfo->c,buf);
-		safe_free(buf);
+		safe_free(buf);  
+	    //*(pInfo->flags) &= ~(FLAG_R | FLAG_W | FLAG_ALWAYS_READY);
 	}
-    *(pInfo->flags) |= FLAG_CLOSED;
-    *(pInfo->flags) &= ~(FLAG_R | FLAG_W | FLAG_ALWAYS_READY);
+
+	if(*(pInfo->flags) == 0)
+	{
+		*(pInfo->flags) |= FLAG_CLOSED;
+	}
+	
     safe_free(source_file);
     safe_free(dest_file);
     safe_free(self);
@@ -1810,7 +3451,9 @@ int create_copy_task(struct conn *c)
     PTHREAD_T tid_copy_task;
     int rslt = 0;
     copy_info_t *pInfo = (copy_info_t *)calloc(1,sizeof(copy_info_t));
+	assert(pInfo != NULL);
 	pInfo->c = c;
+	c->copy_status = &pInfo->quit_status;
     pInfo->flags = &c->loc.flags;
     //pInfo->sock = c->rem.chan.sock;
     pInfo->cmd = c->cmd;
@@ -1836,7 +3479,155 @@ int create_copy_task(struct conn *c)
     EXIT_FUNC();
     return rslt;
 }
+static void generate_key(void *self){
+	char *key = (char*) self;
+	if(key == NULL)
+		DMCLOG_E("key is NULL");
 
+	gen_k(key);
+}
+
+int start_decrypt(void *self,void *pdn){
+	struct file_encrypt_info *pInfo = (struct file_encrypt_info *)self;
+	struct file_dnode *dn = (struct file_dnode *)pdn;
+	ENTER_FUNC();
+	int ret = 0;
+	if(dn->isFolder == 1){
+		pInfo->bIsRegularFile = 0;
+		ret = decrypt_dir(pInfo,dn);
+	}
+	else {
+		pInfo->bIsRegularFile = 1;
+		ret = decrypt_file(pInfo,dn);
+	}
+	if(ret == 0){
+		ret = handle_file_insert_cmd(pInfo->file_uuid,dn->fullname,pInfo->bIsRegularFile,pInfo->disk_uuid);
+		if(ret < 0)
+		{
+	        DMCLOG_D("insert (%s) failed, ret(0x%x)",dn->fullname, ret);
+	        rm(dn->fullname);
+			return ret;
+	    }
+	}
+	return ret;
+}
+
+int create_decrypt_task(struct conn *c)
+{
+    ENTER_FUNC();
+    PTHREAD_T tid_encrypt_task;
+    int rslt = 0;
+    file_encrypt_info_t *pInfo = (file_encrypt_info_t *)calloc(1,sizeof(file_encrypt_info_t));
+	pInfo->c = c;
+	c->copy_status = &pInfo->quit_status;
+	pInfo->currentOnly = c->statusFlag;
+    pInfo->flags = &c->rem.flags;
+    pInfo->cmd = c->cmd;
+    strcpy(pInfo->session,c->session);
+	strcpy(pInfo->ip,c->client_ip);
+    pInfo->encrypt_seq = c->seq;
+	strcpy(pInfo->disk_uuid,c->disk_uuid);
+	
+    pInfo->dest_path= (char *)calloc(1,strlen(c->des_path) + 1);
+    strcpy(pInfo->dest_path,c->des_path);
+
+    pInfo->src_path= (char *)calloc(1,strlen(c->src_path) + 1);
+    strcpy(pInfo->src_path,c->src_path);
+	//���������·��
+    //pInfo->request_path= (char *)calloc(1,strlen(c->src_path) + 1);
+
+	//�õ���ʵ����·��
+	//    pInfo->src_path= (char *)calloc(1,MAX_ENCRYPT_PATH_SIZE);
+    //pInfo->orig_path = (char *)calloc(1,MAX_ENCRYPT_PATH_SIZE);
+
+	//get encrypted file path from datebase, save to pInfo->src_path
+	char *orig_path = NULL;
+	rslt = handle_encrypt_file_query_cmd(c->disk_uuid, pInfo->src_path,&orig_path);
+	if(rslt != RET_SUCCESS){
+		//c->error = 
+		return rslt;
+	}
+	DMCLOG_D("len=%d",strlen(orig_path));	
+	pInfo->orig_path = (char*)calloc(1,strlen(orig_path)+1);
+	DMCLOG_D("len=%d",strlen(orig_path));	
+	strcpy(pInfo->orig_path,orig_path);
+	free(orig_path);
+	DMCLOG_D("pInfo->orig_path=%s",pInfo->orig_path);
+	pInfo->generate_key = generate_key;
+	pInfo->start_decrypt = start_decrypt;
+    if (0 != (rslt = PTHREAD_CREATE(&tid_encrypt_task, NULL, (void *)decrypt_inotify_func,pInfo)))
+    {
+        DMCLOG_D("Create decrypt inotify failed!");
+        rslt = -1;
+        return rslt;
+    }
+    PTHREAD_DETACH(tid_encrypt_task);
+    EXIT_FUNC();
+    return 0;
+}
+
+
+static void generate_dest_encrypt_path(void *self,char *dest_dir,char *dest_path){
+	char *src = (char*) self;
+	if(src == NULL)
+		DMCLOG_E("src is NULL");
+
+	char *dest_name = generate_encrypted_file_name(src);
+	if(dest_name == NULL)
+		DMCLOG_E("generate dest_name failed");
+		
+	sprintf(dest_path,"%s/.%s",dest_dir,dest_name);
+}
+static int start_encrypt(void *self,void *pdn){
+	ENTER_FUNC();
+	struct file_encrypt_info *pInfo = (struct file_encrypt_info *)self;
+	struct file_dnode *dn = (struct file_dnode *)pdn;
+
+	int ret = 0;
+	if(dn->isFolder == 1){
+		ret = encrypt_dir(pInfo,dn);
+	}
+	else {
+		ret = encrypt_file(pInfo,dn);
+	}
+	if(ret == 0) pInfo->finished_num++;
+	return ret;
+}
+int create_encrypt_task(struct conn *c)
+{
+    ENTER_FUNC();
+    PTHREAD_T tid_encrypt_task;
+    int rslt = 0;
+    int error;
+    file_encrypt_info_t *pInfo = (file_encrypt_info_t *)calloc(1,sizeof(file_encrypt_info_t));
+	pInfo->c = c;
+	c->copy_status = &pInfo->quit_status;
+	pInfo->currentOnly = c->statusFlag;
+    pInfo->flags = &c->rem.flags;
+    pInfo->cmd = c->cmd;
+    strcpy(pInfo->session,c->session);
+    strcpy(pInfo->disk_uuid,c->disk_uuid);
+	strcpy(pInfo->ip,c->client_ip);
+    pInfo->encrypt_seq = c->seq;
+    pInfo->src_path= (char *)calloc(1,MAX_ENCRYPT_PATH_SIZE+ 1);
+    strcpy(pInfo->src_path,c->src_path);
+	//1. generate key
+	pInfo->generate_key = generate_key;
+	//2. generate encrypt_path
+    pInfo->generate_dest_encrypt_path = generate_dest_encrypt_path;
+    //3. encrypt file
+    pInfo->start_encrypt = start_encrypt;
+
+    if (0 != (rslt = PTHREAD_CREATE(&tid_encrypt_task, NULL, (void *)encrypt_inotify_func,pInfo)))
+    {
+        DMCLOG_D("Create encrypt inotify failed!");
+        rslt = -1;
+        return rslt;
+    }
+    PTHREAD_DETACH(tid_encrypt_task);
+    EXIT_FUNC();
+    return 0;
+}
 int create_search_task(struct conn *c)
 {
     ENTER_FUNC();
@@ -1869,7 +3660,6 @@ int create_search_task(struct conn *c)
 int DM_FileCopy(struct conn *c)
 {
     int res = 0;
-	JObj* response_json = JSON_NEW_EMPTY_OBJECT();
 	EnterCriticalSection(&c->ctx->mutex);
 	res = read_mark_file(c->disk_root,c->disk_uuid);
 	LeaveCriticalSection(&c->ctx->mutex);
@@ -1883,7 +3673,7 @@ int DM_FileCopy(struct conn *c)
         c->error = FILE_IS_NOT_EXIST;
         goto EXIT;
     }
-    c->loc.flags |= FLAG_R;
+    //c->loc.flags |= FLAG_W;
     res = create_copy_task(c);
     if(res < 0)
     {
@@ -1892,8 +3682,8 @@ int DM_FileCopy(struct conn *c)
         goto EXIT;
     }
 EXIT:
-	file_json_to_string(c,response_json);
-	JSON_PUT_OBJECT(response_json);
+	//file_json_to_string(c,response_json);
+	//JSON_PUT_OBJECT(response_json);
 	EXIT_FUNC();
     return 0;
 }
@@ -2013,7 +3803,7 @@ int DM_FileGetClassInfo(struct conn *c)
 		c->offset = 0;
 		c->length = file_list_t.totalCount;
 		
-		DMCLOG_D("c->offset = %lu,c->length = %lu",c->offset,c->length);
+		//DMCLOG_D("c->offset = %lu,c->length = %lu",c->offset,c->length);
 		res = handle_get_file_size_cmd(c->fileType,c->offset,c->length,sort_mode,response_para_json,c->disk_uuid);
 		if(res != 0)
 		{
@@ -2274,7 +4064,7 @@ int DM_FileGetBackupFile(struct conn *c)
 		(void) lseek64(c->loc.chan.fd, c->offset, SEEK_SET);
 		if(my_stat(c->cfg_path, &st) != 0)
 		{
-			//如果记录文件块起始地址的配置文件不存在，则将信息写入
+			//???????????????????,??????
 			int i = 0;
 			off_t percent = c->fileSize/THREAD_COUNT;
 			c->dn = NULL;
@@ -2381,7 +4171,7 @@ int DM_FileCheckBackupFile(struct conn *c)
 		{
 			c->error = DM_ERROR_DB_HDISK_TABLE;
 		}
-		c->status = 0;//文件不存在
+		c->status = 0;//?????
 		goto EXIT;
 	}
 	
@@ -2400,7 +4190,7 @@ int DM_FileCheckBackupFile(struct conn *c)
 	if(my_stat(c->cfg_path, &st) == 0)
 	{
 		DMCLOG_D("cfg path is exist");
-		c->status = 1;//临时文件存在
+		c->status = 1;//??????
 		c->dn = NULL;
 		res = read_list_from_file(c->cfg_path,&c->dn);
 		if(res < 0)
@@ -2413,7 +4203,7 @@ int DM_FileCheckBackupFile(struct conn *c)
 		c->status = 0;
 	}
 	DMCLOG_D("c->status = %d",c->status);
-	if(c->status == 1)//存在未完成的tmp文件。
+	if(c->status == 1)//??????tmp???
 	{
 		JObj *response_data_array = JSON_NEW_ARRAY();
 		struct record_dnode *p_dn = c->dn;
@@ -2563,7 +4353,7 @@ EXIT:
 }
 
 /*
- * 文件下载 cmd = 106
+ * ???? cmd = 106
  */
 int Parser_FileDownload(struct conn *c)
 {
@@ -2615,7 +4405,7 @@ EXIT:
 }
 
 /*
- * 上传检查 cmd = 108
+ * ???? cmd = 108
  */
 int Parser_FileCheckUpload(struct conn *c)
 {
@@ -2671,7 +4461,7 @@ EXIT:
 	return 0;	
 }
 /*
- * 上传命令cmd = 107
+ * ????cmd = 107
  */
 int Parser_FileUpload(struct conn *c)
 {
@@ -2894,6 +4684,13 @@ int Parser_FileGetList(struct conn *c)
 		goto EXIT;
 	}
 	DMCLOG_D("uri = %s",uri_src);
+	get_disk_name(uri_src,c->disk_name);
+    DMCLOG_D("disk_name = %s",c->disk_name);
+	
+    c->disk_root = (char *)calloc(1,strlen(DOCUMENT_ROOT) + strlen(c->disk_name) + 2 );
+    assert(c->disk_root != NULL);
+    sprintf(c->disk_root,"%s/%s",DOCUMENT_ROOT,c->disk_name);
+    DMCLOG_D("disk_root = %s",c->disk_root);
 	if (strlen(uri_src) + strlen(DOCUMENT_ROOT) >= URI_MAX) {
 		c->error = PATH_TOO_LONGTH;
 		goto EXIT;
@@ -2906,14 +4703,21 @@ int Parser_FileGetList(struct conn *c)
     }else{
         sprintf(c->src_path,"%s/%s",DOCUMENT_ROOT,uri_src);
     }
-	DMCLOG_E("cmd = %d,error = %d",c->cmd,c->error);
+
+	char *lc = get_last_char(c->src_path, '/');
+	if(lc != NULL){
+		*lc = 0;
+	}
+	DMCLOG_E("src_path = %s",c->src_path);
+
+	
 EXIT:
 	if(c->r_json != NULL)
 		JSON_PUT_OBJECT(c->r_json);
 	return 0;	
 }
 /*
- * 文件夹创建 cmd = 102
+ * ????? cmd = 102
  */
 int Parser_FileMkdir(struct conn *c)
 {
@@ -3000,7 +4804,7 @@ EXIT:
 	return 0;	
 }
 /*
- * 文件或文件夹重名 cmd = 103
+ * ???????? cmd = 103
  */
 int Parser_FileRename(struct conn *c)
 {
@@ -3158,7 +4962,7 @@ EXIT:
 }
 
 /*
- * 判断文件或文件夹是否存在 cmd = 104
+ * ???????????? cmd = 104
  */
 int Parser_FileIsExist(struct conn *c)
 {
@@ -3210,7 +5014,7 @@ EXIT:
 	return 0;	
 }
 /*
- * 获取文件或文件夹属性 cmd = 105
+ * ?????????? cmd = 105
  */
 int Parser_FileGetAttr(struct conn *c)
 {
@@ -3257,7 +5061,7 @@ EXIT:
 	return 0;	
 }
 /*
- *文件或文件夹删除 cmd = 109
+ *???????? cmd = 109
  */
 int parser_FileDelete(struct conn *c)
 {
@@ -4353,7 +6157,7 @@ EXIT:
 
 void file_parse_process(struct conn *c)
 {
-	//TODO 需添加解析json文件的出错机制
+	//TODO ?????json???????
     uint8_t i = 0;
     uint8_t switch_flag = 0;
 	file_parse_header_json(c);
@@ -4385,7 +6189,6 @@ void file_parse_process(struct conn *c)
 			int ret = c->ctx->session_process(c);
 			if(ret != 0)
 			{
-				c->error = ERROR_SESSION_PROCESS;
 			}
 		}
 	}

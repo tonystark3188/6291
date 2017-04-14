@@ -1,0 +1,62 @@
+--- a/src/Makefile	2007-12-09 21:03:36.000000000 +0800
++++ b/src/Makefile	2015-01-10 14:41:30.000000000 +0800
+@@ -44,7 +44,8 @@
+         redblack.c \
+         osdep.c \
+         ctrl_telnet.c \
+-        ushare.c
++        ushare.c \
++        nrender_conf.c
+ 
+ OBJS = $(SRCS:.c=.o)
+ 
+--- a/src/nrender_conf.c	1970-01-01 08:00:00.000000000 +0800
++++ b/src/nrender_conf.c	2015-01-10 14:37:58.000000000 +0800
+@@ -0,0 +1,47 @@
++#include <strings.h>
++#include <stdio.h>
++#include <string.h>
++#define FW_VERSION "fw_version"
++#define MODEL_NAME "model_name"
++#define MODEL_NUMBER "model_number"
++#define MODEL_DESCRIPTION "model_description"
++
++#define MANUFACTURER "manufacturer"
++#define MANUFACTURER_URL "url_manufacturer"
++char *get_conf_str(char *var)
++{
++	FILE *fp=fopen("/etc/nrender.conf","r");
++	if(NULL == fp)
++	{
++		printf("open /etc/nrender.conf failed \n");
++		return 0;
++	}
++	char tmp[128];
++	char *ret_str;
++	bzero(tmp,128);
++	while(fgets(tmp,128,fp)!=NULL)
++	{
++		if('\n'==tmp[strlen(tmp)-1])
++		{
++			tmp[strlen(tmp)-1]=0;
++		}
++		printf("get string from /etc/nrender.conf:%s\n",tmp);
++		if(!strncmp(var,tmp,strlen(var)))
++		{
++			ret_str = malloc(strlen(tmp)-strlen(var));
++			if(!ret_str)
++			{
++				fclose(fp);
++				return 0;
++			}
++			bzero(ret_str,strlen(tmp)-strlen(var));
++			strcpy(ret_str,tmp+strlen(var)+1);
++			printf("ret string:%s\n",ret_str);
++			fclose(fp);
++			return ret_str;
++		}
++		
++	}
++	fclose(fp);
++	return 0;
++}

@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include "cgiget.h"
+#include "uci_for_cgi.h"
 #define FW_DEV "/dev/mmcblk0"
 #define FW_FILE "/tmp/fwupgrade"
 #define FW_LEN (53*1024*1024)

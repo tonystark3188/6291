@@ -1,0 +1,836 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+AIRPLAY_SET_name	src/cgihandle.h	227;"	d
+APList_GET_AP	src/cgihandle.h	66;"	d
+APList_GET_AP_channel	src/cgihandle.h	70;"	d
+APList_GET_AP_encrypt	src/cgihandle.h	69;"	d
+APList_GET_AP_mac	src/cgihandle.h	73;"	d
+APList_GET_AP_name	src/cgihandle.h	68;"	d
+APList_GET_AP_rssi	src/cgihandle.h	71;"	d
+APList_GET_AP_tkip_aes	src/cgihandle.h	72;"	d
+AR9300_OTP_BASE	src/main.c	23;"	d	file:
+AR9300_OTP_BASE	src/mm.c	73;"	d	file:
+AR9300_OTP_READ_DATA	src/main.c	29;"	d	file:
+AR9300_OTP_READ_DATA	src/mm.c	79;"	d	file:
+AR9300_OTP_STATUS	src/main.c	24;"	d	file:
+AR9300_OTP_STATUS	src/mm.c	74;"	d	file:
+AR9300_OTP_STATUS_ACCESS_BUSY	src/main.c	27;"	d	file:
+AR9300_OTP_STATUS_ACCESS_BUSY	src/mm.c	77;"	d	file:
+AR9300_OTP_STATUS_SM_BUSY	src/main.c	28;"	d	file:
+AR9300_OTP_STATUS_SM_BUSY	src/mm.c	78;"	d	file:
+AR9300_OTP_STATUS_TYPE	src/main.c	25;"	d	file:
+AR9300_OTP_STATUS_TYPE	src/mm.c	75;"	d	file:
+AR9300_OTP_STATUS_VALID	src/main.c	26;"	d	file:
+AR9300_OTP_STATUS_VALID	src/mm.c	76;"	d	file:
+ARRAY_SIZE	src/erase_boot_flag.c	26;"	d	file:
+ARRAY_SIZE	src/mp_disk.c	29;"	d	file:
+ARRAY_SIZE	src/nvram_cfg.c	26;"	d	file:
+ARRAY_SIZE	src/set_sys_flag.c	19;"	d	file:
+ARRAY_SIZE	src/set_wifimode_to_boot.c	27;"	d	file:
+ART_DEV	src/ArtUpgrade.c	17;"	d	file:
+ART_FILE	src/BootUpgrade.c	6;"	d	file:
+ART_SIZE	src/ArtUpgrade.c	14;"	d	file:
+BIT	src/my_def.h	47;"	d
+BOOT_END_FLAG	src/BootUpgrade.c	18;"	d	file:
+BUFF_SIZE	src/sys_upgrade.c	18;"	d	file:
+BUFSIZE	src/set_mac.c	10;"	d	file:
+BUF_LEN	src/cgihandle.c	965;"	d	file:
+BUF_MAX	src/sys_upgrade.c	13;"	d	file:
+BUF_MAX	src/sysupdate.c	12;"	d	file:
+BUTTON_DOUBLE	src/socket_uart.h	/^	BUTTON_DOUBLE = 0x800$/;"	e	enum:button_status
+BUTTON_DOWN_LED_OFF	src/socket_uart.h	/^	BUTTON_DOWN_LED_OFF = 1,$/;"	e	enum:button_status
+BUTTON_DOWN_RESET	src/socket_uart.h	/^	BUTTON_DOWN_RESET = 0X80,$/;"	e	enum:button_status
+BUTTON_UP	src/socket_uart.h	/^	BUTTON_UP = 0,$/;"	e	enum:button_status
+Build	Makefile	/^define Build\/Compile$/;"	m
+Build	Makefile	/^define Build\/Prepare$/;"	m
+CFGFLAG	src/cfg.c	26;"	d	file:
+CFG_TARGET	src/Makefile	/^CFG_TARGET = 	cfg nor check_stm8 KeepChannel updatefw mnt_pc_dc ctl_wifi_for_3_0 auto_connect \\$/;"	m
+CGIGET_H	src/cgiget.h	2;"	d
+CGIHANDLE_H	src/cgihandle.h	2;"	d
+CGISTR	src/cgiget.h	12;"	d
+CGI_LOG	src/cgiget.c	57;"	d	file:
+CLI_FLAG_BATCH	src/uci_for_cgi.c	/^	CLI_FLAG_BATCH =    (1 << 3),$/;"	e	enum:__anon1	file:
+CLI_FLAG_MERGE	src/uci_for_cgi.c	/^	CLI_FLAG_MERGE =    (1 << 0),$/;"	e	enum:__anon1	file:
+CLI_FLAG_NOCOMMIT	src/uci_for_cgi.c	/^	CLI_FLAG_NOCOMMIT = (1 << 2),$/;"	e	enum:__anon1	file:
+CLI_FLAG_NOPLUGINS	src/uci_for_cgi.c	/^	CLI_FLAG_NOPLUGINS= (1 << 5),$/;"	e	enum:__anon1	file:
+CLI_FLAG_QUIET	src/uci_for_cgi.c	/^	CLI_FLAG_QUIET =    (1 << 1),$/;"	e	enum:__anon1	file:
+CLI_FLAG_SHOW_EXT	src/uci_for_cgi.c	/^	CLI_FLAG_SHOW_EXT = (1 << 4),$/;"	e	enum:__anon1	file:
+CONF_HEADER	src/ArtUpgrade.c	12;"	d	file:
+CONF_HEADER	src/BootUpgrade.c	14;"	d	file:
+CONF_HEADER	src/SysUpgrade.c	26;"	d	file:
+Client_Status_enable	src/cgihandle.h	129;"	d
+DATA_LEN	src/cfg.c	25;"	d	file:
+DATA_LEN	src/nor.h	9;"	d
+DDNS_GET_domain	src/cgihandle.h	112;"	d
+DDNS_GET_name	src/cgihandle.h	111;"	d
+DDNS_GET_user	src/cgihandle.h	113;"	d
+DDNS_SET_domain	src/cgihandle.h	197;"	d
+DDNS_SET_name	src/cgihandle.h	196;"	d
+DDNS_SET_password	src/cgihandle.h	199;"	d
+DDNS_SET_user	src/cgihandle.h	198;"	d
+DEBUGS	src/updatefw.c	18;"	d	file:
+DETECT_BOARD	src/socket_uart.h	/^	DETECT_BOARD,$/;"	e	enum:pc_detect_status
+DETECT_PC	src/socket_uart.h	/^	DETECT_PC$/;"	e	enum:pc_detect_status
+DISK_DEV	src/erase_boot_flag.c	15;"	d	file:
+DISK_DEV	src/mp_disk.c	17;"	d	file:
+DISK_DEV	src/nvram_cfg.c	15;"	d	file:
+DISK_DEV	src/set_sys_flag.c	8;"	d	file:
+DISK_DEV	src/set_wifimode_to_boot.c	15;"	d	file:
+DMS_GET_enable	src/cgihandle.h	108;"	d
+DMS_GET_name	src/cgihandle.h	106;"	d
+DMS_GET_path	src/cgihandle.h	107;"	d
+DMS_SET_enable	src/cgihandle.h	193;"	d
+DMS_SET_name	src/cgihandle.h	191;"	d
+DMS_SET_path	src/cgihandle.h	192;"	d
+DM_CONF_FILE	src/cgihandle.c	16;"	d	file:
+Debug_cfg	src/check_file_from_pc.c	9;"	d	file:
+Debug_cfg	src/nor.h	6;"	d
+Debug_cfg	src/parse_file_from_pc.c	9;"	d	file:
+ENCRYPT_CCMP	src/cgiWireless.h	22;"	d
+ENCRYPT_TKIP	src/cgiWireless.h	21;"	d
+ENCRYPT_WEP_104	src/cgiWireless.h	24;"	d
+ENCRYPT_WEP_40	src/cgiWireless.h	23;"	d
+ENCRYPT_WRAP	src/cgiWireless.h	25;"	d
+ERROR_CLIENT_DATA	src/socket_uart.h	/^	ERROR_CLIENT_DATA = -100,$/;"	e	enum:error_code
+ERROR_CLIENT_INIT	src/socket_uart.h	/^	ERROR_CLIENT_INIT = -101,$/;"	e	enum:error_code
+ERROR_CLIENT_PARSE	src/socket_uart.h	/^	ERROR_CLIENT_PARSE = -105,$/;"	e	enum:error_code
+ERROR_CLIENT_RECV	src/socket_uart.h	/^	ERROR_CLIENT_RECV = -103,$/;"	e	enum:error_code
+ERROR_CLIENT_SEND	src/socket_uart.h	/^	ERROR_CLIENT_SEND = -102,$/;"	e	enum:error_code
+ERROR_CLIENT_TIMEOUT	src/socket_uart.h	/^	ERROR_CLIENT_TIMEOUT = -104,$/;"	e	enum:error_code
+ERROR_PASSWORD	src/cgihandle.h	33;"	d
+ERROR_SERVER_DATA	src/socket_uart.h	/^	ERROR_SERVER_DATA = -112$/;"	e	enum:error_code
+ERROR_SERVER_PARSE	src/socket_uart.h	/^	ERROR_SERVER_PARSE = -110,$/;"	e	enum:error_code
+ERROR_SERVER_UART_HANDLE	src/socket_uart.h	/^	ERROR_SERVER_UART_HANDLE = -111,$/;"	e	enum:error_code
+ERROR_SSID	src/cgihandle.h	32;"	d
+FACTORYCONFIGPATH	src/cfg.c	24;"	d	file:
+FACTORYCONFIGPATH	src/mp_disk.c	16;"	d	file:
+FALSE	src/KeepChannel.c	12;"	d	file:
+FALSE	src/my_def.h	35;"	d
+FALSE	src/updatefw.c	16;"	d	file:
+FAT_FS	src/mp_disk.c	27;"	d	file:
+FILENAME_MAX	src/cgihandle.c	15;"	d	file:
+FN_GET_3G	src/cgihandle.h	131;"	d
+FN_GET_AIRPLAY_NAME	src/cgihandle.h	135;"	d
+FN_GET_APList	src/cgihandle.h	65;"	d
+FN_GET_BTN_RST	src/cgihandle.h	133;"	d
+FN_GET_Client_Status	src/cgihandle.h	128;"	d
+FN_GET_DDNS	src/cgihandle.h	110;"	d
+FN_GET_DMS	src/cgihandle.h	105;"	d
+FN_GET_FTP	src/cgihandle.h	88;"	d
+FN_GET_JoinWired	src/cgihandle.h	123;"	d
+FN_GET_Power	src/cgihandle.h	75;"	d
+FN_GET_RemoteAP	src/cgihandle.h	54;"	d
+FN_GET_SAMBA	src/cgihandle.h	96;"	d
+FN_GET_SSID	src/cgihandle.h	44;"	d
+FN_GET_Storage	src/cgihandle.h	79;"	d
+FN_GET_Version	src/cgihandle.h	126;"	d
+FN_GET_WebDAV	src/cgihandle.h	116;"	d
+FN_GET_WorkMode	src/cgihandle.h	62;"	d
+FN_HALT	src/cgihandle.h	210;"	d
+FN_SET_3G	src/cgihandle.h	219;"	d
+FN_SET_AIRPLAY_NAME	src/cgihandle.h	226;"	d
+FN_SET_Client	src/cgihandle.h	216;"	d
+FN_SET_DDNS	src/cgihandle.h	195;"	d
+FN_SET_DMS	src/cgihandle.h	190;"	d
+FN_SET_FTP	src/cgihandle.h	174;"	d
+FN_SET_JoinWired	src/cgihandle.h	160;"	d
+FN_SET_JoinWireless	src/cgihandle.h	151;"	d
+FN_SET_SAMBA	src/cgihandle.h	182;"	d
+FN_SET_SSID	src/cgihandle.h	139;"	d
+FN_SET_WebDAV	src/cgihandle.h	201;"	d
+FN_SET_WorkMode	src/cgihandle.h	148;"	d
+FN_SET_iperf	src/cgihandle.h	229;"	d
+FN_Time_Sync	src/cgihandle.h	212;"	d
+FN_Upgrade	src/cgihandle.h	208;"	d
+FTP_GET_anonymous_en	src/cgihandle.h	94;"	d
+FTP_GET_password	src/cgihandle.h	90;"	d
+FTP_GET_path	src/cgihandle.h	92;"	d
+FTP_GET_port	src/cgihandle.h	91;"	d
+FTP_GET_status	src/cgihandle.h	93;"	d
+FTP_GET_user	src/cgihandle.h	89;"	d
+FTP_SET_anonymous_en	src/cgihandle.h	179;"	d
+FTP_SET_enable	src/cgihandle.h	180;"	d
+FTP_SET_password	src/cgihandle.h	176;"	d
+FTP_SET_path	src/cgihandle.h	178;"	d
+FTP_SET_port	src/cgihandle.h	177;"	d
+FTP_SET_user	src/cgihandle.h	175;"	d
+FW_1	src/cgihandle.h	36;"	d
+FW_2	src/cgihandle.h	37;"	d
+FW_3	src/cgihandle.h	38;"	d
+FW_DEV	src/sys_upgrade.c	10;"	d	file:
+FW_DEV	src/sysupdate.c	9;"	d	file:
+FW_DEV	src/updatefw.c	9;"	d	file:
+FW_FILE	src/SysUpgrade.c	15;"	d	file:
+FW_FILE	src/sys_upgrade.c	11;"	d	file:
+FW_FILE	src/sysupdate.c	10;"	d	file:
+FW_LEN	src/SysUpgrade.c	16;"	d	file:
+FW_LEN	src/sys_upgrade.c	12;"	d	file:
+FW_LEN	src/sysupdate.c	11;"	d	file:
+FW_LEN	src/updatefw.c	11;"	d	file:
+FW_VERSION	src/cfg.c	30;"	d	file:
+FW_VERSION	src/nrender_conf.c	5;"	d	file:
+G	src/cgihandle.c	/^static const unsigned long long G = 1024*1024*1024ull;$/;"	v	file:
+GBYTE	src/erase_boot_flag.c	20;"	d	file:
+GBYTE	src/mp_disk.c	22;"	d	file:
+GBYTE	src/nvram_cfg.c	20;"	d	file:
+GBYTE	src/set_sys_flag.c	13;"	d	file:
+GBYTE	src/set_wifimode_to_boot.c	20;"	d	file:
+GETSYSSTR	src/cgihandle.h	28;"	d
+GET_SYS_BTN	src/led_ctl.c	26;"	d	file:
+GET_SYS_BTN	src/usb_ctl.c	27;"	d	file:
+GET_TAGHANDLE_NUM	src/cgihandle.c	316;"	d	file:
+GZ_STR	src/SysUpgrade.c	25;"	d	file:
+GetString	src/cgiget.c	/^char *GetString(char *qurey, char *getstr)$/;"	f
+GetStringFromWeb	src/cgiget.c	/^char * GetStringFromWeb()$/;"	f
+GetStringFromWeb	src/set_mac.c	/^char * GetStringFromWeb()$/;"	f
+IW_SCAN_HACK	src/cgiWireless.h	12;"	d
+JZ_GPIO	src/led_ctl.c	28;"	d	file:
+JZ_GPIO	src/usb_ctl.c	29;"	d	file:
+JoinWired_SET_DHCP	src/cgihandle.h	164;"	d
+JoinWired_SET_PPPOE	src/cgihandle.h	161;"	d
+JoinWired_SET_PPPOE_password	src/cgihandle.h	163;"	d
+JoinWired_SET_PPPOE_user	src/cgihandle.h	162;"	d
+JoinWired_SET_StaticIP	src/cgihandle.h	165;"	d
+JoinWired_SET_StaticIP_dns1	src/cgihandle.h	170;"	d
+JoinWired_SET_StaticIP_dns2	src/cgihandle.h	171;"	d
+JoinWired_SET_StaticIP_dns3	src/cgihandle.h	172;"	d
+JoinWired_SET_StaticIP_dns_mode	src/cgihandle.h	169;"	d
+JoinWired_SET_StaticIP_gateway	src/cgihandle.h	168;"	d
+JoinWired_SET_StaticIP_ip	src/cgihandle.h	166;"	d
+JoinWired_SET_StaticIP_mask	src/cgihandle.h	167;"	d
+JoinWireless_SET_AP	src/cgihandle.h	152;"	d
+JoinWireless_SET_AP_channel	src/cgihandle.h	155;"	d
+JoinWireless_SET_AP_encrypt	src/cgihandle.h	154;"	d
+JoinWireless_SET_AP_mac	src/cgihandle.h	158;"	d
+JoinWireless_SET_AP_name	src/cgihandle.h	153;"	d
+JoinWireless_SET_AP_password	src/cgihandle.h	157;"	d
+JoinWireless_SET_AP_tkip_aes	src/cgihandle.h	156;"	d
+K	src/cgihandle.c	/^static const unsigned long long K = 1024;$/;"	v	file:
+KBYTE	src/erase_boot_flag.c	18;"	d	file:
+KBYTE	src/mp_disk.c	20;"	d	file:
+KBYTE	src/nvram_cfg.c	18;"	d	file:
+KBYTE	src/set_sys_flag.c	11;"	d	file:
+KBYTE	src/set_wifimode_to_boot.c	18;"	d	file:
+KBYTE	src/sys_upgrade.c	16;"	d	file:
+LED_CONTROL	src/ctl_wifi_for_3_0.c	16;"	d	file:
+LED_OFF	src/ctl_wifi_for_3_0.c	18;"	d	file:
+LED_OFF	src/led_ctl.c	24;"	d	file:
+LED_ON	src/led_ctl.c	23;"	d	file:
+LED_TARGET	src/Makefile	/^LED_TARGET = led_control_reload led_on$/;"	m
+LINE_FWSTR	src/ArtUpgrade.c	11;"	d	file:
+LINE_FWSTR	src/BootUpgrade.c	13;"	d	file:
+LINE_FWSTR	src/SysUpgrade.c	23;"	d	file:
+LINUXFX36_FWSTR	src/ArtUpgrade.c	8;"	d	file:
+LINUXFX36_FWSTR	src/BootUpgrade.c	10;"	d	file:
+LINUXFX36_FWSTR	src/SysUpgrade.c	19;"	d	file:
+LINUX_FS	src/mp_disk.c	26;"	d	file:
+LONG_PRESS	src/led_ctl.c	37;"	d	file:
+LONG_PRESS	src/usb_ctl.c	38;"	d	file:
+M	src/cgihandle.c	/^static const unsigned long long M = 1024*1024;$/;"	v	file:
+MACIE5_FWSTR	src/ArtUpgrade.c	9;"	d	file:
+MACIE5_FWSTR	src/BootUpgrade.c	11;"	d	file:
+MACIE5_FWSTR	src/SysUpgrade.c	20;"	d	file:
+MAC_NAME	src/set_mac.c	9;"	d	file:
+MALLOC_SIZE	src/SysUpgrade.c	30;"	d	file:
+MANUFACTURER	src/nrender_conf.c	10;"	d	file:
+MANUFACTURER_URL	src/nrender_conf.c	11;"	d	file:
+MAX	src/my_def.h	43;"	d
+MAX_AP_NUM	src/auto_connect.h	4;"	d
+MBYTE	src/erase_boot_flag.c	19;"	d	file:
+MBYTE	src/mp_disk.c	21;"	d	file:
+MBYTE	src/nvram_cfg.c	19;"	d	file:
+MBYTE	src/set_sys_flag.c	12;"	d	file:
+MBYTE	src/set_wifimode_to_boot.c	19;"	d	file:
+MBYTE	src/sys_upgrade.c	15;"	d	file:
+MIN	src/my_def.h	39;"	d
+MNT_PATH	src/updatefw.c	13;"	d	file:
+MODEL_DESCRIPTION	src/nrender_conf.c	8;"	d	file:
+MODEL_NAME	src/SysUpgrade.c	28;"	d	file:
+MODEL_NAME	src/nrender_conf.c	6;"	d	file:
+MODEL_NAME	src/updatefw.c	26;"	d	file:
+MODEL_NUMBER	src/nrender_conf.c	7;"	d	file:
+M_2G	src/auto_connect.h	/^	M_2G,$/;"	e	enum:wifi_mode
+M_2G	src/cgihandle.c	/^	M_2G=2,$/;"	e	enum:wifi_mode	file:
+M_5G	src/auto_connect.h	/^	M_5G$/;"	e	enum:wifi_mode
+M_5G	src/cgihandle.c	/^	M_5G=5$/;"	e	enum:wifi_mode	file:
+N	src/cfg_api.c	6;"	d	file:
+N	src/check_file_from_pc.c	8;"	d	file:
+N	src/parse_file_from_pc.c	8;"	d	file:
+NETCOM_LABLE	src/ArtUpgrade.c	16;"	d	file:
+NETCOM_LABLE	src/BootUpgrade.c	22;"	d	file:
+NORMAL_POWER	src/socket_uart.h	/^	NORMAL_POWER$/;"	e	enum:power_status
+NOT_NORMAL_POWER	src/socket_uart.h	/^	NOT_NORMAL_POWER,$/;"	e	enum:power_status
+NVRAM_BASE_ADDR	src/erase_boot_flag.c	23;"	d	file:
+NVRAM_BASE_ADDR	src/nvram_cfg.c	23;"	d	file:
+NVRAM_BASE_ADDR	src/set_sys_flag.c	16;"	d	file:
+NVRAM_LEN	src/erase_boot_flag.c	24;"	d	file:
+NVRAM_LEN	src/nvram_cfg.c	24;"	d	file:
+NVRAM_LEN	src/set_sys_flag.c	17;"	d	file:
+OPERA_FWSTR	src/ArtUpgrade.c	10;"	d	file:
+OPERA_FWSTR	src/BootUpgrade.c	12;"	d	file:
+OPERA_FWSTR	src/SysUpgrade.c	21;"	d	file:
+OTP_INTF0_EFUSE_WR_ENABLE_REG_V	src/mm.c	87;"	d	file:
+OTP_LDO_CONTROL_ENABLE	src/mm.c	85;"	d	file:
+OTP_LDO_STATUS_POWER_ON	src/mm.c	86;"	d	file:
+OTP_MEM_START_ADDRESS	src/mm.c	81;"	d	file:
+OTP_STATUS0_OTP_SM_BUSY	src/mm.c	82;"	d	file:
+OTP_STATUS1_EFUSE_READ_DATA	src/mm.c	83;"	d	file:
+P4_OFFSET	src/mp_disk.c	24;"	d	file:
+P4_OFFSET	src/set_wifimode_to_boot.c	22;"	d	file:
+PARAMETER_ERROR	src/cgihandle.h	34;"	d
+PC_STATUS	src/ctl_wifi_for_3_0.c	13;"	d	file:
+PKG_BUILD_DIR	Makefile	/^PKG_BUILD_DIR := $(BUILD_DIR)\/$(PKG_NAME)$/;"	m
+PKG_NAME	Makefile	/^PKG_NAME:=web_cgi$/;"	m
+PKG_RELEASE	Makefile	/^PKG_RELEASE:=1$/;"	m
+PKG_VERSION	Makefile	/^PKG_VERSION:=1.0$/;"	m
+POWER_CHARGING	src/socket_uart.h	/^	POWER_CHARGING,$/;"	e	enum:power_charge_status
+POWER_DISCHARGING	src/socket_uart.h	/^	POWER_DISCHARGING,$/;"	e	enum:power_charge_status
+POWER_LOW	src/socket_uart.h	/^	POWER_LOW$/;"	e	enum:power_charge_status
+POWER_NORMAL	src/socket_uart.h	/^	POWER_NORMAL,$/;"	e	enum:power_charge_status
+PRINTF	src/updatefw.c	21;"	d	file:
+PRINTF	src/updatefw.c	23;"	d	file:
+Package	Makefile	/^define Package\/web_cgi$/;"	m
+Package	Makefile	/^define Package\/web_cgi\/description$/;"	m
+Package	Makefile	/^define Package\/web_cgi\/install$/;"	m
+Power_GET_percent	src/cgihandle.h	76;"	d
+Power_GET_status	src/cgihandle.h	77;"	d
+QQLICENCE	src/cfg.c	28;"	d	file:
+QQSN	src/cfg.c	27;"	d	file:
+ROOTFUNC	src/cgihandle.h	/^typedef int (*ROOTFUNC)(xmlNodePtr root);$/;"	t
+ROOTHANDLE_NUM	src/cgihandle.c	314;"	d	file:
+RemoteAP_GET_channel	src/cgihandle.h	57;"	d
+RemoteAP_GET_encrypt	src/cgihandle.h	56;"	d
+RemoteAP_GET_name	src/cgihandle.h	55;"	d
+RemoteAP_GET_password	src/cgihandle.h	58;"	d
+RemoteAP_GET_status	src/cgihandle.h	59;"	d
+SAMBA_GET_password	src/cgihandle.h	99;"	d
+SAMBA_GET_path	src/cgihandle.h	101;"	d
+SAMBA_GET_port	src/cgihandle.h	100;"	d
+SAMBA_GET_status	src/cgihandle.h	102;"	d
+SAMBA_GET_user	src/cgihandle.h	98;"	d
+SAMBA_SET_anonymous_en	src/cgihandle.h	188;"	d
+SAMBA_SET_enable	src/cgihandle.h	187;"	d
+SAMBA_SET_password	src/cgihandle.h	184;"	d
+SAMBA_SET_path	src/cgihandle.h	186;"	d
+SAMBA_SET_port	src/cgihandle.h	185;"	d
+SAMBA_SET_user	src/cgihandle.h	183;"	d
+SETSYSSTR	src/cgihandle.h	29;"	d
+SET_3G_apn	src/cgihandle.h	221;"	d
+SET_3G_apnmode	src/cgihandle.h	220;"	d
+SET_3G_dialnumber	src/cgihandle.h	224;"	d
+SET_3G_password	src/cgihandle.h	223;"	d
+SET_3G_username	src/cgihandle.h	222;"	d
+SET_Client_enable	src/cgihandle.h	217;"	d
+SET_TAGHANDLE_NUM	src/cgihandle.c	317;"	d	file:
+SET_iperf_enable	src/cgihandle.h	230;"	d
+SHORT_PRESS	src/led_ctl.c	36;"	d	file:
+SHORT_PRESS	src/usb_ctl.c	37;"	d	file:
+SINT16	src/my_def.h	/^typedef short int 	        SINT16;$/;"	t
+SINT32	src/my_def.h	/^typedef int 		        SINT32;$/;"	t
+SINT8	src/my_def.h	/^typedef char 		        SINT8;$/;"	t
+SOCKET_UART_GET_BOTTON_STATUS	src/socket_uart.h	23;"	d
+SOCKET_UART_GET_CHARGE_STATUS	src/socket_uart.h	24;"	d
+SOCKET_UART_GET_END	src/socket_uart.h	34;"	d
+SOCKET_UART_GET_FIMRWARE_VERSION	src/socket_uart.h	27;"	d
+SOCKET_UART_GET_IF_POWEROFF	src/socket_uart.h	29;"	d
+SOCKET_UART_GET_KEY	src/socket_uart.h	28;"	d
+SOCKET_UART_GET_LINE_IN	src/socket_uart.h	30;"	d
+SOCKET_UART_GET_PC_DETEC	src/socket_uart.h	26;"	d
+SOCKET_UART_GET_POWER_PERCENT	src/socket_uart.h	22;"	d
+SOCKET_UART_GET_POWER_STATUS	src/socket_uart.h	32;"	d
+SOCKET_UART_GET_START	src/socket_uart.h	20;"	d
+SOCKET_UART_GET_STORAGE_DIRECTION	src/socket_uart.h	31;"	d
+SOCKET_UART_GET_STORAGE_POWER	src/socket_uart.h	25;"	d
+SOCKET_UART_PORT	src/socket_uart.h	15;"	d
+SOCKET_UART_SET_AMP	src/socket_uart.h	45;"	d
+SOCKET_UART_SET_END	src/socket_uart.h	49;"	d
+SOCKET_UART_SET_MUTE	src/socket_uart.h	46;"	d
+SOCKET_UART_SET_POWEROFF	src/socket_uart.h	40;"	d
+SOCKET_UART_SET_RESET	src/socket_uart.h	39;"	d
+SOCKET_UART_SET_START	src/socket_uart.h	37;"	d
+SOCKET_UART_SET_STORAGE_DIRECTION	src/socket_uart.h	42;"	d
+SOCKET_UART_SET_STORAGE_MODE	src/socket_uart.h	43;"	d
+SOCKET_UART_SET_STORAGE_POWER	src/socket_uart.h	41;"	d
+SOCKET_UART_SET_SURE_POWEROFF	src/socket_uart.h	47;"	d
+SOCKET_UART_SET_VERIFY_KEY	src/socket_uart.h	44;"	d
+SOCKET_UART_STM8_UPLOAD	src/socket_uart.h	52;"	d
+SOCKET_UART_TIMEOUT	src/socket_uart.h	17;"	d
+SOCKET_UART_WAIT_COUNT	src/socket_uart.h	16;"	d
+SSID_GET_channel	src/cgihandle.h	48;"	d
+SSID_GET_encrypt	src/cgihandle.h	47;"	d
+SSID_GET_encrypt_len	src/cgihandle.h	50;"	d
+SSID_GET_format	src/cgihandle.h	51;"	d
+SSID_GET_mac	src/cgihandle.h	52;"	d
+SSID_GET_name	src/cgihandle.h	46;"	d
+SSID_GET_password	src/cgihandle.h	49;"	d
+SSID_SET_channel	src/cgihandle.h	143;"	d
+SSID_SET_encrypt	src/cgihandle.h	141;"	d
+SSID_SET_encrypt_len	src/cgihandle.h	146;"	d
+SSID_SET_format	src/cgihandle.h	145;"	d
+SSID_SET_name	src/cgihandle.h	140;"	d
+SSID_SET_password	src/cgihandle.h	144;"	d
+SSID_SET_tkip_aes	src/cgihandle.h	142;"	d
+STORAGE_BOARD	src/socket_uart.h	/^	STORAGE_BOARD$/;"	e	enum:storage_direction_status
+STORAGE_PC	src/socket_uart.h	/^	STORAGE_PC,$/;"	e	enum:storage_direction_status
+STORAGE_POWER_OFF	src/socket_uart.h	/^	STORAGE_POWER_OFF,$/;"	e	enum:storage_power_status
+STORAGE_POWER_ON	src/socket_uart.h	/^	STORAGE_POWER_ON$/;"	e	enum:storage_power_status
+Storage_GET_Section	src/cgihandle.h	80;"	d
+Storage_GET_Section_free	src/cgihandle.h	84;"	d
+Storage_GET_Section_fstype	src/cgihandle.h	86;"	d
+Storage_GET_Section_total	src/cgihandle.h	82;"	d
+Storage_GET_Section_used	src/cgihandle.h	83;"	d
+Storage_GET_Section_volume	src/cgihandle.h	85;"	d
+TAGFUNC	src/cgihandle.h	/^typedef int (*TAGFUNC)(xmlNodePtr tag, char *retstr);$/;"	t
+TARGET	src/Makefile	/^TARGET = SysInfo SysUpgrade config_param check_param set_mac StmUpgrade ArtUpgrade BootUpgrade sysupdate mm$/;"	m
+TRUE	src/KeepChannel.c	13;"	d	file:
+TRUE	src/my_def.h	31;"	d
+TRUE	src/updatefw.c	15;"	d	file:
+TimeSync	src/cgihandle.c	/^int TimeSync(xmlNodePtr tag, char *retstr)$/;"	f
+Time_Sync_value	src/cgihandle.h	213;"	d
+Time_Sync_zone	src/cgihandle.h	214;"	d
+UART_R	src/socket_uart.h	/^	UART_R$/;"	e	enum:uart_rw_mode
+UART_W	src/socket_uart.h	/^	UART_W,$/;"	e	enum:uart_rw_mode
+UBOOL8	src/my_def.h	/^typedef unsigned char       UBOOL8;$/;"	t
+UINT16	src/my_def.h	/^typedef unsigned short int  UINT16;$/;"	t
+UINT32	src/my_def.h	/^typedef unsigned int        UINT32;$/;"	t
+UINT8	src/my_def.h	/^typedef unsigned char       UINT8;$/;"	t
+USB_CONNECT	src/usb_ctl.c	24;"	d	file:
+USB_DISCONNECT	src/usb_ctl.c	25;"	d	file:
+USERCONFIGPATH	src/nor.h	8;"	d
+Upgrade	src/cgihandle.c	/^int Upgrade(xmlNodePtr tag, char *retstr)$/;"	f
+VERSION_FLAG	src/cfg.c	29;"	d	file:
+WIFI_DRIVER_NL80211	src/cgiWireless.h	10;"	d
+WIFI_DRIVER_WEXT	src/cgiWireless.h	9;"	d
+WIFI_MODE_ADDR	src/set_wifimode_to_boot.c	24;"	d	file:
+WIFI_NUM_MAX	src/save_wifi.c	11;"	d	file:
+WIN64IE_FWSTR	src/SysUpgrade.c	22;"	d	file:
+WINIE6_STR	src/ArtUpgrade.c	7;"	d	file:
+WINIE6_STR	src/BootUpgrade.c	9;"	d	file:
+WINIE6_STR	src/SysUpgrade.c	18;"	d	file:
+WPA1X_FLAG	src/cgiWireless.h	16;"	d
+WPA2_FLAG	src/cgiWireless.h	14;"	d
+WPA_FLAG	src/cgiWireless.h	15;"	d
+WPA_MIX	src/cgiWireless.h	18;"	d
+WebDAV_GET_enable	src/cgihandle.h	121;"	d
+WebDAV_GET_password	src/cgihandle.h	118;"	d
+WebDAV_GET_path	src/cgihandle.h	120;"	d
+WebDAV_GET_port	src/cgihandle.h	119;"	d
+WebDAV_GET_user	src/cgihandle.h	117;"	d
+WebDAV_SET_enable	src/cgihandle.h	206;"	d
+WebDAV_SET_password	src/cgihandle.h	203;"	d
+WebDAV_SET_path	src/cgihandle.h	205;"	d
+WebDAV_SET_port	src/cgihandle.h	204;"	d
+WebDAV_SET_user	src/cgihandle.h	202;"	d
+WorkMode_GET_value	src/cgihandle.h	63;"	d
+WorkMode_SET_value	src/cgihandle.h	149;"	d
+XML_CGI_OBJ	src/Makefile	/^XML_CGI_OBJ= main.o cgiget.o cgihandle.o cgipost.o uci_for_cgi.o cgiWireless.o nor_control.o$/;"	m
+_AUTO_CONNECT_H	src/auto_connect.h	2;"	d
+_CGIPOST_H	src/cgipost.h	2;"	d
+_CGIWIRELESS_H	src/cgiWireless.h	2;"	d
+__CFG_API_H__	src/cfg_api.h	2;"	d
+__IW_NL80211_H	src/iw_nl80211.h	2;"	d
+__MY_DEF_H__	src/my_def.h	4;"	d
+__NOR_H	src/nor.h	2;"	d
+__SOCKET_UART_H__	src/socket_uart.h	2;"	d
+__UCI_FOR_CGI_H	src/uci_for_cgi.h	2;"	d
+_scan_list	src/auto_connect.h	/^typedef struct _scan_list$/;"	s
+_tag_cgiHandle	src/cgihandle.h	/^typedef struct _tag_cgiHandle$/;"	s
+_tag_cgitagHandle	src/cgihandle.h	/^typedef struct _tag_cgitagHandle$/;"	s
+_wifilist	src/auto_connect.h	/^typedef struct _wifilist$/;"	s
+_wifilist	src/cgihandle.c	/^typedef struct _wifilist$/;"	s	file:
+ap_info	src/cgiWireless.h	/^	ap_info_t ap_info[100];		\/* ap list *\/$/;"	m	struct:ap_list_info
+ap_info	src/cgiWireless.h	/^typedef struct ap_info{$/;"	s
+ap_info_t	src/cgiWireless.h	/^}ap_info_t;$/;"	t	typeref:struct:ap_info
+ap_list_info	src/cgiWireless.h	/^typedef struct ap_list_info{    $/;"	s
+ap_list_info_t	src/cgiWireless.h	/^}ap_list_info_t;$/;"	t	typeref:struct:ap_list_info
+ap_num	src/cgiWireless.h	/^  int			ap_num;		\/* Access Point number 1->N *\/$/;"	m	struct:iwscan_state
+app_debug	src/cgiWireless.c	114;"	d	file:
+app_debug	src/cgiWireless2.c	96;"	d	file:
+ath9k_hw_wait	src/main.c	/^	int ath9k_hw_wait(unsigned int reg,unsigned int mask,unsigned int val,unsigned int timeout)$/;"	f
+ath9k_hw_wait	src/mm.c	/^int ath9k_hw_wait(unsigned int reg,unsigned int mask,unsigned int val,unsigned int timeout)$/;"	f
+boot_flag	src/erase_boot_flag.c	/^	unsigned char boot_flag;$/;"	m	struct:private_data	file:
+boot_flag	src/nvram_cfg.c	/^	unsigned char boot_flag;$/;"	m	struct:private_data	file:
+boot_flag	src/set_sys_flag.c	/^	unsigned char boot_flag;$/;"	m	struct:private_data	file:
+buffer	src/main.c	/^char buffer[BUFSIZ]; $/;"	v
+button_status	src/socket_uart.h	/^enum button_status{$/;"	g
+cfg_erase	src/cfg.c	/^void cfg_erase(void)$/;"	f
+cfg_get	src/cfg.c	/^int cfg_get(char *argv)$/;"	f
+cfg_list	src/cfg.c	/^void cfg_list(void)$/;"	f
+cfg_nor_get	src/nor_control.c	/^int cfg_nor_get(char *argv)$/;"	f
+cfg_nor_set	src/nor_control.c	/^int cfg_nor_set(char *argv)$/;"	f
+cfg_set	src/cfg.c	/^int cfg_set(char *argv)$/;"	f
+cfg_set_and_check_str	src/cfg_api.c	/^int cfg_set_and_check_str(char *str)$/;"	f
+cgiHandle	src/cgihandle.h	/^}cgiHandle;$/;"	t	typeref:struct:_tag_cgiHandle
+cgi_get_channel	src/cgiWireless.c	/^int cgi_get_channel(char *ifname, char *chstr)$/;"	f
+cgi_get_channel	src/cgiWireless2.c	/^int cgi_get_channel(char *ifname, char *chstr)$/;"	f
+cgi_get_scan	src/cgiWireless.c	/^static int cgi_get_scan(int skfd, char *	ifname,char *scanstr)		\/* Args count *\/$/;"	f	file:
+cgi_get_scan	src/cgiWireless2.c	/^static int cgi_get_scan(int skfd, char *	ifname,char *scanstr)		\/* Args count *\/$/;"	f	file:
+cgi_get_scan2_nl80211	src/cgiWireless2.c	/^static int cgi_get_scan2_nl80211(char *	ifname,char *scanstr)	$/;"	f	file:
+cgi_get_scan_nl80211	src/cgiWireless.c	/^static int cgi_get_scan_nl80211(char *	ifname,char *scanstr)	$/;"	f	file:
+cgi_log	src/cgiget.c	/^void cgi_log( char *string){$/;"	f
+cgi_log	src/cgihandle.c	/^void cgi_log( char *string){$/;"	f
+cgi_scan	src/cgiWireless.c	/^int cgi_scan(char *ifname, char *outstr)$/;"	f
+cgi_scan2	src/cgiWireless2.c	/^int cgi_scan2(char *ifname, char *outstr)$/;"	f
+changeMacStr	src/cgiWireless.c	/^void changeMacStr(char *instr, char *outstr)$/;"	f
+changeMacStr	src/cgiWireless2.c	/^void changeMacStr(char *instr, char *outstr)$/;"	f
+channel	src/auto_connect.h	/^	int channel;$/;"	m	struct:_scan_list
+channel	src/cgiWireless.h	/^	int channel;				\/* channel *\/$/;"	m	struct:ap_info
+channelStr	src/cgiWireless.c	/^char channelStr[10];$/;"	v
+channelStr	src/cgiWireless2.c	/^char channelStr[10];$/;"	v
+cheak_encryp	src/encrypt.c	25;"	d	file:
+check_button	src/led_ctl.c	/^int check_button()$/;"	f
+check_cfg_flag	src/cfg.c	/^static int check_cfg_flag(void)$/;"	f	file:
+check_connected_sta	src/save_wifi.c	/^int check_connected_sta()$/;"	f
+check_fw_file	src/updatefw.c	/^int check_fw_file()$/;"	f
+check_fw_sum	src/SysUpgrade.c	/^int check_fw_sum(unsigned char *buf, int len)$/;"	f
+check_mac	src/cfg.c	/^static int check_mac(char *mac_addr)$/;"	f	file:
+check_mac	src/check_file_from_pc.c	/^static int check_mac(char *mac_addr)$/;"	f	file:
+check_mac	src/parse_file_from_pc.c	/^static int check_mac(char *mac_addr)$/;"	f	file:
+check_mp_status	src/mp_disk.c	/^int check_mp_status(int *i_mp_sta)$/;"	f
+check_wpa_supplicant	src/KeepChannel.c	/^int check_wpa_supplicant()$/;"	f
+clear_cfg_flag	src/cfg.c	/^static clear_cfg_flag(void)$/;"	f	file:
+cli_perror	src/uci_for_cgi.c	/^static void cli_perror(void)$/;"	f	file:
+cmd_path	src/updatefw.c	/^char cmd_path[256]="\\0";$/;"	v
+count	src/cgiWireless.h	/^	int count;					\/* the count of ap *\/$/;"	m	struct:ap_list_info
+ctx	src/uci_for_cgi.c	/^struct uci_context *ctx;$/;"	v	typeref:struct:uci_context
+d_printf	src/auto_connect.h	14;"	d
+d_printf	src/auto_connect.h	9;"	d
+d_printf	src/my_def.h	76;"	d
+d_printf	src/my_def.h	81;"	d
+data	src/socket_uart.h	/^	unsigned short data;$/;"	m	struct:socket_uart_cmd
+debug	src/uci_for_cgi.h	10;"	d
+debug_printf	src/cgiWireless.c	116;"	d	file:
+debug_printf	src/cgiWireless2.c	98;"	d	file:
+debugwrite	src/nor_control.c	/^static void debugwrite(char *str)$/;"	f	file:
+decode_boot	src/ArtUpgrade.c	/^unsigned int decode_boot(unsigned char *buf, int len)$/;"	f
+decode_boot	src/BootUpgrade.c	/^unsigned int decode_boot(unsigned char *buf, int len)$/;"	f
+del_n	src/cfg_api.c	/^void del_n(char *str)$/;"	f
+delimiter	src/uci_for_cgi.c	/^static const char *delimiter = " ";$/;"	v	file:
+disk_num	src/updatefw.c	/^int disk_num=0;$/;"	v
+diskplay_partition_info	src/mp_disk.c	/^int diskplay_partition_info()$/;"	f
+encrypt	src/cgiWireless.h	/^	char encrypt[32];			\/* encryption method *\/$/;"	m	struct:ap_info
+encrypt_read	src/main.c	/^int encrypt_read()$/;"	f
+encrypt_read	src/mm.c	/^int encrypt_read()$/;"	f
+encrypt_write	src/mm.c	/^int encrypt_write()$/;"	f
+encryption	src/auto_connect.h	/^	char encryption[32];$/;"	m	struct:_wifilist
+encryption	src/cgihandle.c	/^	char encryption[32];$/;"	m	struct:_wifilist	file:
+encrypttype	src/cgiWireless.c	/^int encrypttype=0;$/;"	v
+encrypttype	src/cgiWireless2.c	/^int encrypttype=0;$/;"	v
+error_code	src/socket_uart.h	/^enum error_code{$/;"	g
+error_info	src/cgihandle.c	/^char error_info[1024]="\\0";$/;"	v
+error_num	src/cgihandle.c	/^int error_num=0;$/;"	v
+find_head_offset	src/ArtUpgrade.c	/^int find_head_offset(char *upload_data)$/;"	f
+find_head_offset	src/BootUpgrade.c	/^int find_head_offset(char *upload_data)$/;"	f
+find_head_offset	src/SysUpgrade.c	/^int find_head_offset(char *upload_data)$/;"	f
+flags	src/uci_for_cgi.c	/^} flags;$/;"	v	typeref:enum:__anon1	file:
+formatMac	src/auto_connect.c	/^void formatMac(char *destMac, char *sourMac)$/;"	f
+formatMac	src/save_wifi.c	/^void formatMac(char *destMac, char *sourMac)$/;"	f
+formatScan2StrNl80211	src/cgiWireless2.c	/^void formatScan2StrNl80211(char *outstr, ap_list_info_t *p_ap_list)$/;"	f
+formatScanStr	src/cgiWireless.c	/^void formatScanStr(char *outstr)$/;"	f
+formatScanStr	src/cgiWireless2.c	/^void formatScanStr(char *outstr)$/;"	f
+formatScanStrNl80211	src/cgiWireless.c	/^void formatScanStrNl80211(char *outstr, ap_list_info_t *p_ap_list)$/;"	f
+fre	src/cgiWireless.h	/^	char fre[8];				\/* 2.4G or 5G *\/$/;"	m	struct:ap_list_info
+freeCgiStr	src/cgiget.c	/^void freeCgiStr(void)$/;"	f
+g_cfg_parameter	src/cfg.c	/^char *g_cfg_parameter[] = {$/;"	v
+g_nor_parameter	src/nor_control.c	/^char *g_nor_parameter[] = {$/;"	v
+get3G	src/cgihandle.c	/^int get3G(xmlNodePtr tag, char *retstr)$/;"	f
+getBtnReset	src/cgihandle.c	/^int getBtnReset(xmlNodePtr tag, char *retstr)$/;"	f
+getCgiStr	src/cgiget.c	/^char *getCgiStr(void)$/;"	f
+getClientStatus	src/cgihandle.c	/^int getClientStatus(xmlNodePtr tag, char *retstr)$/;"	f
+getDMS	src/cgihandle.c	/^int getDMS(xmlNodePtr tag, char *retstr)$/;"	f
+getFTP	src/cgihandle.c	/^int getFTP(xmlNodePtr tag, char *retstr)$/;"	f
+getJoinWired	src/cgihandle.c	/^int getJoinWired(xmlNodePtr tag, char *retstr)$/;"	f
+getPIDformPS	src/cgihandle.c	/^char * getPIDformPS(char *iface)$/;"	f
+getPIDformPST	src/main.c	/^char * getPIDformPST(char *iface)$/;"	f
+getRemoteAP	src/cgihandle.c	/^int getRemoteAP(xmlNodePtr tag, char *retstr)$/;"	f
+getSAMBA	src/cgihandle.c	/^int getSAMBA(xmlNodePtr tag, char *retstr)$/;"	f
+getScan	src/cgihandle.c	/^int getScan(xmlNodePtr tag, char *retstr)$/;"	f
+getStorage	src/cgihandle.c	/^int getStorage(xmlNodePtr tag, char *retstr)$/;"	f
+getVersion	src/cgihandle.c	/^int getVersion(xmlNodePtr tag, char *retstr)$/;"	f
+getWebDAV	src/cgihandle.c	/^int getWebDAV(xmlNodePtr tag, char *retstr)$/;"	f
+getWorkMode	src/cgihandle.c	/^int getWorkMode(xmlNodePtr tag, char *retstr)$/;"	f
+get_Firmware_Edition	src/cgihandle.c	13;"	d	file:
+get_Firmware_Edition	src/check_stm8.c	29;"	d	file:
+get_Product_mac	src/mm.c	/^	int get_Product_mac(unsigned char *mac)$/;"	f
+get_cfg_str	src/cfg_api.c	/^int get_cfg_str(char *param,char *ret_str)$/;"	f
+get_cfg_str_malloc	src/cfg_api.c	/^char *get_cfg_str_malloc(char *param)$/;"	f
+get_conf_str	src/nrender_conf.c	/^char *get_conf_str(char *var)$/;"	f
+get_disk_size	src/mp_disk.c	/^int get_disk_size(unsigned long *disk_size)$/;"	f
+get_power_level_num	src/cgihandle.c	12;"	d	file:
+get_wifi_client_status	src/KeepChannel.c	/^int get_wifi_client_status()$/;"	f
+get_wifi_list	src/auto_connect.c	/^wifilist_t *get_wifi_list(int wifimode,int *number)$/;"	f
+get_wifi_list	src/cgiWireless.c	/^wifilist_t *get_wifi_list(int wifimode,int *number)$/;"	f
+get_wifi_list	src/cgihandle.c	/^static wifilist_t *get_wifi_list(int wifimode,int *number)$/;"	f	file:
+get_wifi_list	src/save_wifi.c	/^static wifilist_t *get_wifi_list(int wifimode,int *number)$/;"	f	file:
+get_wifi_mode	src/auto_connect.c	/^int get_wifi_mode()$/;"	f
+get_wifi_mode	src/cgiWireless.c	/^static int get_wifi_mode()$/;"	f	file:
+get_wifi_mode	src/cgihandle.c	/^static int get_wifi_mode()$/;"	f	file:
+get_wifi_mode	src/save_wifi.c	/^int get_wifi_mode()$/;"	f
+get_wifi_param	src/save_wifi.c	/^int get_wifi_param()$/;"	f
+get_wlan0_channel	src/KeepChannel.c	/^int get_wlan0_channel()$/;"	f
+get_wlan1_channel	src/KeepChannel.c	/^int get_wlan1_channel()$/;"	f
+getairplay	src/cgihandle.c	/^int getairplay(xmlNodePtr tag, char *retstr)$/;"	f
+getflagstr	src/BootUpgrade.c	/^int getflagstr(unsigned char *buf , int len)$/;"	f
+getpower	src/cgihandle.c	/^int getpower(xmlNodePtr tag, char *retstr)$/;"	f
+getssid	src/cgihandle.c	/^int getssid(xmlNodePtr tag, char *retstr)$/;"	f
+getsys	src/cgihandle.c	/^int getsys(xmlNodePtr root)$/;"	f
+goutstr	src/cgiget.c	/^char *goutstr=0;$/;"	v
+grootHandle	src/cgihandle.c	/^cgiHandle grootHandle[]=$/;"	v
+gtaghandle_get	src/cgihandle.c	/^tagHandle gtaghandle_get[]=$/;"	v
+gtaghandle_set	src/cgihandle.c	/^tagHandle gtaghandle_set[]=$/;"	v
+halt	src/cgihandle.c	/^int halt(xmlNodePtr tag, char *retstr)$/;"	f
+handle_mac_format	src/cgihandle.c	/^void handle_mac_format(char *in, char *out)$/;"	f
+hasEncrypt	src/cgiWireless.c	/^int hasEncrypt=0;$/;"	v
+hasEncrypt	src/cgiWireless2.c	/^int hasEncrypt=0;$/;"	v
+haswpa	src/cgiWireless.c	/^int haswpa=0;$/;"	v
+haswpa	src/cgiWireless2.c	/^int haswpa=0;$/;"	v
+human_fstype	src/cgihandle.c	/^static const char *human_fstype(long f_type)$/;"	f	file:
+if_manul_shutdown_client	src/KeepChannel.c	/^int if_manul_shutdown_client()$/;"	f
+if_wifi_client_is_connecting	src/KeepChannel.c	/^int if_wifi_client_is_connecting()$/;"	f
+int16_tt	src/my_def.h	/^typedef short 				int16_tt;$/;"	t
+int32_tt	src/my_def.h	/^typedef int 				int32_tt;$/;"	t
+int64_tt	src/my_def.h	/^typedef long long 			int64_tt;$/;"	t
+is_UTF8_or_gb2312	src/cgiWireless.c	/^int is_UTF8_or_gb2312(const char* str,long length)$/;"	f
+is_UTF8_or_gb2312	src/cgiWireless2.c	/^int is_UTF8_or_gb2312(const char* str,long length)$/;"	f
+is_ascii	src/cgiWireless.c	139;"	d	file:
+is_ascii	src/cgiWireless2.c	121;"	d	file:
+is_connected_ap	src/cgiWireless.c	/^int is_connected_ap(const char *name,char *ppasswd)$/;"	f
+is_gb2312	src/cgiWireless.c	140;"	d	file:
+is_gb2312	src/cgiWireless2.c	122;"	d	file:
+is_utf8	src/cgiWireless.c	141;"	d	file:
+is_utf8	src/cgiWireless2.c	123;"	d	file:
+iw_essid_escape	src/cgiWireless.c	/^iw_essid_escape(char *		dest,$/;"	f
+iw_essid_escape	src/cgiWireless2.c	/^iw_essid_escape(char *		dest,$/;"	f
+iw_get_dbm	src/cgiWireless.c	/^iw_get_dbm(char *		buffer,$/;"	f
+iw_get_dbm	src/cgiWireless2.c	/^iw_get_dbm(char *		buffer,$/;"	f
+iw_print_gen_ie	src/cgiWireless.c	/^iw_print_gen_ie(unsigned char *	buffer,$/;"	f	file:
+iw_print_gen_ie	src/cgiWireless2.c	/^iw_print_gen_ie(unsigned char *	buffer,$/;"	f	file:
+iw_print_ie_wpa	src/cgiWireless.c	/^iw_print_ie_wpa(unsigned char *	iebuf,$/;"	f	file:
+iw_print_ie_wpa	src/cgiWireless2.c	/^iw_print_ie_wpa(unsigned char *	iebuf,$/;"	f	file:
+iwconfig_wlan1	src/KeepChannel.c	/^int iwconfig_wlan1()$/;"	f
+iwscan_state	src/cgiWireless.h	/^typedef struct iwscan_state$/;"	s
+iwscan_state	src/cgiWireless.h	/^} iwscan_state;$/;"	t	typeref:struct:iwscan_state
+key	src/auto_connect.h	/^	char key[32];$/;"	m	struct:_wifilist
+key	src/cgihandle.c	/^	char key[32];$/;"	m	struct:_wifilist	file:
+kscale	src/cgihandle.c	/^char* kscale(unsigned long b, unsigned long bs)$/;"	f
+logstr	src/SysUpgrade.c	/^void logstr(char *str)$/;"	f
+logstr	src/cgiWireless.c	/^void logstr(char *str)$/;"	f
+logstr	src/cgiWireless2.c	/^void logstr(char *str)$/;"	f
+logstr	src/sys_upgrade.c	/^void logstr(char *str)$/;"	f
+logstr	src/sysupdate.c	/^void logstr(char *str)$/;"	f
+mac	src/auto_connect.h	/^	char mac[32];$/;"	m	struct:_scan_list
+mac	src/auto_connect.h	/^	char mac[32];$/;"	m	struct:_wifilist
+mac	src/cgiWireless.h	/^	char mac[32];				\/* mac *\/$/;"	m	struct:ap_info
+macaddr	src/cgiWireless.c	/^char macaddr[100];$/;"	v
+macaddr	src/cgiWireless2.c	/^char macaddr[100];$/;"	v
+main	src/ArtUpgrade.c	/^int main()$/;"	f
+main	src/BootUpgrade.c	/^int main()$/;"	f
+main	src/KeepChannel.c	/^int main(int argc,char *argv[])$/;"	f
+main	src/SysUpgrade.c	/^int main()$/;"	f
+main	src/auto_connect.c	/^int main()$/;"	f
+main	src/cfg.c	/^int main(int argc,char *argv[])$/;"	f
+main	src/check_param.c	/^int main(int argc, const char *argv[])$/;"	f
+main	src/check_stm8.c	/^int main(int argc, char** argv)$/;"	f
+main	src/config_param.c	/^int main(int argc, const char *argv[])$/;"	f
+main	src/ctl_wifi_for_3_0.c	/^int main(int argc, char** argv)$/;"	f
+main	src/encrypt.c	/^int main(int argc, char** argv)$/;"	f
+main	src/erase_boot_flag.c	/^int main(int argc, char **argv)$/;"	f
+main	src/led_control_reload.c	/^int main(int argc, char** argv)$/;"	f
+main	src/led_ctl.c	/^int main(int argc, char** argv)$/;"	f
+main	src/led_on.c	/^int main(int argc, char** argv)$/;"	f
+main	src/main.c	/^void main(void)$/;"	f
+main	src/mm.c	/^int main(int argc, char** argv)$/;"	f
+main	src/mnt_pc_dc.c	/^int main(int argc, char** argv)$/;"	f
+main	src/mp_disk.c	/^int main(int argc, char **argv)$/;"	f
+main	src/nor.c	/^int main(int argc,char *argv[])$/;"	f
+main	src/nvram_cfg.c	/^int main(int argc, char **argv)$/;"	f
+main	src/save_wifi.c	/^int main()$/;"	f
+main	src/set_mac.c	/^int main(int argc,char *argv[])$/;"	f
+main	src/set_sys_flag.c	/^int main(int argc, char **argv)$/;"	f
+main	src/set_wifimode_to_boot.c	/^int main(int argc, char **argv)$/;"	f
+main	src/sys_upgrade.c	/^int main(int argc, char const *argv[])$/;"	f
+main	src/sysupdate.c	/^int main(int argc, char const *argv[])$/;"	f
+main	src/test_uart.c	/^int   main() $/;"	f
+main	src/updatefw.c	/^int main(int argc, char const *argv[])$/;"	f
+main	src/usb_ctl.c	/^int main(int argc, char** argv)$/;"	f
+mbr_tab_item	src/mp_disk.c	/^struct mbr_tab_item {$/;"	s	file:
+mode	src/socket_uart.h	/^	unsigned char mode;   \/\/ 0 --read  1--write$/;"	m	struct:socket_uart_cmd
+mpsta	src/erase_boot_flag.c	/^	unsigned char mpsta;$/;"	m	struct:private_data	file:
+mpsta	src/nvram_cfg.c	/^	unsigned char mpsta;$/;"	m	struct:private_data	file:
+mpsta	src/set_sys_flag.c	/^	unsigned char mpsta;$/;"	m	struct:private_data	file:
+my_system	src/cgihandle.c	/^static int my_system(const char * cmd) $/;"	f	file:
+nor_set	src/nor_control.c	/^int nor_set(char *str_name,unsigned char *value)$/;"	f
+nvram_get	src/nvram_cfg.c	/^int nvram_get(char *para)$/;"	f
+nvram_parameter	src/nvram_cfg.c	/^char *nvram_parameter[] = {$/;"	v
+nvram_reset	src/nvram_cfg.c	/^int nvram_reset()$/;"	f
+nvram_set	src/nvram_cfg.c	/^int nvram_set(char *para)$/;"	f
+nvram_show	src/nvram_cfg.c	/^static int nvram_show()$/;"	f	file:
+offset	src/mp_disk.c	/^	unsigned long	offset;$/;"	m	struct:mbr_tab_item	file:
+one_int_read	src/main.c	/^	void one_int_read(unsigned int addree,unsigned int *num)$/;"	f
+one_int_read	src/mm.c	/^void one_int_read(unsigned int addree,unsigned int *num)$/;"	f
+one_int_write	src/mm.c	/^void one_int_write(unsigned int addree,unsigned int num)$/;"	f
+one_read_time	src/main.c	/^	int one_read_time(unsigned int addree,unsigned int *num)$/;"	f
+one_read_time	src/mm.c	/^int one_read_time(unsigned int addree,unsigned int *num)$/;"	f
+one_write_time	src/mm.c	/^int one_write_time(unsigned int addree,unsigned int num)$/;"	f
+otp_adder	src/main.c	31;"	d	file:
+otp_adder	src/mm.c	137;"	d	file:
+p_debug	src/uci_for_cgi.h	12;"	d
+parse_file	src/check_file_from_pc.c	/^int parse_file(char *path,char *retstr)$/;"	f
+parse_file	src/parse_file_from_pc.c	/^int parse_file(char *path,char *retstr)$/;"	f
+password	src/cgiWireless.h	/^	char password[64];			\/* record ap password *\/$/;"	m	struct:ap_info
+path	src/updatefw.c	/^char path[64]="\\0";$/;"	v
+pc_detect_status	src/socket_uart.h	/^enum pc_detect_status{$/;"	g
+postStr	src/cgipost.c	/^void postStr(char *relstr, int sorg,int flag)$/;"	f
+power_charge_status	src/socket_uart.h	/^enum power_charge_status{$/;"	g
+power_gotoload_ctrl	src/check_stm8.c	25;"	d	file:
+power_gotoload_ctrl	src/led_control_reload.c	25;"	d	file:
+power_gotoload_ctrl	src/led_ctl.c	30;"	d	file:
+power_gotoload_ctrl	src/led_on.c	26;"	d	file:
+power_gotoload_ctrl	src/usb_ctl.c	31;"	d	file:
+power_reset_ctrl	src/check_stm8.c	27;"	d	file:
+power_reset_ctrl	src/led_control_reload.c	27;"	d	file:
+power_reset_ctrl	src/led_ctl.c	32;"	d	file:
+power_reset_ctrl	src/led_on.c	28;"	d	file:
+power_reset_ctrl	src/usb_ctl.c	33;"	d	file:
+power_status	src/socket_uart.h	/^enum power_status {$/;"	g
+print_all_config	src/nor_control.c	/^void print_all_config(void)$/;"	f
+print_scanning_token	src/cgiWireless.c	/^print_scanning_token(struct stream_descr *	stream,	\/* Stream of events *\/$/;"	f	file:
+print_scanning_token	src/cgiWireless2.c	/^print_scanning_token(struct stream_descr *	stream,	\/* Stream of events *\/$/;"	f	file:
+printf_essentials	src/config_param.c	/^static void printf_essentials(char *str)$/;"	f	file:
+printf_info	src/my_def.h	84;"	d
+printstr	src/cgihandle.c	/^void printstr(char *str)$/;"	f
+private_data	src/erase_boot_flag.c	/^struct private_data$/;"	s	file:
+private_data	src/nvram_cfg.c	/^struct private_data$/;"	s	file:
+private_data	src/set_sys_flag.c	/^struct private_data$/;"	s	file:
+processString	src/set_mac.c	/^int processString(char *string,char *name,char *value)$/;"	f
+pscan_list_t	src/auto_connect.h	/^}scan_list_t, *pscan_list_t;$/;"	t	typeref:struct:_scan_list
+pwifilist_t	src/auto_connect.h	/^}wifilist_t, *pwifilist_t;$/;"	t	typeref:struct:_wifilist
+pwifilist_t	src/cgihandle.c	/^}wifilist_t, *pwifilist_t;$/;"	t	typeref:struct:_wifilist	file:
+read_buffer_otp	src/main.c	/^	int read_buffer_otp(unsigned int addree,unsigned char *buff,unsigned int len)$/;"	f
+read_buffer_otp	src/mm.c	/^int read_buffer_otp(unsigned int addree,unsigned char *buff,unsigned int len)$/;"	f
+read_scanlist_to_buff	src/auto_connect.c	/^scan_list_t *read_scanlist_to_buff(char *scan_list_str,int *scan_num,int wifimode)$/;"	f
+read_wifi_mode	src/set_wifimode_to_boot.c	/^int read_wifi_mode()$/;"	f
+record	src/cgiWireless.h	/^	int record;					\/* 0:no record;1:has record *\/$/;"	m	struct:ap_info
+regaddr	src/socket_uart.h	/^	unsigned char regaddr;$/;"	m	struct:socket_uart_cmd
+reset_config_files	src/factory_reset	/^reset_config_files() {$/;"	f
+reset_ddns	src/factory_reset	/^reset_ddns() {$/;"	f
+reset_dhcp	src/factory_reset	/^reset_dhcp() {$/;"	f
+reset_network	src/factory_reset	/^reset_network() {$/;"	f
+reset_passwd_smbpasswd	src/factory_reset	/^reset_passwd_smbpasswd() {$/;"	f
+reset_powertools	src/factory_reset	/^reset_powertools() {$/;"	f
+reset_samba	src/factory_reset	/^reset_samba() {$/;"	f
+reset_system	src/factory_reset	/^reset_system() {$/;"	f
+reset_user_config	src/nor_control.c	/^void reset_user_config(void)$/;"	f
+reset_ushare	src/factory_reset	/^reset_ushare() {$/;"	f
+reset_vsftpd	src/factory_reset	/^reset_vsftpd() {$/;"	f
+reset_wireless	src/factory_reset	/^reset_wireless() {$/;"	f
+rootfun	src/cgihandle.h	/^	ROOTFUNC rootfun;$/;"	m	struct:_tag_cgiHandle
+roothandle	src/cgihandle.c	/^int roothandle(xmlNodePtr root, xmlNodePtr other)$/;"	f
+route_wlan1	src/KeepChannel.c	/^int route_wlan1()$/;"	f
+rssi	src/auto_connect.h	/^	int rssi;$/;"	m	struct:_scan_list
+rssi	src/cgiWireless.c	/^char rssi[10];$/;"	v
+rssi	src/cgiWireless2.c	/^char rssi[10];$/;"	v
+rssidbm	src/cgiWireless.c	/^int rssidbm;$/;"	v
+rssidbm	src/cgiWireless2.c	/^int rssidbm;$/;"	v
+rtl_encryp_control	src/cgihandle.c	14;"	d	file:
+rtl_encryp_control	src/check_stm8.c	23;"	d	file:
+rtl_encryp_control	src/ctl_wifi_for_3_0.c	15;"	d	file:
+rtl_encryp_control	src/encrypt.c	23;"	d	file:
+rtl_encryp_control	src/led_control_reload.c	23;"	d	file:
+rtl_encryp_control	src/led_on.c	24;"	d	file:
+rtl_encryp_control	src/mnt_pc_dc.c	14;"	d	file:
+safe_close	src/my_def.h	67;"	d
+safe_fclose	src/my_def.h	59;"	d
+safe_free	src/my_def.h	51;"	d
+scan_list_sequence	src/auto_connect.c	/^int scan_list_sequence(scan_list_t *scan_list,int num)$/;"	f
+scan_list_t	src/auto_connect.h	/^}scan_list_t, *pscan_list_t;$/;"	t	typeref:struct:_scan_list
+separate_str	src/check_file_from_pc.c	/^static void separate_str(char *whole_str,char *param_str,char *value_str)$/;"	f	file:
+separate_str	src/parse_file_from_pc.c	/^static void separate_str(char *whole_str,char *param_str,char *value_str)$/;"	f	file:
+set3G	src/cgihandle.c	/^int set3G(xmlNodePtr tag, char *retstr)$/;"	f
+setClient	src/cgihandle.c	/^int setClient(xmlNodePtr tag, char *retstr)$/;"	f
+setDMS	src/cgihandle.c	/^int setDMS(xmlNodePtr tag, char *retstr)$/;"	f
+setFTP	src/cgihandle.c	/^int setFTP(xmlNodePtr tag, char *retstr)$/;"	f
+setJoinWired	src/cgihandle.c	/^int setJoinWired(xmlNodePtr tag, char *retstr)  \/\/wlan1 disabled=1;network restart$/;"	f
+setJoinWireless	src/cgihandle.c	/^int setJoinWireless(xmlNodePtr tag, char *retstr)  \/\/wlan1 disabled=0;network restart$/;"	f
+setSAMBA	src/cgihandle.c	/^int setSAMBA(xmlNodePtr tag, char *retstr)$/;"	f
+setWorkMode	src/cgihandle.c	/^int setWorkMode(xmlNodePtr tag, char *retstr)  \/\/reboot$/;"	f
+set_cfg_flag	src/cfg.c	/^static set_cfg_flag(void)$/;"	f	file:
+set_cfg_str	src/cfg_api.c	/^void set_cfg_str(char *str)$/;"	f
+set_mp_flag	src/mp_disk.c	/^int set_mp_flag()$/;"	f
+setairplay	src/cgihandle.c	/^int setairplay(xmlNodePtr tag, char *retstr)$/;"	f
+setiperf	src/cgihandle.c	/^int setiperf(xmlNodePtr tag, char *retstr)$/;"	f
+setssid	src/cgihandle.c	/^int setssid(xmlNodePtr tag, char *retstr)  \/\/network restart$/;"	f
+setsys	src/cgihandle.c	/^int setsys(xmlNodePtr root)$/;"	f
+show_parameter	src/nvram_cfg.c	/^static void show_parameter()$/;"	f	file:
+size	src/mp_disk.c	/^	unsigned long	size;$/;"	m	struct:mbr_tab_item	file:
+socket_uart_cmd	src/socket_uart.h	/^typedef struct socket_uart_cmd$/;"	s
+socket_uart_cmd_t	src/socket_uart.h	/^}socket_uart_cmd_t;$/;"	t	typeref:struct:socket_uart_cmd
+ssid	src/auto_connect.h	/^	char ssid[64];$/;"	m	struct:_scan_list
+ssid	src/auto_connect.h	/^	char ssid[64];$/;"	m	struct:_wifilist
+ssid	src/cgiWireless.h	/^	char ssid[32];				\/* ssid name *\/$/;"	m	struct:ap_info
+ssid	src/cgihandle.c	/^	char ssid[64];$/;"	m	struct:_wifilist	file:
+ssid_len	src/cgiWireless.h	/^	int ssid_len;				\/* ssid length *\/$/;"	m	struct:ap_info
+ssidstr	src/cgiWireless.c	/^char ssidstr[100];$/;"	v
+ssidstr	src/cgiWireless2.c	/^char ssidstr[100];$/;"	v
+storage_direction_status	src/socket_uart.h	/^enum storage_direction_status{$/;"	g
+storage_power_status	src/socket_uart.h	/^enum storage_power_status{$/;"	g
+str	src/cgihandle.c	/^static char str[20];$/;"	v	file:
+swim_chang	src/mm.c	/^unsigned char swim_chang(unsigned char cahrchar)$/;"	f
+sys_flag	src/set_sys_flag.c	/^	unsigned char sys_flag;$/;"	m	struct:private_data	file:
+tab_item	src/mp_disk.c	/^struct mbr_tab_item	tab_item[4];$/;"	v	typeref:struct:mbr_tab_item
+tag	src/cgihandle.h	/^	char tag[20];$/;"	m	struct:_tag_cgiHandle
+tag	src/cgihandle.h	/^	char tag[20];$/;"	m	struct:_tag_cgitagHandle
+tagHandle	src/cgihandle.h	/^}tagHandle;$/;"	t	typeref:struct:_tag_cgitagHandle
+tagfun	src/cgihandle.h	/^	TAGFUNC tagfun;$/;"	m	struct:_tag_cgitagHandle
+test_led_on	src/led_ctl.c	34;"	d	file:
+test_led_on	src/led_on.c	30;"	d	file:
+test_led_on	src/usb_ctl.c	35;"	d	file:
+tkip_aes	src/cgiWireless.h	/^	char tkip_aes[16];			\/* encryption algorithm *\/$/;"	m	struct:ap_info
+type	src/mp_disk.c	/^	unsigned char	type;$/;"	m	struct:mbr_tab_item	file:
+uart_rw_mode	src/socket_uart.h	/^enum uart_rw_mode{$/;"	g
+uboot_dev	src/BootUpgrade.c	7;"	d	file:
+uci_get_option_value	src/uci_for_cgi.c	/^int uci_get_option_value(char *uci_option_str,char *uci_str_value)$/;"	f
+uci_set_option_value	src/uci_for_cgi.c	/^int uci_set_option_value(char *uci_str)$/;"	f
+uci_show_value	src/uci_for_cgi.c	/^static void uci_show_value(struct uci_option *o,char *uci_str_value)$/;"	f	file:
+uint16_tt	src/my_def.h	/^typedef unsigned short 		uint16_tt;$/;"	t
+uint32_tt	src/my_def.h	/^typedef unsigned int 		uint32_tt;$/;"	t
+uint64_tt	src/my_def.h	/^typedef unsigned long long 	uint64_tt;$/;"	t
+uint8_tt	src/my_def.h	/^typedef unsigned char 		uint8_tt;$/;"	t
+upper2lower	src/check_file_from_pc.c	/^static void upper2lower(char *str,int len)$/;"	f	file:
+upper2lower	src/parse_file_from_pc.c	/^static void upper2lower(char *str,int len)$/;"	f	file:
+urlDecode	src/cgiget.c	/^unsigned char* urlDecode(char *string)  $/;"	f
+usage	src/cfg.c	/^static void usage(void)$/;"	f	file:
+usage	src/erase_boot_flag.c	/^static void usage(void)$/;"	f	file:
+usage	src/mp_disk.c	/^static void usage(void)$/;"	f	file:
+usage	src/nor.c	/^static void usage(void)$/;"	f	file:
+usage	src/nvram_cfg.c	/^static void usage(void)$/;"	f	file:
+usage	src/set_sys_flag.c	/^static void usage(void)$/;"	f	file:
+usage	src/set_wifimode_to_boot.c	/^static void usage(void)$/;"	f	file:
+usage	src/usb_ctl.c	/^void usage()$/;"	f
+val_index	src/cgiWireless.h	/^  int			val_index;	\/* Value in table 0->(N-1) *\/$/;"	m	struct:iwscan_state
+wifi_led_off	src/ctl_wifi_for_3_0.c	/^int wifi_led_off()$/;"	f
+wifi_mode	src/auto_connect.h	/^enum wifi_mode$/;"	g
+wifi_mode	src/cgihandle.c	/^enum wifi_mode$/;"	g	file:
+wifi_param	src/save_wifi.c	/^wifilist_t wifi_param;$/;"	v
+wifi_signal	src/cgiWireless.h	/^	int wifi_signal;			\/* ap signal *\/$/;"	m	struct:ap_info
+wifilist_t	src/auto_connect.h	/^}wifilist_t, *pwifilist_t;$/;"	t	typeref:struct:_wifilist
+wifilist_t	src/cgihandle.c	/^}wifilist_t, *pwifilist_t;$/;"	t	typeref:struct:_wifilist	file:
+wifimode	src/erase_boot_flag.c	/^	unsigned char wifimode;$/;"	m	struct:private_data	file:
+wifimode	src/nvram_cfg.c	/^	unsigned char wifimode;$/;"	m	struct:private_data	file:
+wifimode	src/set_sys_flag.c	/^	unsigned char wifimode;$/;"	m	struct:private_data	file:
+write_buffer_otp	src/mm.c	/^int write_buffer_otp(unsigned int addree,unsigned char *buff,unsigned int len)$/;"	f
+write_sector_num_to_p4	src/mp_disk.c	/^int write_sector_num_to_p4(unsigned long disk_size)$/;"	f
+write_wifimode_to_boot	src/set_wifimode_to_boot.c	/^int write_wifimode_to_boot(char *mode_str)$/;"	f
+xmlChar	src/cgihandle.h	/^typedef char xmlChar;$/;"	t
+xmlEncode	src/cgiWireless.c	/^ char* xmlEncode(char *string)  $/;"	f
+xmlEncode	src/cgiWireless2.c	/^ char* xmlEncode(char *string)  $/;"	f
+xmlGetNextTag	src/main.c	/^int xmlGetNextTag(char *tagstr, char *nodrstr)$/;"	f
+xmlGetTag	src/main.c	/^void xmlGetTag(char *rootstr, char *tagstr)$/;"	f
+xmlGetprop	src/main.c	/^char *xmlGetprop(char *tag, char *name)$/;"	f
+xmlNodePtr	src/cgihandle.h	/^typedef char* xmlNodePtr;$/;"	t
+xmldecode	src/cgihandle.c	/^char *xmldecode(char *xml)$/;"	f
+xmlgetroot	src/main.c	/^int xmlgetroot(char *xmlstr, char *rootstr)$/;"	f

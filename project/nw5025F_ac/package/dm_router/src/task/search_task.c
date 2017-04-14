@@ -25,6 +25,7 @@
 #include "list.h"
 #include "search_task.h"
 #include "file_json.h"
+#include "dm_sort.h"
 
 
 search_manage_list_t searchManageList;
@@ -655,7 +656,49 @@ EXIT:
 	return ret;
 }
 
+int decrypt_handle_tcp_inotify(int error,file_encrypt_info_t *pInfo,struct file_dnode *dn)
+{
+	if(pInfo->c == NULL)
+	{
+		DMCLOG_E("para is null");
+		return -1;
+	}
+	/**/
+	char *buf = dm_file_encrypt_inotify(error,pInfo,dn);
+	if(buf == NULL)
+	{
+		DMCLOG_E("alloc error");
+		return -1;
+	}
+	read_stream_comb(&pInfo->c->loc,buf);
+	safe_free(buf);
+	return 0;
+}
 
+int encrypt_handle_tcp_inotify(int error,file_encrypt_info_t *pInfo,struct file_dnode *dn)
+{
+	if(pInfo->c == NULL)
+	{
+		DMCLOG_E("para is null");
+		return -1;
+	}
+	if(pInfo->quit_status == -1) 
+	{
+		DMCLOG_E("quit the del task");
+		return 0;
+	}
+	
+	/**/
+	char *buf = dm_file_encrypt_inotify(error,pInfo,dn);
+	if(buf == NULL)
+	{
+		DMCLOG_E("alloc error");
+		return -1;
+	}
+	read_stream_comb(&pInfo->c->loc,buf);
+	safe_free(buf);
+	return 0;
+}
 int search_handle_tcp_inotify(file_search_info_t *pInfo, file_list_t *plist)
 {
 	if(pInfo->c == NULL)
@@ -673,6 +716,637 @@ int search_handle_tcp_inotify(file_search_info_t *pInfo, file_list_t *plist)
 	read_stream_comb(&pInfo->c->loc,buf);
 	safe_free(buf);
 	return 0;
+}
+
+static struct file_dnode **scan_one_dir2(struct file_encrypt_info *pInfo,const char *path,const char *dest_dir,unsigned *nfiles_p)
+{
+	struct file_dnode *dn, *cur, **dnp;
+	struct dirent *entry;
+	struct stat stp;
+	DIR *dir;
+	unsigned i, nfiles;
+	int ret = 0;
+	*nfiles_p = 0;
+	dir = warn_opendir(path);
+	if (dir == NULL) {
+		DMCLOG_D("path=%s",path);
+		return NULL;	/* could not open the dir */
+	}
+	dn = NULL;
+	nfiles = 0;
+	
+	while ((entry = readdir(dir)) != NULL) {
+		//char *fullname;
+		/* are we going to list the file- it may be . or .. or a hidden file */
+		if (!strcmp(entry->d_name,".")||!strcmp(entry->d_name,"..")) {
+			continue;
+		}
+		cur = xzalloc(sizeof(*cur));
+		if (!cur) {
+			continue;
+		}
+
+		cur->dest_encrypt_path = concat_path_file(path, entry->d_name);
+		DMCLOG_D("dest_encrypt_name=%s",cur->dest_encrypt_path);
+		lstat(cur->dest_encrypt_path,&stp);
+		if(stp.st_size == 0)
+			continue;		
+		cur->dn_mode = stp.st_mode;
+		cur->size = stp.st_size;
+			
+		if(S_ISDIR(cur->dn_mode)){
+			cur->isFolder = 1;
+		}else
+		{
+			cur->isFolder = 0;
+		}
+
+/**/
+		cur->dest_encrypt_name = NULL;
+		ret = handle_encrypt_file_query_by_name(pInfo->disk_uuid,entry->d_name,&cur->dest_encrypt_name);
+		DMCLOG_D("cur->dest_encrypt_name=%s",cur->dest_encrypt_name);
+		if(cur->dest_encrypt_name == NULL){
+			safe_free(cur->dest_encrypt_path);
+			safe_free(cur);
+			continue;
+		}		
+		cur->fullname = (char *)calloc(1,strlen(dest_dir)+strlen(cur->dest_encrypt_name)+1+1);
+		sprintf(cur->fullname,"%s/%s",dest_dir,cur->dest_encrypt_name);
+		DMCLOG_D("fullname=%s",cur->fullname);
+		cur->name = bb_basename(cur->fullname);
+		DMCLOG_D("cur->name=%s",cur->name);
+
+		cur->fname_allocated = 1;
+		ret = pInfo->start_decrypt(pInfo,cur);
+		if(ret == 0){
+			pInfo->finished_num ++;
+		}
+		cur->dn_next = dn;
+		dn = cur;
+		nfiles++;
+	}
+	closedir(dir);
+
+	if (dn == NULL)
+		return NULL;
+
+	/* now that we know how many files there are
+	 * allocate memory for an array to hold dnode pointers
+	 */
+	*nfiles_p = nfiles;
+	dnp = dnalloc(nfiles);
+	for (i = 0; /* i < nfiles - detected via !dn below */; i++) {
+		dnp[i] = dn;	/* save pointer to node in array */
+		dn = dn->dn_next;
+		if (!dn)
+			break;
+	}
+    return dnp;
+EXIT:
+    closedir(dir);
+    if (dn == NULL)
+        return NULL;
+    dnp = dnalloc(nfiles);
+    for (i = 0; /* i < nfiles - detected via !dn below */; i++) {
+        dnp[i] = dn;	/* save pointer to node in array */
+        dn = dn->dn_next;
+        if (!dn)
+            break;
+    }
+    dfree(dnp);
+    return NULL;
+}
+
+static void scan_and_decrypt_dirs_recur(struct file_encrypt_info *pInfo,struct file_dnode **dn)
+{
+	unsigned nfiles;
+	struct file_dnode **subdnp;
+
+	for (; *dn; dn++) {
+		DMCLOG_D("start:%s:", (*dn)->dest_encrypt_path);		
+		subdnp = scan_one_dir2(pInfo,(*dn)->dest_encrypt_path,(*dn)->fullname, &nfiles);
+		DMCLOG_D("nfiles=%d",nfiles);
+		if(nfiles > 0) {
+			//sort_and_display_files(subdnp,nfiles);
+			DMCLOG_D("start....");
+			struct file_dnode **dnd;
+			unsigned dndirs;
+
+			dnd = splitdnarray(subdnp, SPLIT_SUBDIR);
+			dndirs = count_dirs(subdnp, SPLIT_SUBDIR);
+			DMCLOG_D("dndirs = %d",dndirs);
+			if (dndirs > 0) {
+				dnsort(dnd, dndirs);
+				scan_and_decrypt_dirs_recur(pInfo,dnd);
+				free(dnd);
+			}
+			dfree(subdnp);
+		}
+	}
+	return;
+}
+
+void decrypt_inotify_func(void *self)
+{
+    ENTER_FUNC();
+	int ret = 0;
+	int error = 0;
+	int i=0;
+	file_encrypt_info_t *pInfo = (file_encrypt_info_t *)self;
+
+	pInfo->k = (char*)calloc(1,AES_KEY_LEN+1);
+    pInfo->generate_key(pInfo->k);
+	DMCLOG_D("pInfo->k=%s",pInfo->k);
+	//pInfo->dest_path = (char*)calloc(1,strlen(SAFE_BOX_PATH)+ENCRYPTED_FILE_NAME_LENGTH+1+1);
+	//pInfo->generate_dest_encrypt_path(pInfo->src_path,SAFE_BOX_PATH,pInfo->dest_path);
+	DMCLOG_D("pInfo->dest_path=%s",pInfo->dest_path);
+	if(AES_set_decrypt_key(pInfo->k, 128, &(pInfo->aes)) < 0) {
+		error = DM_ERROR_ENCRYPT_SET_KEY_FAIL;
+		goto EXIT;
+    }
+  /**/  
+    //char *src_path = pInfo->encrypt_file_path;
+    struct file_dnode *dn = (struct file_dnode *)calloc(1,sizeof(struct file_dnode));
+    struct stat s;
+ 	ret = stat(pInfo->orig_path,&s);
+  	if(ret != 0)
+	{
+		error = DM_ERROR_ENCRYPT_OPEN_FAIL;
+		pInfo->status = -1;
+	  	goto EXIT;
+	}
+    if(S_ISDIR(s.st_mode))
+   	{
+	//is a dir 
+	//scan dir	
+		dn->isFolder = 1;
+		dn->size = 16384;
+		DMCLOG_D("pInfo->orig_path=%s",pInfo->orig_path);
+		dn->dest_encrypt_path = strdup(pInfo->orig_path);
+		DMCLOG_D("dn->dest_encrypt_path=%s",dn->dest_encrypt_path);			
+		//strcpy(dn->fullname,"/tmp/mnt/USB-disk-1/safebox/.be691480aeb595164943");
+
+		dn->fullname = strdup(pInfo->dest_path);
+		dn->name = bb_basename(dn->fullname);	
+		
+		pInfo->total_num = 1;
+		DMCLOG_D("dn->fullname=%s",dn->fullname);
+		listAllFiles(dn->dest_encrypt_path, &(pInfo->total_num));
+		DMCLOG_D("pInfo->total_num=%d",pInfo->total_num);
+		pInfo->finished_num = 1;		
+		pInfo->total_size = dn->size;
+		pInfo->finished_size = dn->size;
+		//pInfo->file_name = dn[0]->name;
+		//pInfo->orig_path = dn[0]->dest_encrypt_path + strlen(DOCUMENT_ROOT);
+
+		pInfo->bIsRegularFile = 0;
+		ret = pInfo->start_decrypt(pInfo,dn);
+
+		if(ret == 0){
+			struct file_dnode *adn = dn;
+			struct file_dnode **pdn = dnalloc(1);// (struct file_dnode **)calloc(1,sizeof(struct file_dnode*)*2);
+			for (i = 0; ; i++) {
+				pdn[i] = adn;	
+				adn = adn->dn_next;
+				if (!adn)
+					break;
+			}
+			scan_and_decrypt_dirs_recur(pInfo,pdn);
+			safe_free(pdn);
+	}else{
+			DMCLOG_D("encrypt error");
+		}
+
+	
+	}else{
+	//is a file
+		dn->isFolder = 0;		
+		dn->size = s.st_size;
+		dn->dest_encrypt_path = strdup(pInfo->orig_path);
+		
+		dn->fullname = strdup(pInfo->dest_path);
+		dn->name = bb_basename(dn->fullname);
+		pInfo->bIsRegularFile = 0;
+		pInfo->total_size = dn->size;
+		pInfo->finished_size = 0;
+		pInfo->total_num = 1;
+		pInfo->finished_num = 0;
+		ret = pInfo->start_decrypt(pInfo,dn);
+		pInfo->finished_num = 1;
+	}
+	
+EXIT:
+	pInfo->status = 2;	
+
+	ret = decrypt_handle_tcp_inotify(error,pInfo,dn);
+	if(ret < 0){
+		DMCLOG_D("decrypt_handle_tcp_inotify error");
+	}
+
+    *(pInfo->flags) |= FLAG_CLOSED;
+    *(pInfo->flags) &= ~(FLAG_R | FLAG_W | FLAG_ALWAYS_READY);
+
+    safe_free(dn->dest_encrypt_path);
+    safe_free(dn->fullname);
+    safe_free(dn);
+	safe_free(pInfo->k);
+	safe_free(pInfo->orig_path);
+   	safe_free(pInfo->src_path);
+    safe_free(pInfo->dest_path);
+    safe_free(pInfo);
+
+    EXIT_FUNC();
+    return ;
+}
+
+int get_dir_level(char *path){
+	int level = 0;
+	int i = 0;
+	for(i=0;i<strlen(path);i++){
+		if(path[i] == '/')
+		{
+			level++;
+		}
+	}
+	return level;
+}
+void listAllFiles(const char *dirname,int *count) 
+{  
+	ENTER_FUNC();
+    assert(dirname != NULL);  
+    //struct stat statbuf;  
+    char path[1024];  
+    //int count=0;
+    struct dirent *filename;//readdir 的返回类型  
+    DIR *dir;
+    DMCLOG_D("dir=%s",dirname);
+    dir = opendir(dirname);  
+    if(dir == NULL)  
+    {  
+        DMCLOG_D("open dir %s error!\n",dirname);  
+        return;  
+    }  
+    DMCLOG_D("dir=%s",dirname);
+    while((filename = readdir(dir)) != NULL)  
+    {  
+        //目录结构下面问什么会有两个.和..的目录？ 跳过着两个目录  
+        if(!strcmp(filename->d_name,".")||!strcmp(filename->d_name,".."))  
+            continue;  
+              
+        //非常好用的一个函数，比什么字符串拼接什么的来的快的多  
+        sprintf(path,"%s/%s",dirname,filename->d_name);  
+          
+        struct stat s;  
+        lstat(path,&s);  
+		//char *fullname = concat_path_file(path, filename->d_name);
+        		
+        if(S_ISDIR(s.st_mode))  
+        {  
+         	
+        	(*count) ++;
+   			DMCLOG_D("%d. %s\n",(*count),filename->d_name);  
+            listAllFiles(path,count);//递归调用  
+        }  
+        else  
+        {  
+        	if
+(s.st_size != 0)
+			  	(*count) ++;
+            	DMCLOG_D("%d. %s\n",(*count),filename->d_name);  
+        }
+    }  
+    closedir(dir);  
+}
+
+static struct file_dnode **scan_one_dir(struct file_encrypt_info *pInfo,const char *path, const char *virtual_path,const char *dest_dir,unsigned *nfiles_p)
+{
+	struct file_dnode *dn, *cur, **dnp;
+	struct dirent *entry;
+	struct stat stp;
+	DIR *dir;
+	unsigned i, nfiles;
+
+	*nfiles_p = 0;
+	dir = warn_opendir(path);
+	if (dir == NULL) {
+		return NULL;	/* could not open the dir */
+	}
+	dn = NULL;
+	nfiles = 0;
+	while ((entry = readdir(dir)) != NULL) {
+		//char *fullname;
+
+		/* are we going to list the file- it may be . or .. or a hidden file */
+		if (entry->d_name[0] == '.') {
+			
+			continue;
+		}
+		cur = xzalloc(sizeof(*cur));
+		if (!cur) {
+			continue;
+		}
+
+		cur->fullname = concat_path_file(path, entry->d_name);
+		DMCLOG_D("fullname=%s",cur->fullname);
+		lstat(cur->fullname,&stp);
+		if
+(stp.st_size == 0)
+			continue;		
+		cur->dn_mode = stp.st_mode;
+		cur->size = stp.st_size;
+		
+		if(S_ISDIR(cur->dn_mode)){
+			cur->isFolder = 1;
+		}else
+		{
+			cur->isFolder = 0;
+		}
+		DMCLOG_D("cur->isFolder=%d",cur->isFolder);
+		cur->name = bb_basename(cur->fullname);
+		cur->virtual_path = (char*)calloc(1,strlen(virtual_path)+strlen(cur->name)+2);
+		sprintf(cur->virtual_path,"%s/%s",virtual_path,cur->name);
+
+		cur->dest_encrypt_path = (char*)calloc(1,strlen(dest_dir)+ENCRYPTED_FILE_NAME_LENGTH+2+1);
+		pInfo->generate_dest_encrypt_path(cur->fullname,dest_dir,cur->dest_encrypt_path);
+		
+		DMCLOG_D("virtual_path=%s",cur->virtual_path);		
+		DMCLOG_D("dest_path=%s",cur->dest_encrypt_path);
+		//start_encrypt(cur->fullname,cur->virtual_path,cur->dest_encrypt_path);
+		cur->fname_allocated = 1;
+		pInfo->start_encrypt(pInfo,cur);
+		
+		cur->dn_next = dn;
+		dn = cur;
+		nfiles++;
+	}
+	closedir(dir);
+
+	if (dn == NULL)
+		return NULL;
+
+	/* now that we know how many files there are
+	 * allocate memory for an array to hold dnode pointers
+	 */
+	*nfiles_p = nfiles;
+	dnp = dnalloc(nfiles);
+	for (i = 0; /* i < nfiles - detected via !dn below */; i++) {
+		dnp[i] = dn;	/* save pointer to node in array */
+		dn = dn->dn_next;
+		if (!dn)
+			break;
+	}
+    return dnp;
+EXIT:
+    closedir(dir);
+    if (dn == NULL)
+        return NULL;
+    dnp = dnalloc(nfiles);
+    for (i = 0; /* i < nfiles - detected via !dn below */; i++) {
+        dnp[i] = dn;	/* save pointer to node in array */
+        dn = dn->dn_next;
+        if (!dn)
+            break;
+    }
+    dfree(dnp);
+    return NULL;
+}
+
+static void scan_and_encrypt_dirs_recur(struct file_encrypt_info_t *pInfo,struct file_dnode **dn)
+{
+	unsigned nfiles;
+	struct file_dnode **subdnp;
+
+	for (; *dn; dn++){
+		DMCLOG_D("start:%s:", (*dn)->fullname);
+		subdnp = scan_one_dir(pInfo,(*dn)->fullname,(*dn)->virtual_path,(*dn)->dest_encrypt_path, &nfiles);
+		DMCLOG_D("nfiles=%d",nfiles);
+		if(nfiles > 0) {
+			/* list all files at this level */
+			//sort_and_display_files(subdnp,nfiles);
+			DMCLOG_D("start....");
+			struct file_dnode **dnd;
+			unsigned dndirs;
+			/* recursive - list the sub-dirs */
+			dnd = splitdnarray(subdnp, SPLIT_SUBDIR);
+			dndirs = count_dirs(subdnp, SPLIT_SUBDIR);
+			DMCLOG_D("dndirs = %d",dndirs);
+			if (dndirs > 0) {
+				dnsort(dnd, dndirs);
+				scan_and_encrypt_dirs_recur(pInfo,dnd);
+				/* free the array of dnode pointers to the dirs */
+				free(dnd);
+			}
+			//d		
+			/* free the dnodes and the fullname mem */
+			dfree(subdnp);
+		}
+	}
+	return;
+}
+void display_dn(struct file_dnode *dn)
+{
+	struct file_dnode *pdn=dn;
+	for(;;){
+		if(!pdn) break;
+		DMCLOG_D("i=%d,n=%s,f=%s",pdn->index,pdn->name,pdn->fullname);
+		pdn = pdn->dn_next;
+	}
+}
+
+int get_filelist_len(struct file_dnode* head){ 
+
+    if(head==NULL) return 0; 
+    struct file_dnode *p = head; 
+    int sum=0; 
+    while(p!=NULL){ 
+        sum+=1; 
+        p=p->dn_next; 
+    } 
+    return sum; 
+} 
+struct file_dnode ** sort_list(struct file_dnode* head){
+	int i;
+	int len = get_filelist_len(head);
+	DMCLOG_D("len=%d",len);
+	
+	struct file_dnode **fdnp = (struct file_dnode **)calloc(1,(len + 1)*sizeof(struct file_dnode *));
+	struct file_dnode *p = head; 
+	//struct album_node *q = head;     
+	//p_debug("sizeof=%d",sizeof(p->update_time));
+/*
+	for(i=0; i<len; i++){ 
+		fdnp[i] = (struct file_dnode *)calloc(1,sizeof(struct file_dnode));
+		//p_debug("1p->update_time=%d",p->update_time);
+		fdnp[i]->name = (char *)calloc(1,strlen(p->name)+1);
+		strcpy(fdnp[i]->name,p->name);
+		fdnp[i]->fullname = (char *)calloc(1,strlen(p->fullname)+1);
+		strcpy(fdnp[i]->fullname,p->fullname);
+		p = p->dn_next;
+	}
+	*/
+	struct file_dnode *fdn =  head;
+	 for(i = 0;/*i < nfiles - detect via !dn below*/;i++)
+    {
+        //if(fdn->isFolder == 0)
+        fdnp[i] = fdn;/*save pointer to node in array*/
+		//p_debug("[%d]->update_time=%d",i,fdn->update_time);
+		
+        fdn = fdn->dn_next;
+
+        if(!fdn)
+            break;
+    }
+
+	if(len>1) dnsort(fdnp, len);
+	return fdnp;	
+
+}
+
+void encrypt_inotify_func(void *self)
+{
+    ENTER_FUNC();
+    
+    file_encrypt_info_t *pInfo = (file_encrypt_info_t *)self;
+    //char *encrypt_file_path = pInfo->src_path;
+    int ret = 0;
+	int error = 0;
+	int i = 0;
+	
+    struct stat stp;  
+    uint64_t fsize;
+    pInfo->k = (char*)calloc(1,AES_KEY_LEN+1);
+    pInfo->generate_key(pInfo->k);
+	DMCLOG_D("pInfo->k=%s",pInfo->k);
+	pInfo->dest_path = (char*)calloc(1,strlen(SAFE_BOX_PATH)+ENCRYPTED_FILE_NAME_LENGTH+2+1);
+	pInfo->generate_dest_encrypt_path(pInfo->src_path,SAFE_BOX_PATH,pInfo->dest_path);
+	DMCLOG_D("pInfo->dest_path=%s",pInfo->dest_path);
+	if (AES_set_encrypt_key(pInfo->k, 128, &(pInfo->aes)) < 0) {
+		error = DM_ERROR_ENCRYPT_SET_KEY_FAIL;
+		goto EXIT;
+    }
+	if(!stat(pInfo->src_path,&stp))
+	{
+		fsize = stp.st_size;
+		pInfo->total_size = fsize;
+		if(S_ISDIR(stp.st_mode)){
+		//is dir
+			pInfo->bIsRegularFile = 0;
+		}else if(S_ISREG(stp.st_mode)){
+		//is file
+			pInfo->bIsRegularFile = 1;
+		}
+		else{
+		//ignore
+			pInfo->status = -1;
+			goto EXIT;
+		}
+	}
+	else{
+		//error
+		error = DM_ERROR_ENCRYPT_OPEN_FAIL;
+		pInfo->status = -1;
+		goto EXIT;
+	}
+	DMCLOG_D("pInfo->src_path=%s",pInfo->src_path);
+	struct file_dnode *dn = (char *)calloc(1,sizeof(struct file_dnode));
+	
+	if(pInfo->bIsRegularFile == 0){
+	//encrypt dir		
+		dn->fullname = (char*)calloc(1,strlen(pInfo->src_path)+1); 
+		strcpy(dn->fullname,pInfo->src_path);//pInfo->src_path;
+		
+		dn->name = bb_basename(dn->fullname);
+		dn->isFolder = 1;
+		dn->size = 16384;
+		DMCLOG_D("dn->fullname=%s",dn->fullname);
+		//dn->dest_encrypt_name = generate_encrypted_file_name(dn->fullname);
+		dn->virtual_path = (char*)calloc(1,strlen(SAFE_BOX_PATH)+strlen(dn->name)+2);
+		sprintf(dn->virtual_path,"%s/%s",SAFE_BOX_PATH,dn->name);
+		dn->dest_encrypt_path = (char*)calloc(1,strlen(pInfo->dest_path)+1);
+		strcpy(dn->dest_encrypt_path,pInfo->dest_path);
+			
+		pInfo->total_size = dn->size;
+		//pInfo->src_path = strdup(dn->virtual_path);
+		//pInfo->file_name = strdup(dn->name);
+		//pInfo->orig_path  = strdup(dn->fullname + strlen(DOCUMENT_ROOT));
+		//pInfo->dest_path = strdup(dn->dest_encrypt_path);
+		pInfo->bIsRegularFile = 0;
+		DMCLOG_D("dn->fullname=%s",dn->fullname);
+		pInfo->total_num = 1;
+		pInfo->finished_num = 1;	
+		listAllFiles(dn->fullname, &(pInfo->total_num));
+		DMCLOG_D("pInfo->total_num=%d",pInfo->total_num);
+		
+		ret = pInfo->start_encrypt(pInfo,dn);
+		//struct file_dnode **pdn = dnalloc(1);
+		//pdn[0] = dn;
+		//
+		//scan_and_encrypt_dirs_recur(pInfo,pdn);
+		//safe_free(pdn);
+		struct file_dnode *adn = dn;
+		if(ret == 0){
+			struct file_dnode **pdn = dnalloc(1);// (struct file_dnode **)calloc(1,sizeof(struct file_dnode*)*2);
+			for (i = 0; ; i++) {
+				pdn[i] = adn;	
+				adn = adn->dn_next;
+				if (!adn)
+					break;
+			}
+			scan_and_encrypt_dirs_recur(pInfo,pdn);
+			safe_free(pdn);
+		}else{
+			DMCLOG_D("encrypt error");
+		}
+		//pInfo->src_path = dn->virtual_path;
+		DMCLOG_D("scan done");
+//		pInfo->file_name = dn->name;
+//		pInfo->orig_path = dn->fullname + strlen(DOCUMENT_ROOT);
+	}else{
+	//encrypt file
+		//struct file_dnode *dn =  xzalloc(sizeof(struct file_dnode));
+		dn->fullname = (char*)calloc(1,strlen(pInfo->src_path)+1); 
+		strcpy(dn->fullname,pInfo->src_path);//pInfo->src_path;
+		DMCLOG_D("dn->fullname=%s",dn->fullname);
+		dn->name = bb_basename(dn->fullname);
+		dn->isFolder = 0;
+		dn->size = fsize;
+		//dn->dest_encrypt_name = generate_encrypted_file_name(dn->fullname);
+		dn->virtual_path = (char*)calloc(1,strlen(SAFE_BOX_PATH)+strlen(dn->name)+2);
+		sprintf(dn->virtual_path,"%s/%s",SAFE_BOX_PATH,dn->name);
+		DMCLOG_D("dn->virtual_path=%s",dn->virtual_path);
+		dn->dest_encrypt_path = (char*)calloc(1,strlen(pInfo->dest_path)+1);
+		strcpy(dn->dest_encrypt_path,pInfo->dest_path);
+		DMCLOG_D("dn->dest_encrypt_path=%s",dn->dest_encrypt_path);
+		pInfo->total_num = 1;
+		pInfo->finished_num = 0;	
+		pInfo->bIsRegularFile = 1;
+		pInfo->start_encrypt(pInfo,dn);
+		pInfo->finished_num = 1;	
+   	}
+EXIT:	
+	
+	pInfo->status = 2;
+	ret = encrypt_handle_tcp_inotify(error,pInfo,dn);
+	if(ret < 0){
+		DMCLOG_D("search_handle_udp_inotify error");
+	}
+
+    *(pInfo->flags) |= FLAG_CLOSED;
+    *(pInfo->flags) &= ~(FLAG_R | FLAG_W | FLAG_ALWAYS_READY);
+
+    //safe_free(pInfo->src_path);
+    //safe_free(pInfo->dest_path);
+    //safe_free(self);
+    safe_free(dn->fullname);
+    safe_free(dn->virtual_path);
+    safe_free(dn->dest_encrypt_path);    
+    safe_free(dn);
+	safe_free(pInfo->k);  
+ 	safe_free(pInfo->src_path);
+    safe_free(pInfo->dest_path);
+    safe_free(pInfo);	
+    EXIT_FUNC();
+    return ;
 }
 
 

@@ -1,0 +1,5 @@
+#!/bin/sh
+
+mkdir -p /tmp/mnt/USB-disk-1
+
+mount -t vfat -o fmask=000,dmask=000,iocharset=utf8 /dev/mmcblk0p4 /tmp/mnt/USB-disk-1

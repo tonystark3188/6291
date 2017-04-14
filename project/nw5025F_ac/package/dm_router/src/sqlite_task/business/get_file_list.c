@@ -25,6 +25,7 @@
 #include "disk_manage.h"
 #include "task/db_task.h"
 #include "defs.h"
+#include "file_json.h"
 
 
 int handle_get_file_size_cmd(int file_type,unsigned long offset,unsigned long length,int sort_mode,JObj *response_para_json,char *uuid)
@@ -100,10 +101,14 @@ int	_handle_get_all_type_file_list_cmd(struct conn *c)
 { 
 	c->msg->msg_header.ret_flag = MSG_NO_RETURN;
 	if(c->cmd == 120||c->cmd == 126)
-    	c->msg->msg_header.m_type = MSG_DB_QUERY_FILE_LIST;
+	{
+		c->msg->msg_header.m_type = MSG_DB_QUERY_FILE_LIST;
+	}	
 	else if(c->cmd == 123)
+	{
 		c->msg->msg_header.m_type = MSG_DB_QUERY_DIR_LIST;
-	else if(c->cmd == 124)
+	}	
+	else if(c->cmd == 124 || c->cmd == 101 || c->cmd == FN_ENCRYPT_FILE_GET_LIST)
 	{
 		DMCLOG_D("c->src_path: %s, c->disk_info.path: %s", c->src_path, c->disk_info->path);
 		if(strstr(c->src_path, c->disk_info->path) == NULL){
@@ -112,11 +117,12 @@ int	_handle_get_all_type_file_list_cmd(struct conn *c)
 		c->msg->msg_header.m_type = MSG_DB_QUERY_FILE_LIST_BY_PATH;
 		get_db_opr_obj(c->msg).data.file_list.path = c->src_path != NULL?c->src_path + strlen(DOCUMENT_ROOT):NULL;
 	}
-	get_db_opr_obj(c->msg).data.file_list.list_type = TYPE_ALL;
+	DMCLOG_D("c->msg->msg_header.cmd=%d,c->src_path=%s",c->cmd,c->src_path);
     get_db_opr_obj(c->msg).data.file_list.file_type = c->fileType;
 	get_db_opr_obj(c->msg).data.file_list.start_index = c->offset;
 	get_db_opr_obj(c->msg).data.file_list.len = c->length;
 	get_db_opr_obj(c->msg).data.file_list.sort_mode = c->sortType;
+	get_db_opr_obj(c->msg).data.file_list.encryptType = c->status;// 1 :filter;0:not filter
 	pthread_mutex_lock(&c->disk_info->mutex);
 	if(get_fuser_flag() == AIRDISK_ON_PC)
 	{
@@ -131,12 +137,55 @@ int	_handle_get_all_type_file_list_cmd(struct conn *c)
 	pthread_mutex_unlock(&c->disk_info->mutex);
 	if(get_db_opr_obj(c->msg).ret != RET_SUCCESS)
     {
-        DMCLOG_E("query file list failed");
+        DMCLOG_E("query file list failed,%d",get_db_opr_obj(c->msg).ret);
         return EJSON_NEW;
     }
     c->count += get_db_opr_obj(c->msg).data.file_list.result_cnt;
-	c->totalCount += get_db_opr_obj(c->msg).data.file_list.total_cnt;
+	c->totalCount += get_db_opr_obj(c->msg).data.file_list.result_cnt;
 	DMCLOG_D("count = %u,c->totalCount = %u",c->count,c->totalCount);
+    return RET_SUCCESS;
+}
+
+int	handle_get_all_type_file_list_cmd(char *src_path,int fileType,int sortType,int offset,int length,struct conn *c)
+{
+    c->msg->msg_header.ret_flag = MSG_NO_RETURN;
+    if(c->cmd == 120||c->cmd == 126)
+    {
+        c->msg->msg_header.m_type = MSG_DB_QUERY_FILE_LIST;
+    }
+    else if(c->cmd == 123)
+    {
+        c->msg->msg_header.m_type = MSG_DB_QUERY_DIR_LIST;
+    }
+    else if(c->cmd == 124 || c->cmd == 101)
+    {
+        if(src_path == NULL)
+            return EJSON_NEW;
+        
+        DMCLOG_D("src_path: %s, c->disk_info.path: %s", src_path, c->disk_info->path);
+        if(strstr(src_path, c->disk_info->path) == NULL){
+            return RET_SUCCESS;
+        }
+        c->msg->msg_header.m_type = MSG_DB_QUERY_FILE_LIST_BY_PATH;
+        get_db_opr_obj(c->msg).data.file_list.path = src_path != NULL?src_path + strlen(DOCUMENT_ROOT):NULL;
+    }
+    
+    get_db_opr_obj(c->msg).data.file_list.file_type = fileType;
+    get_db_opr_obj(c->msg).data.file_list.start_index = offset;
+    get_db_opr_obj(c->msg).data.file_list.len = length;
+    get_db_opr_obj(c->msg).data.file_list.sort_mode = sortType;
+    get_db_opr_obj(c->msg).data.file_list.encryptType = c->status;
+    pthread_mutex_lock(&c->disk_info->mutex);
+   	get_db_opr_obj(c->msg).ret = c->disk_info->g_db_query_task.msg_cb(&c->disk_info->g_db_query_task,c->msg);
+    pthread_mutex_unlock(&c->disk_info->mutex);
+    if(get_db_opr_obj(c->msg).ret != RET_SUCCESS)
+    {
+        DMCLOG_E("query file list failed");
+        return EJSON_NEW;
+    }
+//    c->count += get_db_opr_obj(c->msg).data.file_list.result_cnt;
+//    c->totalCount += get_db_opr_obj(c->msg).data.file_list.result_cnt;
+//    DMCLOG_D("count = %u",get_db_opr_obj(c->msg).data.file_list.result_cnt);
     return RET_SUCCESS;
 }
 
@@ -172,15 +221,14 @@ int	_handle_get_all_type_dir_list_cmd(struct conn *c)
 }
 
 
-int handle_get_file_list_count_by_path_cmd(int  file_type,unsigned int *type_count,unsigned long *type_size,char *path,char *uuid)
+int handle_get_file_list_count_by_path_cmd(int  file_type,unsigned int *type_count,char *path,char *uuid)
 {   
-    uint32_t counts;
     Message *msg;
     
-    //ENTER_FUNC();
+    ENTER_FUNC();
 	
     // 1. get request params.
-    //DMCLOG_D("file_type(0x%x),path = %s", file_type,path);
+    DMCLOG_D("file_type(0x%x),path = %s", file_type,path);
 	struct disk_node *disk_info = get_disk_node(uuid);
 	if(disk_info == NULL)
 	{
@@ -198,7 +246,8 @@ int handle_get_file_list_count_by_path_cmd(int  file_type,unsigned int *type_cou
     msg->msg_header.m_type = MSG_DB_QUERY_FILE_LIST_CNT_BY_PATH; 
 	
     get_db_opr_obj(msg).data.file_list.file_type = file_type;
-	get_db_opr_obj(msg).data.file_list.path = path;
+	get_db_opr_obj(msg).data.file_list.path = path != NULL?path + strlen(DOCUMENT_ROOT):NULL;
+	//get_db_opr_obj(msg).data.file_list.path = path;
 	get_db_opr_obj(msg).ret = disk_info->g_db_query_task.msg_cb(&disk_info->g_db_query_task,msg);
    
     // check result if ok
@@ -212,64 +261,13 @@ int handle_get_file_list_count_by_path_cmd(int  file_type,unsigned int *type_cou
 
 	*type_count = get_db_opr_obj(msg).data.file_list.result_cnt;
 	//*type_size = get_db_opr_obj(msg).data.file_list.result_size;
-    //DMCLOG_D("counts = %d,size = %lu", *type_count,*type_size);
+    DMCLOG_D("counts = %d", *type_count);
 	free_message(&msg);
     
     // 3. Response client
-    
-	//log_trace("Exit: success");
 	return RET_SUCCESS;
 	
 }
-
-int handle_get_file_list_count_by_path(int  file_type,unsigned int *type_count,off_t *type_size,char *path,struct disk_node *disk_info )
-{   
-    uint32_t counts;
-    Message *msg;
-    
-    //ENTER_FUNC();
-	
-    // 1. get request params.
-	if(disk_info == NULL)
-	{
-		log_error("get the disk info failed");
-        return EMESSAGE_NEW;
-	}
-    // 2. query db.
-    if((msg = new_message()) == NULL)
-    {
-        log_error("create_sync_message failed");
-        return EMESSAGE_NEW;
-    }
-    // add end.
-	msg->msg_header.ret_flag = MSG_NO_RETURN;
-    msg->msg_header.m_type = MSG_DB_QUERY_FILE_LIST_CNT_BY_PATH; 
-	
-    get_db_opr_obj(msg).data.file_list.file_type = file_type;
-	get_db_opr_obj(msg).data.file_list.path = path;
-	get_db_opr_obj(msg).ret = disk_info->g_db_query_task.msg_cb(&disk_info->g_db_query_task,msg);
-   
-    // check result if ok
-    if(get_db_opr_obj(msg).ret != RET_SUCCESS)
-    {
-        log_error("query file full path failed");
-        free_message(&msg);
-        return ECLIENT_PARAM;
-		
-    }
-
-	*type_count = get_db_opr_obj(msg).data.file_list.result_cnt;
-	//*type_size = get_db_opr_obj(msg).data.file_list.result_size;
-    //DMCLOG_D("counts = %d,size = %lu", *type_count,*type_size);
-	free_message(&msg);
-    
-    // 3. Response client
-    
-	//log_trace("Exit: success");
-	return RET_SUCCESS;
-	
-}
-
 
 int	_handle_get_file_list_for_album_cmd(int sort_mode,char **buf,struct conn *c,char *path,struct disk_node *disk_info)
 { 
@@ -355,7 +353,6 @@ _HANDLE_CMD_FAILED_:
 int handle_del_file_list_by_path_cmd(int file_type,char *path,char *uuid)
 {   
     Message *msg;
-    ENTER_FUNC();
 	struct disk_node *disk_info = get_disk_node(uuid);
 	if(disk_info == NULL)
 	{
@@ -577,12 +574,265 @@ int handle_file_hide_cmd(char *src_path,bool attr,char *uuid,bool album)
 	return RET_SUCCESS;
 }
 
+int handle_file_list_insert_cmd(struct dl_list *head,char *uuid)
+{
+    Message *msg;
+	struct disk_node *disk_info = get_disk_node(uuid);
+	if(disk_info == NULL)
+	{
+		DMCLOG_E("get the disk info failed");
+        return EMESSAGE_NEW;
+	}
+    // 2. query db.
+    if((msg = new_message()) == NULL)
+    {
+        DMCLOG_E("create_sync_message failed");
+        return EMESSAGE_NEW;
+    }
+    // add end.
+    msg->msg_header.ret_flag = MSG_NO_RETURN;
+    msg->msg_header.m_type = MSG_DB_FILE_SINGLE_ADD; 
+	get_db_opr_obj(msg).data.insert_data.cmd = FILE_TABLE_INSERT_LIST;
+	get_db_opr_obj(msg).data.insert_data.head = head;
+    pthread_mutex_lock(&disk_info->mutex);
+	disk_info->g_db_write_task.msg_cb(&disk_info->g_db_write_task,msg);
+    pthread_mutex_unlock(&disk_info->mutex);
+    // check result if ok
+    if(get_db_opr_obj(msg).ret != RET_SUCCESS)
+    {
+        DMCLOG_E("insert file list failed");
+        free_message(&msg);
+        return ECLIENT_PARAM;
+		
+    }
+	free_message(&msg);
+	return RET_SUCCESS;
+	
+}
+
+
+int handle_encrypt_file_insert_cmd(char *file_uuid,char *src_path,char bIsRegularFile,char *uuid,char *encryptPath, uint64_t size)
+{
+    Message *msg;
+    if(src_path == NULL||uuid == NULL)
+    {
+        DMCLOG_E("para is NULL");
+        return EMESSAGE_NEW;
+    }
+    
+    DMCLOG_D("uuid = %s",uuid);
+    struct disk_node *disk_info = get_disk_node(uuid);
+    if(disk_info == NULL)
+    {
+        DMCLOG_E("para is NULL");
+        return EMESSAGE_NEW;
+    }
+    if((msg = new_message()) == NULL)
+    {
+        DMCLOG_E("create_sync_message failed");
+        return EMESSAGE_NEW;
+    }
+    //struct stat statbuf;
+    //lstat(src_path, &statbuf);
+
+    struct stat e_statbuf;
+    lstat(encryptPath, &e_statbuf);
+    memset(&msg->msg_data, 0, sizeof(msg->msg_data));
+    msg->msg_header.ret_flag = MSG_NO_RETURN;
+    msg->msg_header.m_type = MSG_DB_FILE_SINGLE_ADD;
+
+    get_db_opr_obj(msg).data.insert_data.cmd = FILE_TABLE_ENCRYPT_INSERT_INFO;
+    
+    strcpy(get_db_opr_obj(msg).data.insert_data.file_info.mime_type,"NULL");
+    if(file_uuid != NULL&&*file_uuid)
+    {
+        S_STRNCPY(get_db_opr_obj(msg).data.insert_data.file_info.file_uuid,file_uuid,FILE_UUID_LEN);
+    }else
+    {
+        strcpy(get_db_opr_obj(msg).data.insert_data.file_info.file_uuid,GENERAL_FILE_UUID);
+    }
+
+    if(bIsRegularFile)
+    {
+        DMCLOG_D("path = %s,file_size = %lld",src_path,size);
+        if(bIsRegularFile == 2)
+        {
+            get_db_opr_obj(msg).data.insert_data.file_info.file_type = -1;
+        }else{
+            get_db_opr_obj(msg).data.insert_data.file_info.file_type = db_get_mime_type(src_path,strlen(src_path));
+        }
+        get_db_opr_obj(msg).data.insert_data.file_info.file_size= size;
+        get_db_opr_obj(msg).data.insert_data.file_info.isFolder = 0;
+
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.isDir = 0;
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.fileSize = e_statbuf.st_size;
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.date = e_statbuf.st_mtime;
+        //char *path = get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.path;
+        //S_STRNCPY(path,encryptPath,1024);   
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.path = encryptPath + strlen(DOCUMENT_ROOT);
+    	get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.name = bb_basename(encryptPath);        
+    }
+    else
+    {
+        get_db_opr_obj(msg).data.insert_data.file_info.file_size = 0;
+        get_db_opr_obj(msg).data.insert_data.file_info.isFolder = 1;
+
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.isDir = 1;
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.fileSize = 0;
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.date = e_statbuf.st_mtime;
+        //char *path = get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.path;
+        //S_STRNCPY(path,encryptPath,1024);
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.path = encryptPath + strlen(DOCUMENT_ROOT);
+    	get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.name = bb_basename(encryptPath);
+    }
+    get_db_opr_obj(msg).data.insert_data.file_info.isEncryptFile = 1;
+    get_db_opr_obj(msg).data.insert_data.file_info.create_time = e_statbuf.st_ctime;//st_ctime;
+    get_db_opr_obj(msg).data.insert_data.file_info.modify_time = e_statbuf.st_mtime;//st_mtime;
+    get_db_opr_obj(msg).data.insert_data.file_info.access_time = e_statbuf.st_atime;//st_atime;
+	/*
+	//替换文件路径
+	if(strcmp(src_path,SAFE_BOX_PATH) != 0){
+	    char *src_name = (char*)malloc(strlen(src_path)+1);
+		get_filename_from_path(src_path,src_name);
+		sprintf(src_path,"%s/%s",SAFE_BOX_PATH,src_name);
+		safe_free(src_name);
+	}
+	*/
+    get_db_opr_obj(msg).data.insert_data.file_info.path = src_path + strlen(DOCUMENT_ROOT);
+    get_db_opr_obj(msg).data.insert_data.file_info.name = bb_basename(src_path);
+
+    pthread_mutex_lock(&disk_info->mutex);
+    disk_info->g_db_write_task.msg_cb(&disk_info->g_db_write_task,msg);
+    pthread_mutex_unlock(&disk_info->mutex);
+    // check result if ok
+    if(get_db_opr_obj(msg).ret != RET_SUCCESS)
+    {
+        DMCLOG_E("handle file insert cmd failed");
+        free_message(&msg);
+        return ECLIENT_PARAM;
+        
+    }
+    free_message(&msg);
+    // 3. Response client
+    return RET_SUCCESS;
+    
+}
+/*
+
+int handle_encrypt_file_insert_cmd(char *file_uuid,char *src_path,char bIsRegularFile,char *uuid,char *encryptPath)
+{
+    Message *msg;
+    if(src_path == NULL||uuid == NULL)
+    {
+        DMCLOG_E("para is NULL");
+        return EMESSAGE_NEW;
+    }
+    
+    DMCLOG_D("uuid = %s",uuid);
+    struct disk_node *disk_info = get_disk_node(uuid);
+    if(disk_info == NULL)
+    {
+        DMCLOG_E("para is NULL");
+        return EMESSAGE_NEW;
+    }
+    if((msg = new_message()) == NULL)
+    {
+        DMCLOG_E("create_sync_message failed");
+        return EMESSAGE_NEW;
+    }
+    struct stat statbuf;
+    lstat(src_path, &statbuf);
+
+    struct stat e_statbuf;
+    lstat(encryptPath, &e_statbuf);
+    memset(&msg->msg_data, 0, sizeof(msg->msg_data));
+    msg->msg_header.ret_flag = MSG_NO_RETURN;
+    msg->msg_header.m_type = MSG_DB_FILE_SINGLE_ADD;
+
+    get_db_opr_obj(msg).data.insert_data.cmd = FILE_TABLE_ENCRYPT_INSERT_INFO;
+    
+    strcpy(get_db_opr_obj(msg).data.insert_data.file_info.mime_type,"NULL");
+    if(file_uuid != NULL&&*file_uuid)
+    {
+        S_STRNCPY(get_db_opr_obj(msg).data.insert_data.file_info.file_uuid,file_uuid,FILE_UUID_LEN);
+    }else
+    {
+        strcpy(get_db_opr_obj(msg).data.insert_data.file_info.file_uuid,GENERAL_FILE_UUID);
+    }
+    DMCLOG_D("bIsRegularFile = %d",bIsRegularFile);
+    DMCLOG_D("src_path = %s",src_path);
+    DMCLOG_D("encryptPath = %s",encryptPath);
+    if(bIsRegularFile)
+    {
+        DMCLOG_D("path = %s,file_size = %lld",src_path,statbuf.st_size);
+        if(bIsRegularFile == 2)
+        {
+            get_db_opr_obj(msg).data.insert_data.file_info.file_type = -1;
+        }else{
+            get_db_opr_obj(msg).data.insert_data.file_info.file_type = db_get_mime_type(src_path,strlen(src_path));
+        }
+        get_db_opr_obj(msg).data.insert_data.file_info.file_size= statbuf.st_size;
+        get_db_opr_obj(msg).data.insert_data.file_info.isFolder = 0;
+
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.isDir = 0;
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.fileSize = e_statbuf.st_size;
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.date = e_statbuf.st_mtime;
+        //char *path = get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.path;
+        //S_STRNCPY(path,encryptPath,1024);   
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.path = encryptPath + strlen(DOCUMENT_ROOT);
+    	get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.name = bb_basename(encryptPath);        
+    }
+    else
+    {
+        get_db_opr_obj(msg).data.insert_data.file_info.file_size = 0;
+        get_db_opr_obj(msg).data.insert_data.file_info.isFolder = 1;
+
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.isDir = 1;
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.fileSize = 0;
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.date = e_statbuf.st_mtime;
+        //char *path = get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.path;
+        //S_STRNCPY(path,encryptPath,1024);
+        get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.path = encryptPath + strlen(DOCUMENT_ROOT);
+    	get_db_opr_obj(msg).data.insert_data.file_info.encrypt_info.name = bb_basename(encryptPath);
+    }
+    get_db_opr_obj(msg).data.insert_data.file_info.isEncryptFile = 1;
+    get_db_opr_obj(msg).data.insert_data.file_info.create_time = statbuf.st_ctime;
+    get_db_opr_obj(msg).data.insert_data.file_info.modify_time = statbuf.st_mtime;
+    get_db_opr_obj(msg).data.insert_data.file_info.access_time = statbuf.st_atime;
+	/*
+	//替换文件路径
+	if(strcmp(src_path,SAFE_BOX_PATH) != 0){
+	    char *src_name = (char*)malloc(strlen(src_path)+1);
+		get_filename_from_path(src_path,src_name);
+		sprintf(src_path,"%s/%s",SAFE_BOX_PATH,src_name);
+		safe_free(src_name);
+	}
+	
+    get_db_opr_obj(msg).data.insert_data.file_info.path = src_path + strlen(DOCUMENT_ROOT);
+    get_db_opr_obj(msg).data.insert_data.file_info.name = bb_basename(src_path);
+    DMCLOG_D("path = %s,file_size = %lld",src_path,statbuf.st_size);
+    pthread_mutex_lock(&disk_info->mutex);
+    disk_info->g_db_write_task.msg_cb(&disk_info->g_db_write_task,msg);
+    pthread_mutex_unlock(&disk_info->mutex);
+    // check result if ok
+    if(get_db_opr_obj(msg).ret != RET_SUCCESS)
+    {
+        DMCLOG_E("handle file insert cmd failed");
+        free_message(&msg);
+        return ECLIENT_PARAM;
+        
+    }
+    free_message(&msg);
+    // 3. Response client
+    return RET_SUCCESS;
+    
+}
+*/
 
 int handle_file_insert_cmd(char *file_uuid,char *src_path,char bIsRegularFile,char *uuid)
-{   
-	ENTER_FUNC();
+{
     Message *msg;	
-	if(file_uuid == NULL||src_path == NULL||uuid == NULL)
+	if(src_path == NULL||uuid == NULL)
 	{
 		DMCLOG_E("para is NULL");
         return EMESSAGE_NEW;
@@ -604,7 +854,10 @@ int handle_file_insert_cmd(char *file_uuid,char *src_path,char bIsRegularFile,ch
 	lstat(src_path, &statbuf);
 	memset(&msg->msg_data, 0, sizeof(msg->msg_data));
 	msg->msg_header.ret_flag = MSG_NO_RETURN;
-    msg->msg_header.m_type = MSG_DB_FILE_SINGLE_ADD; 
+    msg->msg_header.m_type = MSG_DB_FILE_SINGLE_ADD;
+    get_db_opr_obj(msg).data.insert_data.cmd = FILE_TABLE_ENCRYPT_INSERT_INFO;
+    
+    
     strcpy(get_db_opr_obj(msg).data.insert_data.file_info.mime_type,"NULL");
 	if(file_uuid != NULL&&*file_uuid)
 	{
@@ -617,8 +870,8 @@ int handle_file_insert_cmd(char *file_uuid,char *src_path,char bIsRegularFile,ch
     if(bIsRegularFile)
     {
     	DMCLOG_D("path = %s,file_size = %lld",src_path,statbuf.st_size);
-    	//��ͨ�ļ�
-    	if(bIsRegularFile == 2)//��ʼ���ݣ����ļ���������Ϊ-1
+    	//??????
+    	if(bIsRegularFile == 2)//??????????????????????-1
     	{
 			get_db_opr_obj(msg).data.insert_data.file_info.file_type = -1;
 		}else{
@@ -626,10 +879,11 @@ int handle_file_insert_cmd(char *file_uuid,char *src_path,char bIsRegularFile,ch
 		}
         get_db_opr_obj(msg).data.insert_data.file_info.file_size= statbuf.st_size;
         get_db_opr_obj(msg).data.insert_data.file_info.isFolder = 0;
+        
     }
     else
     {
-    	//�ļ���
+    	//?????
         get_db_opr_obj(msg).data.insert_data.file_info.file_size = 0;
         get_db_opr_obj(msg).data.insert_data.file_info.isFolder = 1;
     }
@@ -645,18 +899,54 @@ int handle_file_insert_cmd(char *file_uuid,char *src_path,char bIsRegularFile,ch
     // check result if ok
     if(get_db_opr_obj(msg).ret != RET_SUCCESS)
     {
-        DMCLOG_E("handle_file_insert_cmd failed");
+        DMCLOG_E("handle file insert cmd failed");
         free_message(&msg);
         return ECLIENT_PARAM;
 		
     }
 	free_message(&msg);
     // 3. Response client
-    
-	EXIT_FUNC();
 	return RET_SUCCESS;
 	
 }
+
+int handle_encrypt_file_delete_cmd(char *src_path,char *uuid)
+{   
+    Message *msg;
+	struct disk_node *disk_info = get_disk_node(uuid);
+	if(disk_info == NULL)
+	{
+		DMCLOG_E("get the disk info failed");
+        return EMESSAGE_NEW;
+	}
+    // 2. query db.
+    if((msg = new_message()) == NULL)
+    {
+        DMCLOG_E("create_sync_message failed");
+        return EMESSAGE_NEW;
+    }
+    // add end.
+    msg->msg_header.ret_flag = MSG_NO_RETURN;
+    msg->msg_header.m_type = MSG_DB_FILE_DELETE; 
+	get_db_opr_obj(msg).data.delete_data.path = src_path + strlen(DOCUMENT_ROOT);
+	get_db_opr_obj(msg).data.delete_data.cmd = FILE_TABLE_DELETE_ENCRYPT;
+	DMCLOG_D("path = %s",get_db_opr_obj(msg).data.delete_data.path);
+    pthread_mutex_lock(&disk_info->mutex);
+	disk_info->g_db_write_task.msg_cb(&disk_info->g_db_write_task,msg);
+    pthread_mutex_unlock(&disk_info->mutex);
+    // check result if ok
+    if(get_db_opr_obj(msg).ret != RET_SUCCESS)
+    {
+        DMCLOG_E("query file full path failed");
+        free_message(&msg);
+        return ECLIENT_PARAM;
+		
+    }
+	free_message(&msg);
+	return RET_SUCCESS;
+	
+}
+
 
 int handle_file_delete_cmd(char *src_path,char *uuid)
 {   
@@ -836,12 +1126,12 @@ int dm_getTypeInfo(int cmd,int file_type,struct file_list *file_list_t,char *uui
 
 /*!
  @method
- @abstractΩ´”√ªß–≈œ¢¥Ê»Î ˝æ›ø‚
+ @abstractΩ′”√a?–≈?￠￥ê????????
  @param char session[32];
 		char ip[32];
 		char username[128];
 		char password[128];
- @result INT(∑µªÿ÷µ¥Û”⁄µ»”⁄0±Ì æ≥…π¶£¨∑Ò‘Ú±Ì æ ß∞‹)
+ @result INT(∑μa?÷μ￥?”?μ?”?0±ì??≥…π?￡¨∑ò‘ú±ì????∞?)
 */
 int handle_db_login(char *session,char *deviceUuid,char *deviceName,char *ip,char *username,char *password)
 {
@@ -1121,11 +1411,105 @@ int get_bind_disk_uuid_from_db(_In_ const char *device_uuid,_Out_ char *disk_uui
     return RET_SUCCESS;
 }
 
+int handle_query_file_info_by_path(char *file_uuid,char *uuid,char *file_path,off_t *file_size, time_t *file_time)
+{
+    Message *msg;
+    int ret = 0;
+    //ENTER_FUNC();
+    // 2. query db.
+    struct disk_node *disk_info = get_disk_node(uuid);
+    if(disk_info == NULL)
+    {
+        log_error("get the disk info failed");
+        return EMESSAGE_NEW;
+    }
+    if((msg = new_message()) == NULL)
+    {
+        log_error("create_sync_message failed");
+        return EMESSAGE_NEW;
+    }
+    // add end.
+    msg->msg_header.ret_flag = MSG_NO_RETURN;
+    msg->msg_header.m_type = MSG_DB_QUERY_FILE_BY_PATH;
+    file_info_t *file_info = &get_db_opr_obj(msg).data.file_data;
+  
+  	file_info->path = file_path+strlen(DOCUMENT_ROOT);
+    //strcpy(get_db_opr_obj(msg).data.file_data.file_uuid,file_uuid);
+    pthread_mutex_lock(&disk_info->mutex);
+    ret = disk_info->g_db_query_task.msg_cb(&disk_info->g_db_query_task,msg);
+    pthread_mutex_unlock(&disk_info->mutex);
+    // check result if ok
+    if(ret != RET_SUCCESS)
+    {
+        log_error("query fileuuid failed");
+        free_message(&msg);
+        return ECLIENT_PARAM;
+    }
+
+    if(get_db_opr_obj(msg).data.file_data.path != NULL)
+    {
+       // file_info->path = get_db_opr_obj(msg).data.file_data.path;
+       
+        *file_time = file_info->modify_time;// = get_db_opr_obj(msg).data.file_data.modify_time;
+        *file_size = file_info->file_size;//= get_db_opr_obj(msg).data.file_data.file_size;
+         //DMCLOG_D("path = %s,time=%ld,size=%ld",file_info->path,file_info->modify_time,file_info->file_size);
+    }
+    
+    //DMCLOG_D("Exit, m_ptr=0x%x", (unsigned int)(msg));
+    free_message(&msg);
+    return RET_SUCCESS;
+    
+}
+
 int handle_query_file_path_by_uuid(char *file_uuid,char *device_uuid,char *uuid,char **file_path)
+{
+    Message *msg;
+    int ret = 0;
+    ENTER_FUNC();
+    // 2. query db.
+    struct disk_node *disk_info = get_disk_node(uuid);
+    if(disk_info == NULL)
+    {
+        log_error("get the disk info failed");
+        return EMESSAGE_NEW;
+    }
+    if((msg = new_message()) == NULL)
+    {
+        log_error("create_sync_message failed");
+        return EMESSAGE_NEW;
+    }
+    // add end.
+    msg->msg_header.ret_flag = MSG_NO_RETURN;
+    msg->msg_header.m_type = MSG_DB_QUERY_FILE_BY_UUID;
+    strcpy(get_db_opr_obj(msg).data.file_data.file_uuid,file_uuid);
+    pthread_mutex_lock(&disk_info->mutex);
+    ret = disk_info->g_db_query_task.msg_cb(&disk_info->g_db_query_task,msg);
+    pthread_mutex_unlock(&disk_info->mutex);
+    // check result if ok
+    if(ret != RET_SUCCESS)
+    {
+        log_error("query fileuuid failed");
+        free_message(&msg);
+        return ECLIENT_PARAM;
+    }
+    //DMCLOG_D("path = %s",get_db_opr_obj(msg).data.file_data.path);
+    if(get_db_opr_obj(msg).data.file_data.path != NULL)
+    {
+        *file_path = get_db_opr_obj(msg).data.file_data.path;
+        DMCLOG_D("path = %s",*file_path);
+        
+    }
+    
+    //DMCLOG_D("Exit, m_ptr=0x%x", (unsigned int)(msg));
+    free_message(&msg);
+    return RET_SUCCESS;
+    
+}
+
+int handle_encrypt_file_query_by_name(_In_ const char *uuid,_In_ const char *filename,_Out_ char **decryptname)
 {   
     Message *msg;
 	int ret = 0;
-    ENTER_FUNC();
     // 2. query db.
     struct disk_node *disk_info = get_disk_node(uuid);
 	if(disk_info == NULL)
@@ -1140,8 +1524,16 @@ int handle_query_file_path_by_uuid(char *file_uuid,char *device_uuid,char *uuid,
     }
     // add end.
     msg->msg_header.ret_flag = MSG_NO_RETURN;
-    msg->msg_header.m_type = MSG_DB_QUERY_FILE_BY_UUID; 
-    strcpy(get_db_opr_obj(msg).data.file_data.file_uuid,file_uuid);
+    msg->msg_header.m_type = MSG_DB_QUERY_ENCRYPT_FILE_BY_NAME;
+    DMCLOG_D("path = %s",filename);
+    
+    
+//  file_info->path = filePath+strlen(DOCUMENT_ROOT);
+	
+    get_db_opr_obj(msg).data.file_data.name = filename;
+    //strcpy(get_db_opr_obj(msg).data.file_data.path,filePath+strlen(DOCUMENT_ROOT));
+    get_db_opr_obj(msg).data.file_data.encrypt_info.name = NULL;
+    //file_info->encrypt_info.path = encryptPath;
 	pthread_mutex_lock(&disk_info->mutex);
 	ret = disk_info->g_db_query_task.msg_cb(&disk_info->g_db_query_task,msg);
 	pthread_mutex_unlock(&disk_info->mutex);
@@ -1150,27 +1542,91 @@ int handle_query_file_path_by_uuid(char *file_uuid,char *device_uuid,char *uuid,
     {
         log_error("query fileuuid failed");
         free_message(&msg);
-        return ECLIENT_PARAM;
+        return ret;
     }
-	DMCLOG_D("path = %s",get_db_opr_obj(msg).data.file_data.path);
-	if(get_db_opr_obj(msg).data.file_data.path != NULL)
-	{
-		*file_path = get_db_opr_obj(msg).data.file_data.path;
-		DMCLOG_D("path = %s",*file_path);
-		
-	}
-	
-	//DMCLOG_D("Exit, m_ptr=0x%x", (unsigned int)(msg));
+    //file_info_t *file_info = &get_db_opr_obj(msg).data.file_data;
+   // *fileSize = file_info->encrypt_info.fileSize;
+   // *date = file_info->encrypt_info.date;
+    if(get_db_opr_obj(msg).data.file_data.encrypt_info.name != NULL)
+    {
+	    DMCLOG_D("decryptname = %s",get_db_opr_obj(msg).data.file_data.encrypt_info.name);	
+   		*decryptname = get_db_opr_obj(msg).data.file_data.encrypt_info.name;
+	    DMCLOG_D("decryptname = %s",*decryptname);
+    } else{
+		DMCLOG_D("not exist.");
+    }
+
 	free_message(&msg);
 	return RET_SUCCESS;
+}
+
+int handle_encrypt_file_query_cmd(_In_ const char *uuid,_In_ const char *filePath,_Out_ char **encryptPath)
+{   
+    Message *msg;
+	int ret = 0;
+    // 2. query db.
+    struct disk_node *disk_info = get_disk_node(uuid);
+	if(disk_info == NULL)
+	{
+		log_error("get the disk info failed");
+        return EMESSAGE_NEW;
+	}
+    if((msg = new_message()) == NULL)
+    {
+        log_error("create_sync_message failed");
+        return EMESSAGE_NEW;
+    }
+    // add end.
+    msg->msg_header.ret_flag = MSG_NO_RETURN;
+    msg->msg_header.m_type = MSG_DB_QUERY_ENCRYPT_FILE_BY_PATH;
+    //DMCLOG_D("path = %s",filePath);
+    //  file_info->path = filePath+strlen(DOCUMENT_ROOT);
 	
+    get_db_opr_obj(msg).data.file_data.path = filePath+strlen(DOCUMENT_ROOT);
+    //strcpy(get_db_opr_obj(msg).data.file_data.path,filePath+strlen(DOCUMENT_ROOT));
+    get_db_opr_obj(msg).data.file_data.encrypt_info.path = NULL;
+    //file_info->encrypt_info.path = encryptPath;
+	pthread_mutex_lock(&disk_info->mutex);
+	ret = disk_info->g_db_query_task.msg_cb(&disk_info->g_db_query_task,msg);
+	pthread_mutex_unlock(&disk_info->mutex);
+    // check result if ok
+    if(ret != RET_SUCCESS)
+    {
+        log_error("query fileuuid failed");
+        free_message(&msg);
+        return ret;
+    }
+    if(get_db_opr_obj(msg).data.file_data.encrypt_info.path != NULL)
+    {
+
+    	char *path =  get_db_opr_obj(msg).data.file_data.encrypt_info.path;
+		//DMCLOG_D("path = %s",path);	
+    	char *name =  get_db_opr_obj(msg).data.file_data.encrypt_info.name;
+    	*encryptPath = (char *)calloc(1,strlen(DOCUMENT_ROOT) + strlen(path) + 1);
+    	sprintf(*encryptPath,"%s%s",DOCUMENT_ROOT,path);
+        
+        safe_free(path);
+        safe_free(name);
+        //strcpy(*encryptPath , get_db_opr_obj(msg).data.file_data.encrypt_info.path);
+        //DMCLOG_D("path = %s",*encryptPath);
+        
+    }
+    //file_info_t *file_info = &get_db_opr_obj(msg).data.file_data;
+   // *fileSize = file_info->encrypt_info.fileSize;
+   // *date = file_info->encrypt_info.date;
+    
+    //strcpy(encryptPath,get_db_opr_obj(msg).data.file_data.encrypt_info.path);
+    
+	//DMCLOG_D("encryptPath = %s,strlen(%d)",*encryptPath,strlen(*encryptPath));
+	free_message(&msg);
+	//DMCLOG_D("encryptPath = %s,strlen(%d)",*encryptPath,strlen(*encryptPath));
+	return RET_SUCCESS;
 }
 
 int handle_file_uuid_exist_cmd(char *file_uuid,char *device_uuid,char *uuid,int *file_type)
 {   
     Message *msg;
 	int ret = 0;
-    ENTER_FUNC();
     // 2. query db.
     struct disk_node *disk_info = get_disk_node(uuid);
 	if(disk_info == NULL)
@@ -1282,3 +1738,4 @@ int handle_file_list_uuid_exist_cmd(file_uuid_list_t *flist,JObj*response_para_j
 	return RET_SUCCESS;
 	
 }
+

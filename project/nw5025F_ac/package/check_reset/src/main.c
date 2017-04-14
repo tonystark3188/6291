@@ -1026,27 +1026,34 @@ int main()
 		}
 		
 		ret = get_wifi_connect_info();
-		
-		
 		if( ret==0 ){
 			idle_cnt++;
 		}
 		else{
 			idle_cnt=0;
 		}
+		printf("idle_cnt: %d\n", idle_cnt);
 		if(idle_cnt >= IDLE_WIFI_TIME){
-			while(1){	
-				usleep(200000);
-				ret = set_system_poweroff();	
-				if(ret < 0){
-					printf("set system poweroff fail!\n\r");
-				}
-				else{
-					printf("set system poweroff success!\n\r");
+			//if db scanning , reset idle_cnt
+			int dbSatus = 0;
+			ret = GetDbWorkStatus(&dbSatus);
+			printf("ret: %d, dbSatus: %d\n", ret, dbSatus);
+			if(ret == 0 && dbSatus == DB_STATUS_SCANNING){
+				idle_cnt=0;
+			}
+			else{			
+				while(1){	
+					usleep(200000);
+					ret = set_system_poweroff();	
+					if(ret < 0){
+						printf("set system poweroff fail!\n\r");
+					}
+					else{
+						printf("set system poweroff success!\n\r");
+					}
 				}
 			}
 		}
-
 	}
 	close(socket_id);
 }

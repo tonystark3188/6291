@@ -1,0 +1,18 @@
+diff -urN a/source3/modules/vfs_default.c b/source3/modules/vfs_default.c
+--- a/source3/modules/vfs_default.c	2013-07-26 17:57:03.988906156 +0800
++++ b/source3/modules/vfs_default.c	2013-07-26 17:57:23.399536534 +0800
+@@ -939,9 +939,12 @@
+ 	   expansion and some that don't! On Linux fat can't do
+ 	   ftruncate extend but ext2 can. */
+ 
+-	result = sys_ftruncate(fsp->fh->fd, len);
++	/*result = sys_ftruncate(fsp->fh->fd, len);
+ 	if (result == 0)
+-		goto done;
++		goto done;*/
++	result=0;
++	goto done;
++
+ 
+ 	/* According to W. R. Stevens advanced UNIX prog. Pure 4.3 BSD cannot
+ 	   extend a file with ftruncate. Provide alternate implementation

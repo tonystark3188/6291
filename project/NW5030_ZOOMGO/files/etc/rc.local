@@ -1,0 +1,19 @@
+# Put your custom commands here that should be executed once
+# the system init finished. By default this file does nothing.
+
+echo netdev > /sys/class/leds/longsys\:blue\:led/trigger
+echo wl0.1 > /sys/class/leds/longsys\:blue\:led/device_name
+echo link tx rx > /sys/class/leds/longsys\:blue\:led/mode
+
+init_network.sh
+
+check_reset &
+
+/usr/sbin/check_shair.sh &
+
+updatefw &
+
+#erase_boot_flag auto
+#route add -net 224.0.0.0 netmask 255.255.255.0 wl0.1
+#airplay -a airdisk -d
+exit 0

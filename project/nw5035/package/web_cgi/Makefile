@@ -15,7 +15,7 @@ define Package/web_cgi
   SECTION:=net
   CATEGORY:=Base system
   TITLE:=cgi program for web interface
-  DEPENDS:= +libuci +libiw +udev +libwifi_uart +libm +libnl-tiny +libiw_nl80211
+  DEPENDS:= +libuci +libiw +udev +libwifi_uart +libm +libnl-tiny +libiw_nl80211  +libjson-c
   
 endef
 
@@ -49,6 +49,9 @@ define Package/web_cgi/install
 	$(INSTALL_DIR) $(1)/bin
 	$(INSTALL_DIR) $(1)/usr/sbin/
 	$(INSTALL_DIR) $(1)/etc/
+	$(INSTALL_DIR) $(1)/sbin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/letv_daemon $(1)/usr/sbin
+
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/bin/* $(1)/usr/mips/cgi-bin
 	$(CP) $(PKG_BUILD_DIR)/script/* $(1)/usr/mips/cgi-bin/script
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/cfg $(1)/bin
@@ -82,6 +85,8 @@ define Package/web_cgi/install
 	$(INSTALL_BIN) ./nrender/restore_single_param $(1)/bin/
 	$(INSTALL_BIN) ./nrender/samba_ushare_hotplug $(1)/bin/
 	$(INSTALL_BIN) ./nrender/nrender.conf $(1)/etc/
+	$(INSTALL_BIN) ./nrender/fw_upgrade.conf $(1)/etc/
+	$(INSTALL_BIN) ./nrender/fw_version.conf $(1)/etc/
 endef
 
 $(eval $(call BuildPackage,web_cgi))

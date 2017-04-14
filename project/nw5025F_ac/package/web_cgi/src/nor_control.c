@@ -19,7 +19,8 @@ char *g_nor_parameter[] = {
 	[20] = "ftp_enable",       [21] = "dms_enable",     
 	[22] = "dms_name",         [23] = "wifi_mode", 
 	[24] = "client_disabled",  [25] = "root_pwd",  
-	[26] = "disk_st", 		   [27] = NULL,  
+	[26] = "disk_st", 	   [27] = "enc_key",  
+	[28] = "enc_tips",		   [29] =  NULL,
 };
 
 static void debugwrite(char *str)

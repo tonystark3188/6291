@@ -15,7 +15,7 @@ define Package/web_cgi
   SECTION:=net
   CATEGORY:=Base system
   TITLE:=cgi program for web interface
-  DEPENDS:= +libuci +libiw +udev +libwifi_uart
+  DEPENDS:= +libuci +libiw +udev +libwifi_uart +libm +libnl-tiny +libiw_nl80211  +libjson-c +libopenssl
   
 endef
 
@@ -28,8 +28,10 @@ define Build/Prepare
 	$(CP) ./src/* $(PKG_BUILD_DIR)/
 endef
 
-TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include -I$(KERNEL_BUILD_DIR) -I$(KERNEL_BUILD_DIR)/include
-TARGET_LDFLAGS += -L$(STAGING_DIR)/usr/lib
+TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include -I$(KERNEL_BUILD_DIR) -I$(KERNEL_BUILD_DIR)/include 
+TARGET_LDFLAGS += -L$(STAGING_DIR)/usr/lib -L$(BUILD_DIR_TOOLCHAIN)/uClibc-0.9.33.2/lib
+
+TARGET_CFLAGS += -Wl,--gc-sections
 
 define Build/Compile
 	$(MAKE) -C $(PKG_BUILD_DIR) \
@@ -47,6 +49,11 @@ define Package/web_cgi/install
 	$(INSTALL_DIR) $(1)/bin
 	$(INSTALL_DIR) $(1)/usr/sbin/
 	$(INSTALL_DIR) $(1)/etc/
+	$(INSTALL_DIR) $(1)/sbin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/letv_daemon $(1)/usr/sbin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/encrypt $(1)/usr/sbin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/get_wifimode_btn $(1)/usr/sbin
+
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/bin/* $(1)/usr/mips/cgi-bin
 	$(CP) $(PKG_BUILD_DIR)/script/* $(1)/usr/mips/cgi-bin/script
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/cfg $(1)/bin
@@ -54,6 +61,13 @@ define Package/web_cgi/install
 #	$(INSTALL_BIN) $(PKG_BUILD_DIR)/check_stm8 $(1)/bin
 #	$(INSTALL_BIN) $(PKG_BUILD_DIR)/usb_chang $(1)/bin
 	$(CP) ./src/encrypt_start $(1)/etc/init.d/encrypt_start
+	$(CP) $(PKG_BUILD_DIR)/f_en /media/srv32-home/home/fc/debug/
+	$(CP) $(PKG_BUILD_DIR)/dec.cgi /media/srv32-home/home/fc/debug/
+	$(CP) $(PKG_BUILD_DIR)/encrypt /media/srv32-home/home/fc/debug/
+	$(CP) $(PKG_BUILD_DIR)/file_download.cgi /media/srv32-home/home/fc/debug/
+	$(CP) $(PKG_BUILD_DIR)/wan_status.cgi /media/srv32-home/home/fc/debug/
+	$(CP) $(PKG_BUILD_DIR)/login.cgi /media/srv32-home/home/fc/debug/
+	$(CP) $(PKG_BUILD_DIR)/letv_daemon /media/srv32-home/home/fc/debug/
 #	$(CP) $(PKG_BUILD_DIR)/bin/encrypt $(1)/bin/encrypt
 #	$(CP) $(PKG_BUILD_DIR)/bin/mm $(1)/bin/mm
 #	$(INSTALL_BIN) $(PKG_BUILD_DIR)/led_control_reload $(1)/bin/led_control_reload
@@ -68,11 +82,20 @@ define Package/web_cgi/install
 #	$(INSTALL_BIN) $(PKG_BUILD_DIR)/ctl_wifi_for_3_0 $(1)/usr/sbin/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/auto_connect $(1)/usr/sbin/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/mp_disk $(1)/usr/sbin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/save_wifi $(1)/usr/sbin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/nvram_cfg $(1)/usr/sbin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/erase_boot_flag $(1)/usr/sbin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/set_wifimode_to_boot $(1)/usr/sbin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/sys_upgrade $(1)/usr/sbin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/set_sys_flag $(1)/usr/sbin/
+
 	$(INSTALL_BIN) ./nrender/config_nrender $(1)/bin/
 	$(INSTALL_BIN) ./nrender/restore_factory_from_cfg $(1)/bin/
 	$(INSTALL_BIN) ./nrender/restore_single_param $(1)/bin/
 	$(INSTALL_BIN) ./nrender/samba_ushare_hotplug $(1)/bin/
 	$(INSTALL_BIN) ./nrender/nrender.conf $(1)/etc/
+	$(INSTALL_BIN) ./nrender/fw_upgrade.conf $(1)/etc/
+	$(INSTALL_BIN) ./nrender/fw_version.conf $(1)/etc/
 endef
 
 $(eval $(call BuildPackage,web_cgi))

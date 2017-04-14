@@ -1,0 +1,4 @@
+config wifilist number2g
+	option num 0
+config wifilist number5g
+	option num 0

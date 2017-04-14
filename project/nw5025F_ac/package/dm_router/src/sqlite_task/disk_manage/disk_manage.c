@@ -36,7 +36,7 @@ struct disk_node *get_disk_node(char *uuid)
 	{
 		if(!strcmp(disk_node->uuid,uuid))
 		{
-			DMCLOG_D("disk_node->uuid = %s,uuid = %s",disk_node->uuid,uuid);
+			//DMCLOG_D("disk_node->uuid = %s,uuid = %s",disk_node->uuid,uuid);
 			pthread_mutex_unlock(&diskTask->mutex);
 			return disk_node;
 		}

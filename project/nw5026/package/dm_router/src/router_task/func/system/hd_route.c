@@ -22,6 +22,8 @@
 #include "mcu.h"
 #include "api_process.h"
 #include "disk_manage.h"
+
+
 extern int exit_flag;
 extern int safe_exit_flag;
 
@@ -218,7 +220,7 @@ int dm_udisk_upgrade()
 	}
 	
 	system("echo timer > /sys/class/leds/longsys\:wifi\:led/trigger ");
-	err = system("sysupgrade /tmp/fwsysupgrade");
+	err = system("sysupgrade -F /tmp/fwsysupgrade");
 	if(err)
 	{
 		system("echo netdev > /sys/class/leds/longsys\:wifi\:led/trigger");
@@ -242,7 +244,6 @@ int dm_udisk_upgrade()
  *******************************************************************************/
 int dm_sync_time(dm_time_info *time_info_t)
 {
-	DMCLOG_D("access dm_sync_time");
 	char value[64] = "\0";
 	char zone[64] = "\0";
 	char *zone_tmp = NULL;
@@ -345,14 +346,14 @@ int dm_sync_system(system_sync_info_t *p_system_sync_info)
 {
 	DMCLOG_D("access dm_sync_system");
 	if(p_system_sync_info->sync){
-		sync();
-		usleep(50000);
+		//sync();
+		system("sync &");
 	}
 	
 	if(p_system_sync_info->clean_cache){ //clean cache
 		system("echo 3 > /proc/sys/vm/drop_caches");
-		sync();
-		usleep(50000);
+		//sync();
+		system("sync &");
 	}
 	return 0;
 }
@@ -389,6 +390,14 @@ int get_cfg_str(char *param,char *ret_str)
 		strcpy(ret_str,tmp+strlen(param)+1);
 		return 1;
 	}
+}
+
+int set_nor_str(char *param,char *ret_str)
+{
+	char set_str[128]={0};
+	sprintf(set_str,"nor set %s=%s",param,ret_str);
+	system(set_str);
+	return 0;
 }
 
 char *get_conf_str(char *var)
@@ -635,7 +644,7 @@ int dm_upgrade_fw()
 			sprintf(cmd, "dd if=%s of=/tmp/websysupgrade skip=11712 bs=1k conv=notrunc count=256", FW_FILE);
 			system(cmd);
 			memset(cmd, 0 ,sizeof(cmd));
-			sprintf(cmd, "sysupgrade %s", FW_FILE);
+			sprintf(cmd, "sysupgrade -F %s", FW_FILE);
 			system(cmd);
 		#elif defined(OPENWRT_X1000)
 			if((fw_fp = fopen("/tmp/fwupgrade","rb")) == NULL)    //read,binary
@@ -646,7 +655,7 @@ int dm_upgrade_fw()
 			
 			//system("/etc/init.d/dm_router stop");
 
-			system("sysupgrade /tmp/fwupgrade &");
+			system("sysupgrade -F /tmp/fwupgrade &");
 		#endif
 	#endif
 	
@@ -677,5 +686,230 @@ int dm_set_safe_exit(int safe_exit)
 	return 0;
 }
 
+int dm_get_device_id(char *device_id)
+{
+	int ret = 0;
+	if(device_id == NULL)
+	{
+		DMCLOG_E("para is null");
+		return -1;
+	}
+	ret = get_cfg_str("ssid",device_id);
+	if(ret == 0)
+	{
+		DMCLOG_E("get device id error");
+		return -1;
+	}
+	return 0;
+}
 
+
+#define ROOT_PAWWORD_PATH "/etc/root_password.txt"
+
+
+static int create_password_cache(char *path)
+{
+	if(path == NULL)
+	{
+		DMCLOG_E("para is null");
+		return 0;
+	}
+	FILE* fp = NULL;
+	if( (fp = fopen(path, "w+")) == NULL)
+	{
+		DMCLOG_E("open error :%d",errno);
+		return -1;
+	}
+	fclose(fp);
+	return 0;
+}
+
+static int _dm_get_cfg_pwd(char *pwd)
+{
+	if(pwd == NULL)
+	{
+		DMCLOG_E("para is null");
+		return -1;
+	}
+	int ret = get_cfg_str("root_pwd",pwd);
+	if(ret == 0)
+	{
+		DMCLOG_E("get root password error");
+		return -1;
+	}
+	DMCLOG_D("pwd = %s",pwd);
+	return 0;
+}
+
+static int _dm_set_nor_pwd(char *pwd)
+{
+	if(pwd == NULL)
+	{
+		DMCLOG_E("para is null");
+		return -1;
+	}
+	int ret = set_nor_str("root_pwd",pwd);
+	if(ret != 0)
+	{
+		DMCLOG_E("set root password error");
+		return -1;
+	}
+	return 0;
+}
+
+static int _dm_set_nor_disk_st(int disk_st)
+{
+	char disk_st_str[2];
+	memset(disk_st_str, 0, sizeof(disk_st_str));
+	sprintf(disk_st_str, "%d", disk_st);
+	int ret = set_nor_str("disk_st",disk_st_str);
+	if(ret != 0)
+	{
+		DMCLOG_E("set disk_st error");
+		return -1;
+	}
+	return 0;
+}
+
+int dm_set_root_pwd(char* password)
+{
+	if(password == NULL)
+	{
+		DMCLOG_E("para is null");
+		return -1;
+	}
+	create_password_cache(ROOT_PAWWORD_PATH);
+	JObj* root_json = json_object_new_object();
+	JSON_ADD_OBJECT(root_json, "password", JSON_NEW_OBJECT(password,string));
+	json_object_to_file(ROOT_PAWWORD_PATH, root_json);
+	json_object_put(root_json);
+	//_dm_set_cfg_pwd(password);
+	char *rom_type = get_sys_rom_type();
+	if(!strcmp(rom_type, "emmc")){
+		_dm_set_nor_pwd(password);
+	}
+	return 0;
+}
+
+
+
+int dm_get_root_pwd(char *pwd)
+{
+	JObj* root_json = NULL;
+	JObj* password_json = NULL;
+	root_json = json_object_from_file(ROOT_PAWWORD_PATH);
+	if(root_json == NULL)
+	{
+		char cfg_pwd[32] = {0};
+		if(_dm_get_cfg_pwd(cfg_pwd) < 0)
+		{
+			DMCLOG_E("get root password error");
+			return -1;
+		}
+		DMCLOG_D("cfg_pwd = %s",cfg_pwd);
+		dm_set_root_pwd(cfg_pwd);//如果cfg存在默认密码，则将此密码保存到指定文件
+		strcpy(pwd,cfg_pwd);
+		return 0;
+	}
+	
+	password_json = JSON_GET_OBJECT(root_json,"password");
+	if(password_json != NULL)
+	{
+		strcpy(pwd, JSON_GET_OBJECT_VALUE(password_json,string));
+	}
+	return 0;
+}
+
+int dm_get_p2p_key(char *p2p_key)
+{
+	if(p2p_key == NULL)
+	{
+		DMCLOG_E("para is null");
+		return -1;
+	}
+	int ret = get_cfg_str("tutk_uuid",p2p_key);
+	if(ret == 0)
+	{
+		DMCLOG_E("get root password error");
+		return -1;
+	}
+	DMCLOG_D("key = %s",p2p_key);
+	return 0;
+}
+
+
+/*
+* function:
+*  the password is or not exist
+* para: 
+* return:
+*  0:succ
+*  -1:failed
+*/
+bool dm_root_pwd_exist()
+{
+	if(access(ROOT_PAWWORD_PATH,F_OK) != 0)/*  如果不存在则判断cfg是否存在默认密码*/
+	{
+		char pwd[32] = {0};
+		if(_dm_get_cfg_pwd(pwd) < 0)
+		{
+			DMCLOG_E("get root password error");
+			return FALSE;
+		}
+		DMCLOG_D("pwd = %s",pwd);
+		dm_set_root_pwd(pwd);//如果cfg存在默认密码，则将此密码保存到指定文件
+		return TRUE;
+	}
+	return TRUE;
+}
+
+
+
+#define DISK_ST_PATH "/etc/disk_st.txt"
+int dm_get_file_storage(int *p_g_file_storage_flag){
+	int ret = 0;
+	JObj* disk_st_json = NULL;
+	JObj* pc_disable_json = NULL;
+	disk_st_json = json_object_from_file(DISK_ST_PATH);
+	if(disk_st_json == NULL){
+		//ret = ROUTER_ERROR_FILE_NOT_EXIST;
+		//goto EXIT;
+		*p_g_file_storage_flag = G_FILE_STORAGE_SET;
+	}
+	
+	pc_disable_json = JSON_GET_OBJECT(disk_st_json,"pc_disable");
+	if(pc_disable_json != NULL){
+		*p_g_file_storage_flag = JSON_GET_OBJECT_VALUE(pc_disable_json,int);
+	}
+	
+	return ROUTER_OK;		
+EXIT:	
+	return ret;	
+}
+
+int dm_set_disk_direction(int disk_st){
+
+	#if 0
+	if(disk_st == G_FILE_STORAGE_SET){
+		system("echo /dev/mmcblk0p4 >/sys/devices/platform/jz-dwc2/dwc2/gadget/gadget-lun0/file");
+	}
+	else if(disk_st == G_FILE_STORAGE_CLEAR){
+		system("echo 0 >/sys/devices/platform/jz-dwc2/dwc2/gadget/gadget-lun0/file");
+	}
+	else{
+		return ROUTER_ERRORS_CMD_DATA;
+	}
+	#endif
+	
+	JObj* disk_st_json = json_object_new_object();
+	JSON_ADD_OBJECT(disk_st_json, "pc_disable", JSON_NEW_OBJECT(disk_st, int));
+	json_object_to_file(DISK_ST_PATH, disk_st_json);
+	json_object_put(disk_st_json);
+
+	char *rom_type = get_sys_rom_type();
+	if(!strcmp(rom_type, "emmc")){
+		_dm_set_nor_disk_st(disk_st);
+	}
+	return ROUTER_OK;
+}
 

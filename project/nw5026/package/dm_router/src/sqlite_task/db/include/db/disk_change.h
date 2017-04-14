@@ -8,8 +8,12 @@
 #ifndef __DISK_CHANGE_H__
 #define __DISK_CHANGE_H__
 
+enum{
+	EVENT_PC_MOUNT,
+	EVENT_UDISK_EXTARCT,
+};
 
-void set_on_device_list_changed(void);
+void set_on_device_list_changed(void *self);
 
 #endif
 

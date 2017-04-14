@@ -67,7 +67,7 @@ MSGSERVER_FILES += $(wildcard $(SRC_FATATTR_PATH)/*.c)
 TARGET = $(MSGSERVER) 
 all: $(TARGET)
 $(MSGSERVER): $(MSGSERVER_FILES)
-	$(CC) $(CFLAGS) $(LDFLAGS)  $(MSGSERVER_FILES) -ldl -ljson-c -pthread -luci -ludev -lwifi_uart -liw -o  $(MSGSERVER) -liw_nl80211 -lm -lnl-tiny
+	$(CC) $(CFLAGS) $(LDFLAGS)  $(MSGSERVER_FILES) -rdynamic -ldl -ljson-c -pthread -luci -ludev -lwifi_uart -liw -lcrypto -o  $(MSGSERVER) -liw_nl80211 -lm -lnl-tiny
 
 .PHONY: clean
 clean:

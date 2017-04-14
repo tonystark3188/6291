@@ -1,0 +1,34 @@
+#!/bin/sh
+
+/etc/init.d/samba stop
+/etc/init.d/dm_router stop
+
+mnt_sta=$(grep SD-disk /proc/mounts)
+[ -n "$mnt_sta" ] && {
+	echo "format succeed"
+	exit
+}
+fuser -km /tmp/mnt/SD-disk-1
+
+block umount
+if [ $? -ne 0 ]; then
+	echo "format failed"
+	exit
+fi
+usleep 1000000
+
+mkfs.vfat /dev/mmcblk0p4
+if [ $? -ne 0 ]; then
+	echo "format failed"
+	exit
+fi
+usleep 100000
+
+block mount
+if [ $? -ne 0 ]; then
+	echo "format failed"
+	exit
+fi
+
+echo "format succeed"
+

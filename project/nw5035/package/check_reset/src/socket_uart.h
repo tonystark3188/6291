@@ -75,7 +75,9 @@ enum button_status{
 	BUTTON_UP = 0,
 	BUTTON_DOWN_LED_OFF = 1,
 	BUTTON_DOWN_RESET = 0X80,
-	BUTTON_DOUBLE = 0x800
+	BUTTON_DOUBLE = 0x800,
+	BUTTON_DOWN_ONCE = 0x402,
+	BUTTON_FACTORY_RESET = 0x1000
 };
 
 enum pc_detect_status{

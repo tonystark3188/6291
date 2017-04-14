@@ -512,6 +512,16 @@ int public_data_point_processor::parse_file_dl_request(tx_data_point* req_dp, fi
 		return ret;
 	}
 
+	request.platform = 0;
+	if(req_d.HasMember("platform") && req_d["platform"].IsUint()) {
+		unsigned int platform = req_d["platform"].GetUint();
+		if(platform == 0 || platform == 1 || platform ==2){
+			request.platform = platform;
+		}		
+	}
+
+ 	TNOTICE("platform=%u\n",request.platform);
+
 	if(!(req_d.HasMember("files") && req_d["files"].IsArray())) {
 		TERROR("json is not satisfied fmt. json=%s",json);
 		return ret;
@@ -660,7 +670,7 @@ int public_data_point_processor::impl_file_dl(unsigned long long from_client,  f
 				business_name = "7000-NASDevPushFile";
 			}
 
-			SendOperationMgr::getInstance()->AddSendFileTask(it->task_key,req.target_id,real_path,buff_with_file,business_name);
+			SendOperationMgr::getInstance()->AddSendFileTask(it->task_key,req.target_id,real_path,buff_with_file,business_name,req.platform);
 	}
 
 	//设置结果码

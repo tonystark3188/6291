@@ -1,73 +1,8 @@
 #include "cgiget.h"
+#include "uci_for_cgi.h"
 
 
 char *goutstr=0;
-
-
-
-unsigned char* urlDecode(char *string)  
-{
-	int destlen = 0;
-	unsigned char *src, *dest;
-	unsigned char *newstr;
-
-	if (string == NULL) return NULL;
-
-	for (src = string; *src != '\0'; src++)   	
-	{
-	   if (*src == '%')
-	   	{
-		   	destlen++;
-			src++;
-		}
-	   else destlen++;
-	}
-	newstr = (unsigned char *)malloc(destlen + 1);
-	src = string;
-	dest = newstr;
-
-	while (*src != '\0')  
-	{
-		if (*src == '%')
-		{
-			char h = toupper(src[1]);
-			char l = toupper(src[2]);
-			int vh, vl;
-			vh = isalpha(h) ? (10+(h-'A')) : (h-'0');
-			vl = isalpha(l) ? (10+(l-'A')) : (l-'0');
-			*dest++ = ((vh<<4)+vl);
-			src += 3;
-		} 
-		else if (*src == '+') 
-		{
-			*dest++ = ' ';
-			src++;
-		} 
-		else
-		{
-			*dest++ = *src++;
-		}
-	}
-	
-	*dest = 0;
-
-   return newstr;
-}
-
-#define CGI_LOG
-#ifdef CGI_LOG	
-void cgi_log( char *string){
-	FILE *fw_fp;
-	int f_size=0;
-	if( (fw_fp=fopen("/tmp/cgi_log.txt","ab+"))==NULL)    // write and read,binary
-	{
-		exit(1);
-	}		
-	f_size=fwrite(string,1,strlen(string),fw_fp);
-	fclose(fw_fp);
-	return;
-}
-#endif
 
 char *GetString(char *qurey, char *getstr)
 {
@@ -138,49 +73,6 @@ char* getcgidata(FILE* fp, char* requestmethod)
        return NULL;
 }
 #endif
-
-char * GetStringFromWeb()
-{
-	char method[10];
-	char *outstring;
-	int string_length = 0;
-	
-	strcpy(method,getenv("REQUEST_METHOD"));
-	
-	if(! strcmp(method,"POST"))
-	{
-		//fprintf(stdout,"method is post<br>");
-		string_length=atoi(getenv("CONTENT_LENGTH"));
-		if(string_length!=0)
-		{
-			outstring=malloc(sizeof(char)*string_length+1);
-			fread(outstring,sizeof(char),string_length,stdin);
-			//fprintf(stdout,"%s<br>",outstring);
-		}
-	}
-
-	else if(! strcmp(method,"GET"))
-	{
-		//fprintf(stdout,"method is get<br>");
-		if(NULL != getenv("QUERY_STRING")){
-			string_length=strlen(getenv("QUERY_STRING"));
-			outstring=malloc(sizeof(char)*string_length+1);
-			strcpy(outstring,getenv("QUERY_STRING"));
-			string_length=strlen(outstring);
-		}
-		//fprintf(stdout,"%s<br>",outstring);
-	}
-#ifdef CGI_LOG			
-cgi_log(outstring);
-#endif	
-	if(string_length==0)
-	{
-		return NULL;
-	}
-	return outstring;
-	
-	
-}
 
 
 

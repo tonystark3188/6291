@@ -1,5 +1,7 @@
 #include <unistd.h> 
-#include <stdio.h> 
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
 #include <stdbool.h>
 #include <errno.h>
 #include <stdlib.h>             
@@ -151,6 +153,9 @@ int main()
 	int tail_count=0;
 	int true_len=0;
 	int i;
+	char line_buff[256]="\0";
+	char md5_str1[40]="\0";
+	char md5_str2[40]="\0";
 	
 	fprintf(stdout,"Content-type:text/html\r\n\r\n");
 	//fprintf(stdout,"nidaye");
@@ -267,16 +272,58 @@ int main()
 	fclose(fw_fp);
 	logstr("\ndone");
 
-	system("mv /tmp/fwupgrade /tmp/fwupgrade.gz");
-	system("gzip -d /tmp/fwupgrade.gz");
+	// system("mv /tmp/fwupgrade /tmp/fwupgrade.gz");
+	// system("gzip -d /tmp/fwupgrade.gz");
+	system("tar -zxf /tmp/fwupgrade -C /tmp");
+	system("mv /tmp/6291-update-fw.bin /tmp/fwupgrade");
 	if( (fw_fp=fopen(FW_FILE,"rb"))==NULL)
 	{
 		system("rm -f /tmp/fwupgrade.gz");
 		return 1;
+		
 	}
 	fseek(fw_fp,0x20,SEEK_SET);
 	fread(op_fw_header,1,32,fw_fp);
 	fclose(fw_fp);
+
+	system("md5sum /tmp/fwupgrade >/tmp/fwupgrade.md5");
+
+	if( (fw_fp=fopen("/tmp/6291-update-fw.bin.md5","rb"))==NULL)
+	{
+		system("rm -f /tmp/6291-update-fw.bin.md5");
+		return 1;
+	}
+	
+	fgets(line_buff,256,fw_fp);
+	char *p_stok_line=line_buff;
+	char *p_stok_md5=NULL;
+	p_stok_md5=strtok(p_stok_line, " ");
+	strcpy(md5_str1,p_stok_md5);
+	fclose(fw_fp);
+	memset(line_buff,0,256);
+
+	logstr(md5_str1);
+	logstr("\n");
+
+	if( (fw_fp=fopen("/tmp/fwupgrade.md5","rb"))==NULL)
+	{
+		system("rm -f /tmp/fwupgrade.md5");
+		return 1;
+	}
+	fgets(line_buff,256,fw_fp);
+	p_stok_line=line_buff;
+	p_stok_md5=strtok(p_stok_line, " ");
+	strcpy(md5_str2,p_stok_md5);
+	fclose(fw_fp);
+
+	logstr(md5_str2);
+	logstr("\n");
+
+	if(strcmp(md5_str1,md5_str2)!=0)
+	{
+		return 1;
+	}
+
 
 	if(strcmp(op_fw_header,MODEL_NAME)!=0){
 		memset(tmp, 0, 64);

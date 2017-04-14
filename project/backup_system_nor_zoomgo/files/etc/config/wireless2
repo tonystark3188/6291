@@ -1,0 +1,7 @@
+config wifi
+	option mode 2g
+	option ch2g 1
+	option ch5g 149
+	option wifi_module AP6212
+	option radio_band single
+

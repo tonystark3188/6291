@@ -463,6 +463,28 @@ int dm_getDirInfo(char *path,struct file_list *file_list_t)
 	return 0;
 }
 
+unsigned dm_getDirCnt(char *path)
+{
+	struct dirent *entry;
+	DIR *dir;
+	unsigned nfiles = 0;
+	dir = warn_opendir(path);
+	if (dir == NULL) {
+	 return -1;    /* could not open the dir */
+	}
+	while ((entry = readdir(dir)) != NULL) {
+	 /* are we going to list the file- it may be . or .. or a hidden file */
+	 if (entry->d_name[0] == '.') {
+			continue;
+		}
+	 nfiles++;
+	}
+	closedir(dir);
+	DMCLOG_D("end:nfiles = %u",nfiles);
+	return nfiles;
+}
+
+
 
 
 void display_files(struct file_dnode *dn)
@@ -503,8 +525,12 @@ void dfree(struct file_dnode **dnp)
 
 	for (i = 0; dnp[i]; i++) {
 		struct file_dnode *cur = dnp[i];
-		if (cur->fname_allocated)
-			free((char*)cur->fullname);
+		if (cur->fname_allocated){
+			safe_free(cur->fullname);
+			safe_free(cur->dest_encrypt_name);
+			safe_free(cur->virtual_path);				
+			safe_free(cur->dest_encrypt_path);	
+		}
 		free(cur);
 	}
 	free(dnp);
@@ -650,7 +676,7 @@ int read_mark_file(char *path,char *uuid)
 	}
 	memset(uuid_path,0,256);
 	sprintf(uuid_path,"%s/%s",path,get_sys_disk_uuid_name());
-	DMCLOG_D("uuid_path = %s",uuid_path);
+	//DMCLOG_D("uuid_path = %s",uuid_path);
 	if((fd = fopen(uuid_path,"r"))== NULL)//¸Ä¶¯£ºÂ·¾¶
 	{
 		DMCLOG_D("open file error[errno = %d]",errno);
@@ -670,7 +696,7 @@ int read_mark_file(char *path,char *uuid)
 		DMCLOG_E("uuid is invalide length : %d,uuid = %s",strlen(uuid),uuid);
 		goto EXIT;
 	}
-	DMCLOG_D("uuid = %s",uuid);
+	//DMCLOG_D("uuid = %s",uuid);
 	return 0;
 EXIT:
 	return write_mark_file(path,uuid);

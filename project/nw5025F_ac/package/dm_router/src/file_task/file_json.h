@@ -147,6 +147,22 @@ extern "C"{
 #define FN_FILE_RESET_BACKUP 135
 #define FN_FILE_CHECK_BACKUP_FILE_LIST 138
 
+#define FN_ENCRYPT_FILE_IS_EXIST 	200
+#define FN_ENCRYPT_FILE 			201
+#define FN_ENCRYPT_DIR 				202
+#define FN_ENCRYPT_FILE_GET_LIST 	203
+#define FN_ENCRYPT_FILE_DOWNLOAD 	204
+#define FN_ENCRYPT_FILE_DECRYPT 	205
+#define FN_ENCRYPT_FILE_DELETE 		206
+#define FN_VAULT_IS_OPEN			207
+#define FN_VAULT_OPEN				208
+#define FN_VAULT_CLOSE				209
+#define FN_VAULT_LOGIN				210
+#define FN_VAULT_LOGOUT				211
+#define FN_VAULT_IS_EMPTY			212
+#define FN_VAULT_RESET				213
+#define FN_VAULT_GET_TIPS			214
+#define FN_VAULT_GET_PATH			215
 
 /**********************************file client module****************************************************/
 
@@ -229,6 +245,56 @@ int DM_FileIsBackupExisted(struct conn *c);
 int dm_file_search_inotify(int cmd, int error,char *buf);
 
 char *dm_file_inotify(int cmd, int error);
+/*
+encrypt file
+*/
+int DM_EncryptSetKey(struct conn *c);
+int Parser_EncryptSetKey(struct conn *c);
+
+int DM_EncryptFile(struct conn *c);
+int Parser_EncryptFile(struct conn *c);
+int DM_EncryptFileDecrypt(struct conn *c);
+int Parser_EncryptFileDecrypt(struct conn *c);
+int DM_EncryptDir(struct conn *c);
+int Parser_EncryptDir(struct conn *c);
+
+int DM_EncryptFileDownload(struct conn *c);
+int Parser_EncryptFileDownload(struct conn *c);
+
+int DM_EncryptFileGetList(struct conn *c);
+int Parser_EncryptFileGetList(struct conn *c);
+
+int DM_EncryptFileDelete(struct conn *c);
+int parser_EncryptFileDelete(struct conn *c);
+
+int parser_VaultIsOpen(struct conn *c);
+int DM_VaultIsOpen(struct conn *c);
+
+int parser_VaultOpen(struct conn *c);
+int DM_VaultOpen(struct conn *c);
+
+int parser_VaultClose(struct conn *c);
+int DM_VaultClose(struct conn *c);
+
+int parser_VaultLogin(struct conn *c);
+int DM_VaultLogin(struct conn *c);
+
+int parser_VaultLogout(struct conn *c);
+int DM_VaultLogout(struct conn *c);
+
+int parser_VaultIsEmpty(struct conn *c);
+int DM_VaultIsEmpty(struct conn *c);
+
+int parser_VaultReset(struct conn *c);
+int DM_VaultReset(struct conn *c);
+
+int parser_VaultGetTips(struct conn *c);
+int DM_VaultGetTips(struct conn *c);
+int DM_VaultGetPath(struct conn *c);
+int parser_VaultGetPath(struct conn *c);
+
+int DM_EncryptFileIsExsit(struct conn *c);
+int Parser_EncryptFileIsExsit(struct conn *c);
 
 /**********************************file client module****************************************************/
 /*

@@ -17,7 +17,7 @@ define Package/httpd
   SUBMENU:=Web Servers/Proxies
   TITLE:=apache httpd- HTTP server configuration
   MAINTAINER:=Jo-Philipp Wich <xm@subsignal.org>
-  DEPENDS:=+libpthread +librt +libopenssl +libuuid
+  DEPENDS:=+libpthread +librt +libopenssl +libuuid +libjson-c
 endef
 
 define Package/httpd/description
@@ -46,7 +46,7 @@ define Package/httpd/install
 	$(INSTALL_DIR) $(1)/usr/mips/www
 	#$(INSTALL_DIR) $(1)/bin
 	#$(INSTALL_DIR) $(1)/lib
-	#$(CP) $(PKG_BUILD_DIR)/cgi-bin/* $(1)/usr/mips/cgi-bin/
+	$(CP) $(PKG_BUILD_DIR)/cgi-bin/* $(1)/usr/mips/cgi-bin/
 	$(CP) $(PKG_BUILD_DIR)/conf/* $(1)/usr/mips/conf/
 	$(CP) $(PKG_BUILD_DIR)/icons/* $(1)/usr/mips/icons/
 	$(CP) $(PKG_BUILD_DIR)/www_for_airdisk/* $(1)/usr/mips/www/

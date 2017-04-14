@@ -25,6 +25,33 @@
 #define ENCRYPT_WRAP 0x10
 
 
+#define is_ascii  0x11
+#define is_gb2312 0x22
+#define is_utf8   0x33
+
+#define encrypt_none "NONE"
+#define encrypt_wep "WEP"
+#define encrypt_wpapsk_tkip "WPAPSK/TKIP"
+#define encrypt_wpapsk_aes "WPAPSK/AES"
+#define encrypt_wpapsk_tkip_aes "WPAPSK/TKIPAES"
+#define encrypt_wpa2psk_aes "WPA2PSK/AES"
+#define encrypt_wpa2psk_tkip "WPA2PSK/TKIP"
+#define encrypt_wpa2psk_tkip_aes "WPA2PSK/TKIPAES"
+#define encrypt_wpa2_wpa1_psk_aes "WPA1PSKWPA2PSK/AES"
+#define encrypt_wpa2_wpa1_psk_tkip "WPA1PSKWPA2PSK/TKIP"
+#define encrypt_wpa2_wpa1_psk_tkip_aes "WPA1PSKWPA2PSK/TKIPAES"
+
+
+#define encrypt_wpa_tkip "WPA/TKIP"
+#define encrypt_wpa_aes "WPA/AES"
+#define encrypt_wpa_tkip_aes "WPA/TKIPAES"
+#define encrypt_wpa2_aes "WPA2/AES"
+#define encrypt_wpa2_tkip "WPA2/TKIP"
+#define encrypt_wpa2_tkip_aes "WPA2/TKIPAES"
+#define encrypt_wpa2_wpa1_aes "WPA1PSKWPA2/AES"
+#define encrypt_wpa2_wpa1_tkip "WPA1PSKWPA2/TKIP"
+#define encrypt_wpa2_wpa1_tkip_aes "WPA1PSKWPA2/TKIPAES"
+
 
 /****************************** TYPES ******************************/
 
@@ -58,5 +85,7 @@ typedef struct ap_list_info{
 
 extern int cgi_get_channel(char *ifname, char *chstr);
 extern  char* xmlEncode(char *string);
+extern int is_UTF8_or_gb2312(const char* str,long length);
+extern void del_space(unsigned char *tmp_buf,int leng);
 
 #endif //_CGIWIRELESS_H

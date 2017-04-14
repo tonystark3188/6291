@@ -1,0 +1,8 @@
+#!/bin/sh 
+str=`cfg get $1`
+if [ "$1" != "" ]
+then
+cfg_no_write_mtd set $str
+else
+echo "wrong param or it has not been set yet !!!"
+fi

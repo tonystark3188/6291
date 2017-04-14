@@ -1,0 +1,5 @@
+config wifi
+	option mode 2g
+	option ch2g 6
+	option ch5g 149
+

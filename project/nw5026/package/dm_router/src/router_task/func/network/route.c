@@ -121,6 +121,9 @@ int get_wifi_settings(hd_wifi_info *m_wifi_info)
     char cmd_buf[TEMP_BUFFER_SIZE];
 	char mac_buffer[TEMP_BUFFER_SIZE];
 	char ifname[16]="\0";
+	int inet_sock_ap;
+	struct ifreq ifr;
+	struct sockaddr_in *sin = NULL;
 	
 #if defined(SUPPORT_OPENWRT_PLATFORM)
 	if(m_wifi_info->wifi_type == 1){
@@ -209,7 +212,21 @@ int get_wifi_settings(hd_wifi_info *m_wifi_info)
 	#endif
 #elif defined(OPENWRT_X1000)
 	memset(ifname, 0, sizeof(ifname));
-	strcpy(ifname,"wlan0");
+	memset(cmd_buf, 0, TEMP_BUFFER_SIZE);
+	memset(temp_buf, 0, sizeof(temp_buf));
+	sprintf(cmd_buf,"wireless2.@wifi[0].wifi_module");
+	ret = uci_get_option_value(cmd_buf, &temp_buf);
+	if(-1 == ret){
+		DMCLOG_D("uci get wifi_module error");
+	    return ROUTER_ERRORS_UCI;
+	}
+	DMCLOG_D("wifi_module: %s", temp_buf);
+	if(NULL != strstr(temp_buf, "MRVL8801")){
+		strcpy(ifname,"mlan0");
+	}
+	else{
+		strcpy(ifname,"wlan0");
+	}
 	memset(temp_buf, 0, TEMP_BUFFER_SIZE);
 	ret = cgi_get_channel(ifname, &temp_buf); 
 	if(ret == 0)
@@ -249,9 +266,7 @@ int get_wifi_settings(hd_wifi_info *m_wifi_info)
 		else
 			m_wifi_info->disabled = 1;
 	}
-#endif
-
-#if defined(OPENWRT_MT7628)
+	
 	read_fp = popen("hexdump -s 4 -n 6 -C /dev/mtd3 | head -n 1 | sed 's/\ \ /:/g' | cut -d: -f 2 | sed 's/\ /:/g' | tr \"[a-z]\" \"[A-Z]\"", "r");
 	if(read_fp != NULL)
 	{
@@ -261,23 +276,67 @@ int get_wifi_settings(hd_wifi_info *m_wifi_info)
 	strncpy(m_wifi_info->mac,tmp_mac,17);
 	pclose(read_fp);
 #elif defined(OPENWRT_X1000)
-
+	//get mac address
 	if( (read_fp=fopen("/etc/mac.txt", "rb")) != NULL)
 	{
 		fread(tmp_mac,1,17,read_fp);
 		strncpy(m_wifi_info->mac,tmp_mac,17);
 		fclose(read_fp);
 	}
-/*
-	memset(cmd_buf,0,TEMP_BUFFER_SIZE);
-	strcpy(cmd_buf,"wireless.radio0.macaddr");  				//mac
-	ret = uci_get_option_value(cmd_buf,m_wifi_info->mac);
-	if(-1 == ret)
-    {
-    	DMCLOG_D("uci get mac error");
-        //return ROUTER_ERRORS_UCI;
-    }
-*/
+
+	memset(ifname, 0, sizeof(ifname));
+	memset(cmd_buf, 0, TEMP_BUFFER_SIZE);
+	memset(temp_buf, 0, sizeof(temp_buf));
+	sprintf(cmd_buf,"wireless2.@wifi[0].wifi_module");
+	ret = uci_get_option_value(cmd_buf, &temp_buf);
+	if(-1 == ret){
+		DMCLOG_D("uci get wifi_module error");
+	    return ROUTER_ERRORS_UCI;
+	}
+	DMCLOG_D("wifi_module: %s", temp_buf);
+	if(NULL != strstr(temp_buf, "MRVL8801")){
+		strcpy(ifname, "uap0");
+	}
+	else{
+		strcpy(ifname, "wl0.1");	
+	}
+	strcpy(ifr.ifr_name, ifname);
+
+	inet_sock_ap = socket(AF_INET, SOCK_DGRAM, 0);
+	if(-1 == inet_sock_ap){
+		return ROUTER_ERRORS_SOCKET_IOCTL;
+	}
+
+	sin = (struct sockaddr_in*)&ifr.ifr_addr;
+	if(ioctl(inet_sock_ap, SIOCGIFADDR, &ifr) < 0){
+		close(inet_sock_ap);
+		return ROUTER_ERRORS_SOCKET_IOCTL;
+	}
+	else{
+		inet_ntop(AF_INET,&sin->sin_addr.s_addr, m_wifi_info->addr, 16);
+		DMCLOG_D("addr_ip: %s", m_wifi_info->addr);
+	}
+
+	if(ioctl(inet_sock_ap, SIOCGIFNETMASK, &ifr) < 0){
+		close(inet_sock_ap);
+		return ROUTER_ERRORS_SOCKET_IOCTL;
+	}
+	else{
+		inet_ntop(AF_INET, &sin->sin_addr.s_addr, m_wifi_info->netmask, 16);
+        DMCLOG_D("netmask_ip: %s",m_wifi_info->netmask);
+	}
+
+	if(ioctl(inet_sock_ap, SIOCGIFBRDADDR,&ifr) < 0){
+		close(inet_sock_ap);
+		return ROUTER_ERRORS_SOCKET_IOCTL;
+	}		
+	else{
+		struct sockaddr_in *broadcast=(struct sockaddr_in*)&ifr.ifr_broadaddr;
+		inet_ntop(AF_INET, &broadcast->sin_addr.s_addr, m_wifi_info->bcast, 16);
+		DMCLOG_D("bcast_ip: %s", m_wifi_info->bcast);
+	}
+	close(inet_sock_ap);
+	
 #endif
 
 #elif defined(SUPPORT_LINUX_PLATFORM)
@@ -619,12 +678,45 @@ int get_remote_ap(hd_remoteap_info *m_remote_info)
 	int tmp = 0;
 	int ret = 0;
 	int inet_sock_remote_ap;
-	//char channel[4] = "\0";
 	char data[128];
 	char cmd_buf[TEMP_BUFFER_SIZE];
     char temp_buf[TEMP_BUFFER_SIZE];
 	char ifname[10]="\0";
+	struct ifreq ifr;
+	struct sockaddr_in *sin = NULL;
+	
 #if defined(SUPPORT_OPENWRT_PLATFORM)
+	#if defined(OPENWRT_MT7628)
+	strcpy(ifr_remote_ap.ifr_name, AEMOTE_AP_DEVICE_24G);
+	inet_sock_remote_ap = socket(AF_INET, SOCK_DGRAM, 0);
+	if(-1 == inet_sock_remote_ap)
+	{
+		return ROUTER_ERRORS_SOCKET_IOCTL;
+	}
+	if (ioctl(inet_sock_remote_ap, SIOCGIFADDR, &ifr_remote_ap) < 0)
+	{
+		close(inet_sock_remote_ap);
+		m_remote_info->is_connect = 0;
+		return ROUTER_OK;
+	}else
+	{
+		close(inet_sock_remote_ap);
+		m_remote_info->is_connect = 1;
+	}
+	#elif defined(OPENWRT_X1000)
+	system("/usr/mips/cgi-bin/script/ClientStatus.sh");
+	FILE *fp_client=NULL;
+	if( (fp_client=fopen("/tmp/client_is_connected","r")) != NULL ){
+		m_remote_info->is_connect = 1;
+		fclose(fp_client);
+		system("rm -f /tmp/client_is_connected");
+	}
+	else{
+		m_remote_info->is_connect = 0;
+		return ROUTER_OK;
+	}
+	#endif
+
 	memset(cmd_buf,0,TEMP_BUFFER_SIZE);
     sprintf(cmd_buf,"wireless.@wifi-iface[1].ssid");
     memset(temp_buf,0,TEMP_BUFFER_SIZE);
@@ -714,6 +806,28 @@ int get_remote_ap(hd_remoteap_info *m_remote_info)
 	{
 		return ROUTER_ERRORS_UCI;
 	}
+	#elif defined(OPENWRT_X1000)
+	memset(cmd_buf,0,TEMP_BUFFER_SIZE);
+	sprintf(cmd_buf,"wireless.@wifi-iface[1].encryption");
+	memset(temp_buf,0,TEMP_BUFFER_SIZE);
+	ret = uci_get_option_value(cmd_buf, &temp_buf);
+	if(ret >= 0){
+		if(NULL != strstr(temp_buf,"+ccmp")){
+			strcpy(m_remote_info->tkip_aes, "aes");
+		}
+		else if(NULL != strstr(temp_buf,"+tkip")){
+			strcpy(m_remote_info->tkip_aes, "tkip");
+		}
+		else if(NULL != strstr(temp_buf,"+tkip+ccmp")){
+			strcpy(m_remote_info->tkip_aes, "tkip/aes");
+		}
+		else{
+			strcpy(m_remote_info->tkip_aes, temp_buf);
+		}
+	}
+	else{
+		return ROUTER_ERRORS_UCI;
+	}
 	#endif
 
 	#if defined(OPENWRT_MT7628)
@@ -731,7 +845,22 @@ int get_remote_ap(hd_remoteap_info *m_remote_info)
 		return ROUTER_ERRORS_UCI;
 	}
 	#elif defined(OPENWRT_X1000)
-	strcpy(ifname,"wlan0");
+	memset(ifname, 0, sizeof(ifname));
+	memset(cmd_buf, 0, TEMP_BUFFER_SIZE);
+	memset(temp_buf, 0, sizeof(temp_buf));
+	sprintf(cmd_buf,"wireless2.@wifi[0].wifi_module");
+	ret = uci_get_option_value(cmd_buf, &temp_buf);
+	if(-1 == ret){
+		DMCLOG_D("uci get wifi_module error");
+	    return ROUTER_ERRORS_UCI;
+	}
+	DMCLOG_D("wifi_module: %s", temp_buf);
+	if(NULL != strstr(temp_buf, "MRVL8801")){
+		strcpy(ifname,"mlan0");
+	}
+	else{
+		strcpy(ifname,"wlan0");
+	}
 	memset(temp_buf,0,TEMP_BUFFER_SIZE);
 	ret = cgi_get_channel(ifname, &temp_buf);  //channel
 	if(ret == 0)
@@ -769,33 +898,76 @@ int get_remote_ap(hd_remoteap_info *m_remote_info)
 	}	
 	#endif
 
-	#if defined(OPENWRT_MT7628)
-	strcpy(ifr_remote_ap.ifr_name, AEMOTE_AP_DEVICE_24G);
-	inet_sock_remote_ap = socket(AF_INET, SOCK_DGRAM, 0);
-	if(-1 == inet_sock_remote_ap)
-	{
-		return ROUTER_ERRORS_SOCKET_IOCTL;
+	#if defined(OPENWRT_X1000)
+	memset(ifname, 0, sizeof(ifname));
+	memset(ifname, 0, sizeof(ifname));
+	memset(cmd_buf, 0, TEMP_BUFFER_SIZE);
+	memset(temp_buf, 0, sizeof(temp_buf));
+	sprintf(cmd_buf,"wireless2.@wifi[0].wifi_module");
+	ret = uci_get_option_value(cmd_buf, &temp_buf);
+	if(-1 == ret){
+		DMCLOG_D("uci get wifi_module error");
+	    return ROUTER_ERRORS_UCI;
 	}
-	if (ioctl(inet_sock_remote_ap, SIOCGIFADDR, &ifr_remote_ap) < 0)
-	{
-		m_remote_info->is_connect = 0;
-	}else
-	{
-		m_remote_info->is_connect = 1;
-	}
-	close(inet_sock_remote_ap);
-	#elif defined(OPENWRT_X1000)
-	system("/usr/mips/cgi-bin/script/ClientStatus.sh");
-	FILE *fp_client=NULL;
-	if( (fp_client=fopen("/tmp/client_is_connected","r")) != NULL ){
-		m_remote_info->is_connect = 1;
-		fclose(fp_client);
-		system("rm -f /tmp/client_is_connected");
+	DMCLOG_D("wifi_module: %s", temp_buf);
+	if(NULL != strstr(temp_buf, "MRVL8801")){
+		strcpy(ifname,"mlan0");
 	}
 	else{
-		m_remote_info->is_connect = 0;
+		strcpy(ifname,"wlan0");
+	}
+	strcpy(ifr.ifr_name, ifname);
+
+	inet_sock_remote_ap = socket(AF_INET, SOCK_DGRAM, 0);
+	if(-1 == inet_sock_remote_ap){
+		return ROUTER_ERRORS_SOCKET_IOCTL;
+	}
+
+	sin = (struct sockaddr_in*)&ifr.ifr_addr;
+	if(ioctl(inet_sock_remote_ap, SIOCGIFADDR, &ifr) < 0){
+		close(inet_sock_remote_ap);
+		return ROUTER_ERRORS_SOCKET_IOCTL;
+	}
+	else{
+		inet_ntop(AF_INET,&sin->sin_addr.s_addr, m_remote_info->addr, 16);
+		DMCLOG_D("addr_ip: %s", m_remote_info->addr);
+	}
+
+	if(ioctl(inet_sock_remote_ap, SIOCGIFNETMASK, &ifr) < 0){
+		close(inet_sock_remote_ap);
+		return ROUTER_ERRORS_SOCKET_IOCTL;
+	}
+	else{
+		inet_ntop(AF_INET, &sin->sin_addr.s_addr, m_remote_info->netmask, 16);
+        DMCLOG_D("netmask_ip: %s",m_remote_info->netmask);
+	}
+
+	if(ioctl(inet_sock_remote_ap, SIOCGIFBRDADDR,&ifr) < 0){
+		close(inet_sock_remote_ap);
+		return ROUTER_ERRORS_SOCKET_IOCTL;
+	}		
+	else{
+		struct sockaddr_in *broadcast=(struct sockaddr_in*)&ifr.ifr_broadaddr;
+		inet_ntop(AF_INET, &broadcast->sin_addr.s_addr, m_remote_info->bcast, 16);
+		DMCLOG_D("bcast_ip: %s", m_remote_info->bcast);
+	}
+	close(inet_sock_remote_ap);
+
+	FILE *read_fp = NULL;
+	memset(cmd_buf, 0, sizeof(cmd_buf));
+	sprintf(cmd_buf,"route -n | grep %s | awk 'NR==1{print}' | awk '{printf $2}'", ifname);
+	read_fp = popen(cmd_buf, "r");
+	if(read_fp != NULL){
+		memset(temp_buf, 0, sizeof(temp_buf));
+		fgets(temp_buf, 16, read_fp);
+		strncpy(m_remote_info->gateway, temp_buf, 16);
+		pclose(read_fp);
+	}
+	else{
+		return ROUTER_ERRORS_SOCKET_IOCTL;
 	}
 	#endif
+	
 #elif defined(SUPPORT_LINUX_PLATFORM)
 #endif
     return ROUTER_OK;
@@ -1186,6 +1358,191 @@ int set_remote_ap(hd_remoteap_info *m_remote_info)
     return 0;
 }
 
+
+int set_add_network(hd_remoteap_info *m_remote_info)
+{	
+	ap_info_t ap_info_add_network;
+    int ret;
+	char mac[32]="\0";
+	char macaddr[32]="\0";
+    char encrypt_config[16]="\0";
+    char tkip_aes_config[16]="\0";
+    char temp_buf[TEMP_BUFFER_SIZE];
+	char cmd_buf[TEMP_BUFFER_SIZE];
+    char WiredMode[8]="\0";
+
+	char ifname[10];
+	memset(ifname, 0, sizeof(ifname));
+	memset(&ap_info_add_network, 0, sizeof(ap_info_t));
+	memset(ifname, 0, sizeof(ifname));
+	memset(cmd_buf, 0, TEMP_BUFFER_SIZE);
+	memset(temp_buf, 0, sizeof(temp_buf));
+	sprintf(cmd_buf,"wireless2.@wifi[0].wifi_module");
+	ret = uci_get_option_value(cmd_buf, &temp_buf);
+	if(-1 == ret){
+		DMCLOG_D("uci get wifi_module error");
+	    return ROUTER_ERRORS_UCI;
+	}
+	DMCLOG_D("wifi_module: %s", temp_buf);
+	if(NULL != strstr(temp_buf, "MRVL8801")){
+		strcpy(ifname,"mlan0");
+	}
+	else{
+		strcpy(ifname,"wlan0");
+	}	
+	ret = cgi_get_scan_nl80211_add_network(ifname, m_remote_info->ssid, &ap_info_add_network);
+	if(0 != ret){
+		return ROUTER_ERRORS_ADD_NETWORK;
+	}
+	else{
+		strcpy(m_remote_info->encrypt, ap_info_add_network.encrypt);
+		strcpy(m_remote_info->tkip_aes, ap_info_add_network.tkip_aes);
+		strcpy(m_remote_info->mac, ap_info_add_network.mac);
+		m_remote_info->channel = ap_info_add_network.channel;
+	}
+
+	memset(cmd_buf,0,TEMP_BUFFER_SIZE);
+	sprintf(cmd_buf, "wireless.@wifi-iface[1].disabled=0");
+	ret = uci_set_option_value(cmd_buf);
+	if(ret < 0){
+		return ROUTER_ERRORS_UCI;
+	}
+
+	memset(cmd_buf,0,TEMP_BUFFER_SIZE);
+	sprintf(cmd_buf, "network.wan.workmode=1");
+	ret = uci_set_option_value(cmd_buf);
+	if(ret < 0){
+		return ROUTER_ERRORS_UCI;
+	}
+	memset(cmd_buf,0,TEMP_BUFFER_SIZE);
+	sprintf(cmd_buf,"network.wan.proto");
+	memset(temp_buf,0,TEMP_BUFFER_SIZE);
+	ret = uci_get_option_value(cmd_buf, &temp_buf);
+    if(ret >= 0){
+        get_string_only(temp_buf);
+        memcpy(WiredMode, temp_buf, 8);
+    }
+
+    if(m_remote_info->encrypt != NULL&&*m_remote_info->encrypt)//encrypt
+    {
+        if(!strcmp(m_remote_info->encrypt,"NONE"))
+            strcpy(encrypt_config,"none");
+        else if(!strcmp(m_remote_info->encrypt,"WEP"))
+            strcpy(encrypt_config,"wep");
+		else if(!strcmp(m_remote_info->encrypt,"WPA-PSK"))
+			strcpy(encrypt_config,"psk");
+		else if(!strcmp(m_remote_info->encrypt,"WPA2-PSK"))
+			strcpy(encrypt_config,"psk2");
+		else if(!strcmp(m_remote_info->encrypt,"WPA/WPA2-PSK"))
+			strcpy(encrypt_config,"mixed-psk");
+		else
+			return ROUTER_ERRORS_CMD_DATA;
+    }
+
+	if( !strcmp(encrypt_config,"psk") || !strcmp(encrypt_config,"psk2") || !strcmp(encrypt_config,"mixed-psk") )
+	{
+		if(m_remote_info->tkip_aes != NULL&&*m_remote_info->tkip_aes)//tkip_aes
+	    {
+	    	#if defined(OPENWRT_MT7628)
+	        if(!strcmp(m_remote_info->tkip_aes,"tkip"))
+	            strcpy(tkip_aes_config,"TKIP");
+	        else if(!strcmp(m_remote_info->tkip_aes,"aes"))
+	            strcpy(tkip_aes_config,"AES");
+	        else if(!strcmp(m_remote_info->tkip_aes,"tkip/aes"))
+	            strcpy(tkip_aes_config,"TKIP+AES");
+			else
+				return ROUTER_ERRORS_CMD_DATA;
+			#elif defined(OPENWRT_X1000)
+			if(!strcmp(m_remote_info->tkip_aes,"tkip"))
+				strcpy(tkip_aes_config,"tkip");
+			else if(!strcmp(m_remote_info->tkip_aes,"aes"))
+				strcpy(tkip_aes_config,"ccmp");
+			else if(!strcmp(m_remote_info->tkip_aes,"tkip/aes"))
+				strcpy(tkip_aes_config,"tkip+ccmp");
+			else
+				return ROUTER_ERRORS_CMD_DATA;
+			#endif
+	    }
+	}
+	
+	if(!strcmp(encrypt_config,"WEP"))
+	{
+		if( !strlen(m_remote_info->password) || ( strlen(m_remote_info->password)!=5 && \
+			strlen(m_remote_info->password)!=10 && strlen(m_remote_info->password)!=13 && \
+			strlen(m_remote_info->password)!=26 ))
+		{
+			return ROUTER_ERRORS_CMD_DATA;
+		}
+	}
+	
+	if(m_remote_info->ssid != NULL&&*m_remote_info->ssid)//ssid
+    {
+    	if(!strlen(m_remote_info->ssid) || strlen(m_remote_info->ssid)>32)
+    	{
+			return ROUTER_ERRORS_CMD_DATA;
+		}
+		else
+		{
+			memset(cmd_buf, 0, TEMP_BUFFER_SIZE);
+	        sprintf(cmd_buf, "wireless.@wifi-iface[1].ssid=%s", m_remote_info->ssid);
+	        ret = uci_set_option_value(cmd_buf);
+			if(ret < 0)
+			{
+				return ROUTER_ERRORS_UCI;
+			}
+		}
+    }else{
+		return ROUTER_ERRORS_CMD_DATA;
+    }
+
+	if(m_remote_info->mac != NULL&&*m_remote_info->mac)//mac
+    {
+    	memcpy(macaddr,m_remote_info->mac,strlen(m_remote_info->mac));
+		memset(cmd_buf, 0, TEMP_BUFFER_SIZE);
+       	sprintf(cmd_buf, "wireless.@wifi-iface[1].bssid=%s", macaddr);
+        ret = uci_set_option_value(cmd_buf);
+		if(ret < 0)
+		{
+			return ROUTER_ERRORS_UCI;
+		}
+	
+    }
+	
+	memset(cmd_buf,0,sizeof(cmd_buf));
+	if(!strcmp(encrypt_config,"none") || !strcmp(encrypt_config,"wep"))
+	{
+		sprintf(cmd_buf,"uci set wireless.@wifi-iface[1].encryption=%s",encrypt_config);
+		system(cmd_buf);
+	}
+	else
+	{
+		sprintf(cmd_buf,"uci set wireless.@wifi-iface[1].encryption=%s+%s",encrypt_config,tkip_aes_config);
+		system(cmd_buf);
+		if(m_remote_info->password!=NULL&&*m_remote_info->password)
+	    {
+	    	if(!strlen(m_remote_info->password) || strlen(m_remote_info->password)>32){
+				return ROUTER_ERRORS_CMD_DATA;
+			}
+			else{
+		        memset(temp_buf,0,TEMP_BUFFER_SIZE);
+		        sprintf(temp_buf,"wireless.@wifi-iface[1].key=%s",m_remote_info->password);
+		        ret = uci_set_option_value(temp_buf);
+				if(ret < 0)
+				{
+					return ROUTER_ERRORS_UCI;
+				}
+			}
+	    }else{
+	        return ROUTER_ERRORS_CMD_DATA;
+	    }
+	}
+	
+   	system("uci commit");
+	system("control_dns.sh >/dev/null 2>&1 &");
+	system("save_wifi &");
+
+    return 0;
+}
 
 int _get_wlan_con_mode()
 {
@@ -1787,16 +2144,14 @@ int _set_client_status(int status)
 		}
 		else{
 			return ROUTER_ERRORS_CMD_DATA;
-		}
-
-		
+		}	
 	}
 
 	#if defined(OPENWRT_MT7628)
 	system("`sleep 3;wifi;ifup wan` &");
 	#elif defined(OPENWRT_X1000)
 	DMCLOG_M("control dns!!!");
-	system("control_dns.sh >/dev/null 2>&1 &");
+	system("control_dns.sh auto >/dev/null 2>&1 &");
 	#endif
 #elif defined(SUPPORT_LINUX_PLATFORM)
 #endif
@@ -1998,5 +2353,45 @@ int _set_forget_wifi_info(forget_wifi_info_t *p_forget_wifi_info)
 #elif defined(SUPPORT_LINUX_PLATFORM)
 #endif
 	return ROUTER_OK;
+}
+
+
+int _get_wifi_type(int *p_wifi_type)
+{
+	int wifi_mode;
+	wifi_mode = get_wifi_mode();
+	if(wifi_mode == M2G)
+		*p_wifi_type = WIFI_TYPE_2G;
+	else
+		*p_wifi_type = WIFI_TYPE_5G;
+	return 0;
+}
+
+int _set_wifi_type(int wifi_type)
+{
+	DMCLOG_D("access _set_wifi_type");
+	int ret = 0;
+	int wifi_mode;
+	wifi_mode = get_wifi_mode();
+	if(wifi_mode == M2G){
+		if(wifi_type == WIFI_TYPE_5G){
+			system("`sleep 2;/sbin/2g_5g_switch.sh `&");
+		}
+		else{
+			ret = -1;
+		}
+	}
+	else if(wifi_mode == M5G){
+		if(wifi_type == WIFI_TYPE_2G){
+			system("`sleep 2;/sbin/2g_5g_switch.sh `&");
+		}
+		else{
+			ret = -1; 
+		}
+	}
+	else
+		ret = -1;
+	DMCLOG_D("out _set_wifi_type");
+	return ret;
 }
 

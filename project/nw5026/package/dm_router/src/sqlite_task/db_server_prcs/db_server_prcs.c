@@ -3,6 +3,8 @@
 #include "db/disk_change.h"
 #include "list.h"
 #include "api_process.h"
+#include "router_inotify.h"
+
 #ifdef DB_TASK
 
 int exist_mark_file(char *path)
@@ -51,10 +53,11 @@ int get_disk_mark_info(char *path)
 }
 
 
-static int add_disk_to_list(void *self,char *uuid ,char *path)
+static int add_disk_to_list(void *self,char *uuid ,char *path, char *dev_node)
 {
+	ENTER_FUNC();
 	DiskTaskObj *diskTask = (DiskTaskObj *)self;
-	if(diskTask == NULL||uuid == NULL || path == NULL)
+	if(diskTask == NULL||uuid == NULL || path == NULL || dev_node == NULL)
 	{
 		DMCLOG_E("para error");
 		return -1;
@@ -73,8 +76,8 @@ static int add_disk_to_list(void *self,char *uuid ,char *path)
 	pthread_mutex_init(&disk_node->mutex,NULL);
 	strcpy(disk_node->uuid,uuid);
 	strcpy(disk_node->path,path);
-	DMCLOG_D("path = %s",disk_node->path);
-	
+	strcpy(disk_node->dev_node,dev_node);
+	DMCLOG_D("path = %s, dev_node = %s",disk_node->path, disk_node->dev_node);
 	register_disk_table_ops(disk_node); 
 	if((db_disk_check(disk_node->g_database)) != RET_SUCCESS) // need to format hdisk firstly!
 	{
@@ -96,12 +99,16 @@ static int add_disk_to_list(void *self,char *uuid ,char *path)
         DMCLOG_D("start_scan_task failed");
         return -1;
     }
+	EXIT_FUNC();
 	return 0;
 }
 
 void x1000_onDiskListAdd(void *self)
 {
 	ENTER_FUNC();
+	disk_node_t *disk_node;
+	DiskTaskObj *diskTask = (DiskTaskObj *)self;
+	int same_flag = 0;
 	int res,i;
 	if(get_fuser_flag() == AIRDISK_ON_PC)
 	{
@@ -116,9 +123,12 @@ void x1000_onDiskListAdd(void *self)
 		DMCLOG_E("get storage error");
 		return;
 	}
-	
+
+	DMCLOG_D("mAll_disk_t.count: %d", mAll_disk_t.count);
 	for(i = 0;i < mAll_disk_t.count;i++)
 	{
+		DMCLOG_D("mAll_disk_t.disk[%d].name: %s", i, mAll_disk_t.disk[i].name);
+		same_flag = 0;
 		res = get_disk_mark_info(mAll_disk_t.disk[i].path);
 		if(res == 0)
 		{
@@ -130,20 +140,30 @@ void x1000_onDiskListAdd(void *self)
 				DMCLOG_D("uuid file is invalid");
 				_dm_gen_uuid(mAll_disk_t.disk[i].uuid,mAll_disk_t.disk[i].pid,mAll_disk_t.disk[i].vid, mAll_disk_t.disk[i].total_size, mAll_disk_t.disk[i].free_size);
 				DMCLOG_D("uuid = %s",mAll_disk_t.disk[i].uuid);	
-				create_mark_file(mAll_disk_t.disk[i].path,mAll_disk_t.disk[i].uuid);//在磁盘创建uuid文件，标记磁盘的唯一性
+				create_mark_file(mAll_disk_t.disk[i].path,mAll_disk_t.disk[i].uuid);//?????uuid??,????????
 			}
 		}else{
-			//没有标记文件或者文件为空
-			DMCLOG_D("uuid file is not exist or uuid is null");
+			//????????????
+			DMCLOG_D("uuid file is not exist or uuid is null, total_size: %llu, free_size: %llu", mAll_disk_t.disk[i].total_size, mAll_disk_t.disk[i].free_size);
 			_dm_gen_uuid(mAll_disk_t.disk[i].uuid,mAll_disk_t.disk[i].pid,mAll_disk_t.disk[i].vid, mAll_disk_t.disk[i].total_size, mAll_disk_t.disk[i].free_size);
 			DMCLOG_D("uuid = %s",mAll_disk_t.disk[i].uuid);	
 			create_mark_file(mAll_disk_t.disk[i].path,mAll_disk_t.disk[i].uuid);//在磁盘创建uuid文件，标记磁盘的唯一性
 		}
-		if((res = add_disk_to_list(self,mAll_disk_t.disk[i].uuid,mAll_disk_t.disk[i].path)) != 0)
+		DMCLOG_D("uuid: %s, path: %s", mAll_disk_t.disk[i].uuid, mAll_disk_t.disk[i].path);
+		dl_list_for_each(disk_node,&diskTask->head,disk_node_t,node)
+		{
+			DMCLOG_D("disk_node path: %s, uuid: %s", disk_node->path,disk_node->uuid);
+			if(!strcmp(mAll_disk_t.disk[i].uuid, disk_node->uuid)){
+				same_flag = 1;
+			}
+		}
+
+		if((same_flag == 0) && (res = add_disk_to_list(self,mAll_disk_t.disk[i].uuid,mAll_disk_t.disk[i].path,mAll_disk_t.disk[i].dev)) != 0)
 		{
 			DMCLOG_D("add disk to list and scan error");
 			return;
 		}
+		
 	}
 	EXIT_FUNC();
 }
@@ -153,32 +173,76 @@ void x1000_onDiskListDel(void *self)
 {	
 	disk_node_t *disk_node,*n;
 	DiskTaskObj *diskTask = (DiskTaskObj *)self;
-	pthread_mutex_lock(&diskTask->mutex);
-	if(&diskTask->head == NULL || dl_list_empty(&diskTask->head))
-	{
-		EXIT_FUNC();
+
+	int check_cnt = 0;
+	do{
+		usleep(1000);
+	}while(DB_STATUS_SCANNING == GetDmFileTableScanStatus() && (check_cnt++) < 1024);
+
+	if(check_cnt >= 1024){
+		DMCLOG_E("out scanning fail");
+	}
+	else{
+		pthread_mutex_lock(&diskTask->mutex);
+		if(&diskTask->head == NULL || dl_list_empty(&diskTask->head))
+		{
+			EXIT_FUNC();
+			pthread_mutex_unlock(&diskTask->mutex);
+			return ;
+		}
+
+		if(diskTask->event == PC_MOUNT_EVENT){		
+			dl_list_for_each(disk_node,&diskTask->head,disk_node_t,node)
+			{
+				DMCLOG_D("path: %s, uuid: %s, dev_node: %s",disk_node->path, disk_node->uuid, disk_node->dev_node);
+				pthread_mutex_lock(&disk_node->mutex);
+				if(disk_node->g_db_write_task.exit_cb != NULL)
+					disk_node->g_db_write_task.exit_cb(&disk_node->g_db_write_task);
+				if(disk_node->g_db_query_task.exit_cb != NULL)
+					disk_node->g_db_query_task.exit_cb(&disk_node->g_db_query_task);
+				pthread_mutex_unlock(&disk_node->mutex);
+			    pthread_mutex_destroy(&disk_node->mutex);
+			}
+			dl_list_for_each_safe(disk_node,n,&diskTask->head,disk_node_t,node)
+			{
+				dl_list_del(&disk_node->node);
+				safe_free(disk_node);
+			}
+		}
+		else if(diskTask->event == UDISK_EXTRACT_EVENT){
+			dl_list_for_each(disk_node,&diskTask->head,disk_node_t,node)
+			{
+				DMCLOG_D("path: %s, uuid: %s",disk_node->path, disk_node->uuid);
+				if(strcmp(diskTask->actionNode, disk_node->dev_node)){
+					continue;
+				}
+				pthread_mutex_lock(&disk_node->mutex);
+				if(disk_node->g_db_write_task.exit_cb != NULL)
+					disk_node->g_db_write_task.exit_cb(&disk_node->g_db_write_task);
+				if(disk_node->g_db_query_task.exit_cb != NULL)
+					disk_node->g_db_query_task.exit_cb(&disk_node->g_db_query_task);
+				pthread_mutex_unlock(&disk_node->mutex);
+			    pthread_mutex_destroy(&disk_node->mutex);
+			}
+			dl_list_for_each_safe(disk_node,n,&diskTask->head,disk_node_t,node)
+			{
+				if(strcmp(diskTask->actionNode, disk_node->dev_node)){
+					continue;
+				}
+				dl_list_del(&disk_node->node);
+				safe_free(disk_node);
+			}
+		}
+		else{
+			DMCLOG_E("UNKNOW EVENT: %d", diskTask->event);
+		}
 		pthread_mutex_unlock(&diskTask->mutex);
-		return ;
+		uint16_t sign = get_database_sign();
+		sign++;
+		set_database_sign(sign);
+		dm_cycle_change_inotify(data_base_changed);
 	}
-		
-	dl_list_for_each(disk_node,&diskTask->head,disk_node_t,node)
-	{
-		pthread_mutex_lock(&disk_node->mutex);
-		if(disk_node->g_db_write_task.exit_cb != NULL)
-			disk_node->g_db_write_task.exit_cb(&disk_node->g_db_write_task);
-		if(disk_node->g_db_query_task.exit_cb != NULL)
-			disk_node->g_db_query_task.exit_cb(&disk_node->g_db_query_task);
-		pthread_mutex_unlock(&disk_node->mutex);
-	    pthread_mutex_destroy(&disk_node->mutex);
-	}
-	dl_list_for_each_safe(disk_node,n,&diskTask->head,disk_node_t,node)
-	{
-		dl_list_del(&disk_node->node);
-		safe_free(disk_node);
-	}
-	pthread_mutex_unlock(&diskTask->mutex);
 	EXIT_FUNC();
-	
 }
 
 void *category_task_func(void *self)

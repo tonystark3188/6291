@@ -208,7 +208,6 @@ int db_write_task_msg_cb(void *self, void *msg)
 	 //add new items into database
 	if(p_obj->m_type >= MSG_DB_FILE_SINGLE_ADD && p_obj->m_type <= MSG_DB_FILE_BATCH_ADD)
 	{
-		//ret = insert_handler(p_obj->m_type, database, p_OprObj);
 		ret = dm_db_insert_file(database, &p_OprObj->data.insert_data);
 	}
 	else if(p_obj->m_type == MSG_DB_FILE_COPY)
@@ -229,19 +228,11 @@ int db_write_task_msg_cb(void *self, void *msg)
 	}
 	else if(p_obj->m_type == MSG_DB_FILE_DEL_LIST_BY_PATH)
 	{
-		ret = db_generic_delete_file_by_path(database, &p_OprObj->data.delete_data);
+		ret = db_delete_file(database, &p_OprObj->data.delete_data);
 	}	
 	else if(p_obj->m_type == MSG_DB_FILE_GENERIC_DELETE)
 	{//delete item
 		ret = db_generic_delete_file(database, &p_OprObj->data.delete_data);
-	}
-	else if(p_obj->m_type == MSG_DB_FILE_TRASH)
-	{
-		ret = db_trash_file(database, &p_OprObj->data.trash_data);
-	}
-	else if(p_obj->m_type == MSG_DB_FILE_RECYCLE)
-	{
-		ret = db_recycle_file(database, &p_OprObj->data.recycle_data);
 	}
 	else if(p_obj->m_type == MSG_DB_FILE_RENAME)
 	{
@@ -263,10 +254,6 @@ int db_write_task_msg_cb(void *self, void *msg)
 	{
 		ret = db_insert_device(database, &p_OprObj->data.device_data);
 	}
-	else if(p_obj->m_type == MSG_DB_SHARE_FILE)
-	{
-		ret = db_share_file(database, &p_OprObj->data.share_data);
-	}
 	else if(p_obj->m_type == MSG_DB_HDISK_INFO_ADD)
 	{
 		ret = db_insert_hdisk(database, &p_OprObj->data.hdisk_data);
@@ -279,10 +266,6 @@ int db_write_task_msg_cb(void *self, void *msg)
     {
         ret = db_commit(database);
     }
-	else if(p_obj->m_type == MSG_DB_CLEAN_UP_FILE)
-	{
-		ret = db_clean_up_invalid_file(database, &p_OprObj->data.cln_data);
-	}
 	else if(p_obj->m_type == MSG_DB_REINDEX)
 	{
 		ret = db_reindex_table(database);
@@ -507,153 +490,7 @@ int create_db_disk_task(struct disk_node *disk_info)
 
 #ifdef EVENT_SUPPORT
 extern int stop_db_task(void);
-static int _handle_event_server_ctrl_db_error_msg(void *self)
-{
-    EventServerSubHandle *handler = (EventServerSubHandle *)(self);
-    int db_error_code = (*(int *)(handler->ctrl_msg_handler_arg));
 
-    static int last_error = RET_SUCCESS;
-	static int times = 0;
-    int ret;
-    
-    log_warning("handle DbError(0x%x)!", db_error_code);
-    if(db_error_code != RET_SUCCESS)
-    {
-        set_sys_status(DB_RECOVERING);
-    }
-
-    if(last_error == RET_SUCCESS)
-	{
-		last_error = db_error_code;
-	}
-	else
-	{
-		if(last_error == db_error_code)//we meet the same error!
-		{
-			times++;
-			if(times > DB_ERROR_TOLERANCE)//it means we have continuously met a same error
-			{
-				log_error("db error(0x%x) cannot be solved by restart db, now going to shutdown the process!",
-						last_error);
-				sleep(2);
-				//exit(-1);
-				stop_airnas_process();
-                return EDB;
-			}
-		}
-		else//a new error
-		{
-			times = 0;
-		}
-	}
-
-    last_error = db_error_code;//update last error to the current db error
-    if((ret = close_db_all_connection()) != RET_SUCCESS)
-    {
-        log_error("close_db_all_connection");
-        stop_airnas_process();
-        return ret;
-    }
-
-    if(db_error_code == SQLITE_IOERR)//if io error.
-    {
-        log_warning("handle sqlite_ioerr");
-        log_switch_dir(PRE_LOG_PATH);
-        partition_umount("/dev/sda1");
-
-        uint8_t try_times = 0;
-        while(try_times < 3)
-        {
-            update_system_storage_info(get_sys_storage_ptr(), \
-                                        UPDATE_DISK | UPDATE_PARTION);
-            ret = get_sdisk_status(get_sys_storage_ptr());
-            if(ret == RET_SUCCESS)
-            {
-                log_notice("sdisk is ok!");
-                break;
-            }
-            else if(ret == EDISK_NOT_EXIST)
-            {
-                log_error("disk not found, we will reboot after 3s");
-                stop_db_task();
-    			sleep(3);
-    			system("reboot -f");
-            }
-            else if(ret == EPARTION_NOT_EXIST)
-            {
-                log_error("partion not found, we will reboot after 3s");
-                stop_db_task();
-    			sleep(3);
-    			system("reboot -f");
-            }
-            else if(ret == EPARTION_NOT_MOUNT)
-            {
-                log_warning("re-mount(%dth) partion sda1!", try_times);
-                // it has error!!! by wenhao
-                char dev_node[32];
-                S_SNPRINTF(dev_node, sizeof(dev_node), "/dev/%s", DATA_PARTITION_NAME);
-                partition_mount(dev_node, get_sys_nas_data_path());
-            }
-            else
-            {
-                log_error("disk error, reboot it");
-                stop_db_task();
-    			sleep(3);
-    			system("reboot -f");
-            }
-
-            ++try_times;
-            sleep(1);
-        }
-
-        if(try_times >= 3)
-        {
-            log_error("re-mount partion sda1 failed, reboot after 1s");
-            //stop_airnas_process();
-            stop_db_task();
-			sleep(1);
-			system("reboot -f");
-            return AIRNAS_ERRNO;
-        }
-        else
-        {
-            log_notice("re-mount partion sda1 success!");
-            //log_switch_dir(get_sys_nas_log_name());
-        }
-	}
-
-    if(db_error_code == SQLITE_CORRUPT)
-    {
-        log_warning("handle sqlite_corrupt");
-        system("/usr/sbin/handle_sqlite_corrupt.sh");
-        sleep(1);
-    }
-
-    //for db error, we try to restart db connection
-	if((ret = create_db_all_connection()) != RET_SUCCESS)
-	{
-		log_error("create_db_all_connection failed, ret(0x%x)\nWe will exit airnas process", ret);
-		stop_airnas_process();
-        return EDB;
-	}
-
-    recover_db();
-    set_sys_status(NORMAL);
-    return RET_SUCCESS;
-}
-
-int add_event_server_ctrl_db_error_handler(void)
-{
-    EventServerSubHandle handler;
-    memset(&handler, 0, sizeof(handler));
-
-    handler.ctrl_msg_id = EVENT_SERVER_DB_ERROR_MSG_ID;
-    S_STRNCPY(handler.ctrl_msg_name, "DbError", sizeof(handler.ctrl_msg_name));
-    handler.ctrl_msg_handler = _handle_event_server_ctrl_db_error_msg;
-    handler.ctrl_msg_handler_arg = &g_db_errcode;
-    
-    return add_event_server_ctrl_sub_handler(&handler);
-}
 
 int brocast_db_error(void)
 {

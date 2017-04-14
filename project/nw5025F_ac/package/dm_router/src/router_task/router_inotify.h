@@ -48,6 +48,10 @@ extern "C"{
 #define power_ssid_changed 		0x05
 #define disk_ssid_changed 		0x06
 #define power_disk_ssid_changed 0x07
+
+#define FN_RELEASE_DISK 		7
+#define FN_GET_DB_STA 			8
+
 typedef struct hardware_info{
 	struct dev_dnode *dev_dnode;
 	uint16_t power_seq;
@@ -69,12 +73,14 @@ typedef struct copy_info{
     unsigned int *flags;
     unsigned seq;
     int status;//0:正在计算中，1:正在传输中，2:操作完成，3:操作异常中断
-    char *cur_name;
+    int quit_status;
+	char *cur_name;
     off_t total_size;
     off_t cur_progress;
     off_t total_progress;
     unsigned cur_nfiles;//当前已复制的文件个数
     unsigned nfiles;
+	unsigned total_cnt;
     char ip[32];
     int port;
 	char disk_uuid[64];
@@ -91,6 +97,7 @@ typedef struct copy_info{
 	bool album;
 	char **file_list;
 	char **file_dnode;
+	struct dl_list head; //list head for result
 }copy_info_t,del_info_t,download_info_t,hide_info_t;
 
 typedef struct release_info{
@@ -107,19 +114,30 @@ typedef struct backup_info{
 	char disk_uuid[64];
 	char *path;
 	int bIsRegularFile;// 0:dir,1:file,2:backup file
-}backup_info_t,ifile_info_t;
+	struct dl_list next;
+}ifile_info_t;
 
-
+typedef struct encrypt_info{
+	char file_uuid[64];
+	char device_uuid[64];
+	char disk_uuid[64];
+	char *src_path;
+	char *dest_path;
+	int bIsRegularFile;// 0:dir,1:file
+	struct dl_list next;
+}encrypt_file_info_t;
 
 int notify_router_para(const char *inotify_path,int pnTimeOut);
+
 void notify_disk_scan_status(int status);
 
 int copy_handle_inotify(copy_info_t *pInfo);
+
 int search_handle_udp_inotify(file_search_info_t *pInfo, file_list_t *plist);
 
 char *notify_disk_scanning(int release_flag);
-int parser_scan_notify_json(char *recv_buf, int *p_release_flag, int *p_event, char *p_action_node);
 
+int ParserScanNotifyJson(char *recvBuf, DiskTaskObj *diskTask);
 
 #ifdef __cplusplus
 }

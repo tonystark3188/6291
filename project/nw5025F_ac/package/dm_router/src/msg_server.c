@@ -346,6 +346,14 @@ static void set_option(const char *opt,const char *val)
 			g_p_sys_conf_info->fun_list_flag |= 1<<17;//0x20000
 		}
 	}
+	else if(strcmp(opt,ENCRYPT_FILE_ACCESS)==0)
+	{
+		if(atoi(val) == 1)
+		{
+			g_p_sys_conf_info->fun_list_flag |= 1<<18;//0x20000
+			//DMCLOG_D("g_p_sys_conf_info->fun_list_flag=%d",g_p_sys_conf_info->fun_list_flag);
+		}
+	}
 	else if(strcmp(opt,PRODUCT_MODEL)==0)
 	{
 		strcpy(g_p_sys_conf_info->product_model,val);
@@ -403,10 +411,10 @@ initialize_config(const char *config_file)
 int child_fun()
 {
     int rslt = 0;
-	(void) signal(SIGTERM, signal_handler);
+	/*(void) signal(SIGTERM, signal_handler);
 	(void) signal(SIGINT, signal_handler);
 	(void) signal(SIGSEGV,signal_handler);
-	(void) signal(SIGABRT,signal_handler);
+	(void) signal(SIGABRT,signal_handler);*/
 	(void) signal(SIGPIPE,SIG_IGN);
 	InitializeCriticalSection(&power_info_global.mutex);
     /* 云通信模块发过来的消息的处理线程 */
@@ -508,8 +516,8 @@ int main()
 {
     pid_t child_process;
 	safe_exit_flag = 0;
-	child_fun();
-	/*(void) signal(SIGPIPE,SIG_IGN);
+	//child_fun();
+	(void) signal(SIGPIPE,SIG_IGN);
     while(safe_exit_flag == 0)
     {
         printf("fork new process.\n");
@@ -530,7 +538,7 @@ int main()
         }
 		
 		sleep(FOCK_TIME);
-    }*/
+    }
 
     return 0;
 }

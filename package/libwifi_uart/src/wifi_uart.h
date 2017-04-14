@@ -76,6 +76,8 @@
 #define CMD_SET_SYSTEM_UP 0X60
 #define CMD_SET_ALARM 0X61
 #define CMD_SET_RTC 0x62
+#define CMD_SET_LED_AOFF 0x63
+#define CMD_SET_LED_AON 0x64
 
 #endif
 

@@ -1,0 +1,19 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2009-2012 OpenWrt.org
+
+START=90
+
+RUN_D=/var/run/dm_http
+
+start() {
+		[ -d /usr/mips/www/cgi-bin ] || ln -s /usr/mips/cgi-bin /usr/mips/www/cgi-bin
+		[ -d /usr/mips/www/icons ] || ln -s /usr/mips/icons /usr/mips/www/icons		
+        dm_http &
+}
+stop() {
+        killall dm_http
+}
+restart() {
+		killall dm_http
+		dm_http &
+}

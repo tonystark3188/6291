@@ -3,9 +3,12 @@
 . /lib/netifd/wpa_setup.sh
 
 radio_band=$(uci get wireless2.@wifi[0].radio_band)
-[ "$radio_band" != "double"] && exit
+[ "$radio_band" != "double" ] && exit
+wifi_mode=$(/usr/sbin/get_wifimode_btn)
+uci set wireless2.@wifi[0].mode="$wifi_mode"
+uci commit
 wifi_start() {
-	wifi_mode=$(uci get wireless2.@wifi[0].mode)
+	#wifi_mode=$(uci get wireless2.@wifi[0].mode)
 	ch2g=$(uci get wireless2.@wifi[0].ch2g)
 	ch5g=$(uci get wireless2.@wifi[0].ch5g)
 	lan_ip=$(uci get network.lan.ipaddr)
@@ -17,7 +20,15 @@ wifi_start() {
 	ifconfig wlan0 down
 	ifconfig wlan0 up
 	if [ "$wifi_mode" = "5g" ]; then
-		ap_ssid=${ap_ssid}_5G
+	        mac=`cfg get mac |awk -F "=" '{print $2}'`
+	        MAC=$(echo $mac | tr '[a-z]' '[A-Z]')
+	        mac1=${MAC:6:6}
+	        ap_ssid=LEHE$mac1-5G
+	else
+		mac=`cfg get mac |awk -F "=" '{print $2}'`
+		MAC=$(echo $mac | tr '[a-z]' '[A-Z]')
+                mac1=${MAC:6:6}                        
+                ap_ssid=LEHE$mac1-2.4G
 	fi
 
 	if [ "$ap_encrypt" = "none" ]; then
@@ -45,11 +56,11 @@ wifi_start() {
 
 wifi_mode=$(uci get wireless2.@wifi[0].mode)
 
-if [ "$wifi_mode" = "2g" ]; then
-	uci set wireless2.@wifi[0].mode=5g
-else
-	uci set wireless2.@wifi[0].mode=2g
-fi
+#if [ "$wifi_mode" = "2g" ]; then
+	#uci set wireless2.@wifi[0].mode=5g
+#else
+#	uci set wireless2.@wifi[0].mode=2g
+#fi
 
 uci set wireless.@wifi-iface[1].ssid=disable
 uci set wireless.@wifi-iface[1].bssid=00:11:22:33:44:55

@@ -24,6 +24,8 @@ extern "C"{
 
 #include <pthread.h>
 #include "base.h"
+#include "encrypt_file.h"
+#include <openssl/aes.h>
 
 #define SEARCH_TASK_TCP
 
@@ -32,6 +34,52 @@ extern "C"{
 #define SEND_ERROR_TIMES_MAX 	100	
 #define SEND_LIST_INFO_TIME		3 	//s
 
+typedef int (*FILE_ENCRYPT_CALLBACK)(void *self,void *dn);
+typedef int (*FILE_DECRYPT_CALLBACK)(void *self,void *dn);
+typedef void (*FILE_GENERATE_KEY)(void *self);
+typedef void (*FILE_GENERATE_DEST_PATH)(void *self,void *dest_dir,void *dest_path);
+typedef struct file_encrypt_info{
+	struct conn *c;
+	int sock;
+    int cmd;
+	char *src_path;
+	char *dest_path;
+	char *request_path;
+	char *file_name;
+	char *orig_path;
+    char session[32];
+    unsigned int *flags;
+    unsigned seq;
+	unsigned encrypt_seq;
+	char ip[32];
+	int port;
+	char file_uuid[64];
+	char disk_uuid[64];
+	int client_fd;
+	struct sockaddr_in clientAddr;
+	long cur_time;
+	long record_time;
+	int status;
+	int statusCode;
+	int recvStatusCode;
+	off_t finished_size;
+	off_t decrypted_size;
+	off_t total_size;
+	int currentOnly;
+	int bIsRegularFile;
+	char *k;
+	AES_KEY aes;
+	time_t ctime;
+	time_t mtime;
+	time_t atime;	
+	int finished_num;
+	int total_num;
+	FILE_ENCRYPT_CALLBACK start_encrypt;	
+	FILE_DECRYPT_CALLBACK start_decrypt;
+	FILE_GENERATE_KEY 		generate_key;
+	FILE_GENERATE_DEST_PATH generate_dest_encrypt_path;
+	int quit_status;
+}file_encrypt_info_t;
 typedef struct file_search_info{
 	struct conn *c;
 	int sock;
@@ -103,6 +151,10 @@ typedef struct{
 	struct dl_list next;
 }search_file_info_t;
 
+
+void encrypt_inotify_func(void *self);
+
+void decrypt_inotify_func(void *self);
 void search_inotify_func(void *self);
 
 void search_manage_task_func();

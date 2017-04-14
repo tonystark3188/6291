@@ -1,0 +1,125 @@
+.dialog_root{
+	width: 315px;
+	background: white;
+	border-radius: 2px;
+}
+
+.dialog_title{
+	text-align: center;
+	margin-top: 24px;
+	font-size: 1.7rem;
+	font-weight: bold;
+	color: black;
+}
+
+.dialog_title_red{
+	text-align: center;
+	margin-top: 24px;
+	font-size: 1.7rem;
+	font-weight: bold;
+	color: red;
+}
+
+.dialog_input{
+
+	text-align: center;
+	margin-left: 16px;
+	margin-right: 16px;
+	margin-top: 24px;
+	height: 32px;
+	border-bottom: solid 1px #518EF1;
+}
+
+.dialog_msg{
+
+	text-align: center;
+	margin-left: 16px;
+	margin-right: 16px;
+	margin-top: 24px;
+	height: 60px;
+	font-size: 1.5rem;
+	line-height: 32px;
+	color: black;
+}
+.dialog_format_msg{
+
+	text-align: center;
+	margin-left: 16px;
+	margin-right: 16px;
+	margin-top: 24px;
+	height: 64px;
+	font-size: 1.5rem;
+	line-height: 32px;
+	color: black;
+}
+#dialog_pw_div{
+	width: 250px;
+	height:32px;
+	float: left;
+}
+#dialog_line_div{
+	width: 100%;
+	height:32px;
+}
+.dialog_pw_input{
+	width: 100%;
+	height:100%;
+	font-size: 1.7rem;
+	padding: 0; 
+	margin: 0; 
+	border: 0;
+	outline:medium;
+	color: black;
+
+}
+.dialog_input_visible{
+	float: right;
+
+}
+
+.dialog_button{
+	margin-top: 20px;
+	height: 45px;
+	border-top: solid 1px #ececec;
+}
+
+.dialog_button_cancel{
+	width: 50%;
+	height: 100%;
+	line-height: 45px;
+	float: left;
+	text-align: center;
+	font-size: 1.8rem;
+	color: black;
+}
+
+.dialog_button_confirm{
+	width: 50%;
+	height: 100%;
+	line-height: 45px;
+	float: right;
+	border-left: solid 1px #ececec; 
+	margin-left:-1px;
+	text-align: center;
+	font-size: 1.8rem;
+	color: #518EF1;
+}
+
+
+#eye{
+	width: 24px;
+	height: 24px;
+}
+
+.dialog_msg_root{
+	background: rgb(0,0,0);
+	border-radius: 2px;
+	padding:16px;
+	text-align: center;
+}
+
+.dialog_msg_text{
+	color: white;
+	font-size: 1.7rem;
+
+}

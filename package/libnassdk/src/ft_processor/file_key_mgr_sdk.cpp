@@ -36,7 +36,7 @@ bool file_upload_key_mgr_sdk::init(const std::string& mmap_file_name, unsigned i
         
         //3. 读取文件内容
         void* start = _mmap.getPointer();
-        for(char* p = (char*)start; (p + sizeof(mmap_key_info_t)) < (char*)start + file_len; p += sizeof(mmap_key_info_t)) {
+        for(char* p = (char*)start; (p + sizeof(mmap_key_info_t)) <= (char*)start + file_len; p += sizeof(mmap_key_info_t)) {
             //循环的读取文件内容
             mmap_key_info_t* key_info = (mmap_key_info_t*)p;
             _fuk_list[key_info->_filekey] = key_info_t(key_info->_url, key_info->_ctime, key_info->_md5,key_info->_file);
@@ -77,6 +77,7 @@ std::string file_upload_key_mgr_sdk::get_file_upload_key(const std::string& file
             _fuk_list.erase(file_key);
             
         } else {
+            if(md5.empty()) return _fuk_list[file_key]._url;
             if(_fuk_list[file_key]._md5 == md5) { //md5值相同才不传输文件
                 s = _fuk_list[file_key]._url;
             } else {

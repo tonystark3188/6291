@@ -16,7 +16,7 @@ INCLUDE += -I./ft_processor
 
 #需要引用的库
 LIB     += -L./lib -ltxdevicesdk   # Tencent_iot_SDK/lib
-LIB     += -lpthread  -lrt -ldl
+LIB     += -lpthread -lrt -ldl
 
 export LD_LIBRARY_PATH='./lib"
 
@@ -42,9 +42,10 @@ DEPS    += $(patsubst %.o, %.d, $(OBJS))
 .PHONY: all
 all: $(DEPS) $(OBJS)
 	$(CXX) -o $(TARGETS) $(OBJS) $(LIB) $(BUILD_TYPE)
-	$(CXX) NasSDKDemo.cpp  -o nasdemo -O0 -g3 -I"./include" $(CFLAGS) -L"./" -lnassdk -ljson-c -lpthread -lstdc++ -lm -lglib-2.0 -L"./lib" -ltxdevicesdk -std=c++0x
+	$(CXX) NasSDKDemo.cpp  -o nasdemo -O0 -g3 -I"./include" $(CFLAGS) -L"./" -lnassdk -ljson-c -lpthread -lstdc++ -lm -lglib-2.0 -L"./lib" -ltxdevicesdk -std=c++0x 
 	#$(STRIP) $(TARGETS)
 	$(CXX) nas_monitor/NasSDKDemo_monitor.cpp  -o nas_monitor/nasdemo_monitor
+	$(CXX) smartlink/smartlink.cpp smartlink/cgiWireless.cpp -o smartlink/smartlink  -O0 -g3 -I"./include" $(LIB) $(CFLAGS) -L"./lib" -lnassdk -ltxdevicesdk -L"./" -ljson-c -lpthread -liw -lstdc++ -std=c++0x #-lcrypto -lssl 
 
 -include $(DEPS)
 

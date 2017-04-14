@@ -96,7 +96,7 @@ factory_set() {
 	[ "$ENCRYPT" != "none" ] && uci set wireless.@wifi-iface[0].key=$PASSWORD
 
 	[ -n "$SMB_USR_NAME" -a "$SMB_USR_NAME" != "unknow" ] && uci set samba.@samba[0].user=$SMB_USR_NAME
-	[ -n "$SMB_USR_PWD" -a "$SMB_USR_PWD" != "unknow" ] && uci set samba.@samba[0].password=$SMB_USR_PWD
+	[ -n "$SMB_USR_PWD" -a "$SMB_USR_PWD" != "unknow" ] && uci set samba.@samba[0].password=""
 
 	if [ "$SMB_GUEST_OK" = "yes" ]; then
 		uci delete samba.@sambashare[0].users
@@ -131,18 +131,23 @@ user_set() {
 	local ROOT_PWD=`nor get root_pwd`
 	
 	local DISK_ST=`nor get disk_st`
+	local SID=`uci get userconfig.@save[0].sid -c /factory/`
+	local CODE=`uci get userconfig.@save[0].code -c /factory/` 
 
-	[ "$USER_SMB_PASSWORD" != "unknow" ] && uci set samba.@samba[0].password=$USER_SMB_PASSWORD
-	[ "$USER_SMB_ENABLE" != "unknow" ] && uci set samba.@samba[0].enabled=$USER_SMB_ENABLE
-	[ "$USER_SMB_ANONYMOUS_EN" != "unknow" ] && {
-		if [ "$USER_SMB_ANONYMOUS_EN" = "1" ]; then
-			uci delete samba.@sambashare[0].users
-			uci set samba.@sambashare[0].guest_ok=yes
-		else
-			uci set samba.@sambashare[0].users=airdisk
-			uci set samba.@sambashare[0].guest_ok=no
-		fi
-	}
+	[ "$SID" != " " ] && uci set system.@system[0].sid=$SID  
+	[ "$CODE" != " " ] && uci set system.@system[0].code=$CODE  
+
+#	[ "$USER_SMB_PASSWORD" != "unknow" ] && uci set samba.@samba[0].password=$USER_SMB_PASSWORD
+#	[ "$USER_SMB_ENABLE" != "unknow" ] && uci set samba.@samba[0].enabled=$USER_SMB_ENABLE
+#	[ "$USER_SMB_ANONYMOUS_EN" != "unknow" ] && {
+#		if [ "$USER_SMB_ANONYMOUS_EN" = "1" ]; then
+#			uci delete samba.@sambashare[0].users
+#			uci set samba.@sambashare[0].guest_ok=yes
+#		else
+#			uci set samba.@sambashare[0].users=airdisk
+#			uci set samba.@sambashare[0].guest_ok=no
+#		fi
+#	}
 
 	[ "$USER_SSID" != "unknow" ] && uci set wireless.@wifi-iface[0].ssid=$USER_SSID
 	[ "$USER_ENCRYPT" != "unknow" ] && uci set wireless.@wifi-iface[0].encryption=$USER_ENCRYPT

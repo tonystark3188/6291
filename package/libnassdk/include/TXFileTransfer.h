@@ -98,7 +98,7 @@ typedef struct tag_tx_file_transfer_info
     int                 file_type;          // 文件类型：tx_file_transfer_filetype             （通用字段）
     int                 transfer_type;      // upload  download  c2c_in  c2c_out
 
-    char                mini_token[128];    // SDK1.4 新增字段，文件验证token，用于检查文件的完整性和合法性，
+    char                mini_token[512];    // SDK1.4 新增字段，文件验证token，用于检查文件的完整性和合法性，
                                             // 避免传输文件在DNS挟持攻击下被篡改或者文件下载不完整时即被交给UI层处理的问题
                                             // 仅用于适用于小文件通道的文件传输（transfer_channeltype_MINI）
                                             // *** 可见字符 : length = strlen(mini_token)
@@ -136,7 +136,7 @@ SDK_API int tx_init_file_transfer(tx_file_transfer_notify notify, char * path_re
 
 /**
 * 上传文件
-* channeltype : 传输通道类型，取值范围见tx_file_transfer_channeltype。设备手Q之间的小文件通道还未完全放开，设备上传请使用transfer_channeltype_FTN(1)。
+* channeltype : 传输通道类型，取值范围见tx_file_transfer_channeltype。
 * filetype : 传输文件类型，取值范围见tx_file_transfer_filetype
 * file_path: 上传的文件路径
 * transfer_cookie：返回任务cookie
@@ -146,7 +146,7 @@ SDK_API int tx_upload_file(int channeltype, int filetype, char * file_path, unsi
 
 /**
 * 下载文件
-* channeltype : 传输通道类型，取值范围见tx_file_transfer_channeltype。设备手Q之间的小文件通道还未完全放开，设备上传请使用transfer_channeltype_FTN(1)。
+* channeltype : 传输通道类型，取值范围见tx_file_transfer_channeltype。
 * filetype : 传输文件类型，取值范围见tx_file_transfer_filetype
 * file_key：要下载的文件的key
 * key_length：file_key的长度
@@ -170,7 +170,6 @@ SDK_API int tx_download_file_ex(int channeltype, int filetype, char * file_key, 
 * buff_with_file & bussiness_name : 发送到对端时，对端可根据bussiness_name，对接收到的文件做不同的处理，buff_with_file可以携带其他参数和信息
 */
 SDK_API int tx_send_file_to(unsigned long long target_id, char * file_path, unsigned long long * transfer_cookie, char * buff_with_file, int buff_length, char * bussiness_name);
-
 
 /**
 * 取消传送文件的任务

@@ -1,5 +1,66 @@
 #include "cgiWireless.h"
 #include "uci_for_cgi.h"
+#include "auto_connect.h"
+
+#if defined(WIFI_DRIVER_NL80211)
+#include "iw_nl80211.h"
+#endif
+
+#include <sys/mman.h>
+#include <sys/types.h>        
+#include <sys/socket.h>      
+#include <sys/stat.h>       
+#include <errno.h>
+#include <stdlib.h>             
+#include <ctype.h>
+#include <time.h>           
+#include <pwd.h>
+#include <grp.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <limits.h>      
+#include <setjmp.h>
+
+#include <netinet/in.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+
+#include <sys/mman.h>
+#include <sys/types.h>        
+#include <sys/socket.h>      
+#include <sys/stat.h> 
+#include "my_debug.h"
+
+#include "iwlib.h"
+
+#define is_ascii  0x11
+#define is_gb2312 0x22
+#define is_utf8   0x33
+
+
+#define encrypt_none "NONE"
+#define encrypt_wep "WEP"
+#define encrypt_wpapsk_tkip "WPAPSK/TKIP"
+#define encrypt_wpapsk_aes "WPAPSK/AES"
+#define encrypt_wpapsk_tkip_aes "WPAPSK/TKIPAES"
+#define encrypt_wpa2psk_aes "WPA2PSK/AES"
+#define encrypt_wpa2psk_tkip "WPA2PSK/TKIP"
+#define encrypt_wpa2psk_tkip_aes "WPA2PSK/TKIPAES"
+#define encrypt_wpa2_wpa1_psk_aes "WPA1PSKWPA2PSK/AES"
+#define encrypt_wpa2_wpa1_psk_tkip "WPA1PSKWPA2PSK/TKIP"
+#define encrypt_wpa2_wpa1_psk_tkip_aes "WPA1PSKWPA2PSK/TKIPAES"
+
+
+#define encrypt_wpa_tkip "WPA/TKIP"
+#define encrypt_wpa_aes "WPA/AES"
+#define encrypt_wpa_tkip_aes "WPA/TKIPAES"
+#define encrypt_wpa2_aes "WPA2/AES"
+#define encrypt_wpa2_tkip "WPA2/TKIP"
+#define encrypt_wpa2_tkip_aes "WPA2/TKIPAES"
+#define encrypt_wpa2_wpa1_aes "WPA1PSKWPA2/AES"
+#define encrypt_wpa2_wpa1_tkip "WPA1PSKWPA2/TKIP"
+#define encrypt_wpa2_wpa1_tkip_aes "WPA1PSKWPA2/TKIPAES"
+
 
 
 int hasEncrypt=0;
@@ -12,12 +73,6 @@ char channelStr[10];
 char rssi[10];
 int rssidbm;
 
-enum wifi_mode
-{
-	M_2G,
-	M_5G
-};
-
 static int get_wifi_mode()
 {
 	char uci_option_str[64]="\0";
@@ -27,7 +82,6 @@ static int get_wifi_mode()
 	uci_get_option_value(uci_option_str,mode);
 	memset(uci_option_str,'\0',64);
 	
-
 	uci_free_context(ctx);
 
 	if(strcmp(mode,"2g")==0)
@@ -138,9 +192,7 @@ void logstr(char *str)
 #endif
 }
 
-#define is_ascii  0x11
-#define is_gb2312 0x22
-#define is_utf8   0x33
+
 
 int is_UTF8_or_gb2312(const char* str,long length)
 {
@@ -1165,10 +1217,238 @@ crealloc:
 }
 
 
+wifilist_t *get_wifi_list(int wifimode,int *number)
+{
+	char uci_option_str[64]="\0";
+	char wifinum[16]="\0";
+	int i_wifinum=0;
+	int i=0;
+	int j;
+	ctx=uci_alloc_context();
+
+	if(wifimode==M_2G)
+	{
+		strcpy(uci_option_str,"wifilist.number2g.num"); 
+		uci_get_option_value(uci_option_str,wifinum);
+		memset(uci_option_str,'\0',64);
+	}
+	else
+	{
+		strcpy(uci_option_str,"wifilist.number5g.num"); 
+		uci_get_option_value(uci_option_str,wifinum);
+		memset(uci_option_str,'\0',64);
+	}
+	i_wifinum=atoi(wifinum);
+	*number=i_wifinum;
+
+	if(i_wifinum==0){
+		uci_free_context(ctx);
+		return NULL;
+	}
+
+	wifilist_t *wifi_list=(wifilist_t *)malloc(sizeof(wifilist_t)*i_wifinum);
+	memset(wifi_list,0,sizeof(wifilist_t)*i_wifinum);
+	for(i=0;i<i_wifinum;i++)
+	{
+		if(wifimode==M_2G)
+		{
+			sprintf(uci_option_str,"wifilist.@wifi2g[%d].ssid",i);
+			uci_get_option_value(uci_option_str,(wifi_list+i)->ssid);
+			memset(uci_option_str,'\0',64);
+			sprintf(uci_option_str,"wifilist.@wifi2g[%d].encryption",i);
+			uci_get_option_value(uci_option_str,(wifi_list+i)->encryption);
+			memset(uci_option_str,'\0',64);
+			if(strcmp((wifi_list+i)->encryption,"none")!=0)
+			{
+				sprintf(uci_option_str,"wifilist.@wifi2g[%d].key",i);
+				uci_get_option_value(uci_option_str,(wifi_list+i)->key);
+				memset(uci_option_str,'\0',64);
+			}
+		}
+		else
+		{
+			sprintf(uci_option_str,"wifilist.@wifi5g[%d].ssid",i);
+			uci_get_option_value(uci_option_str,(wifi_list+i)->ssid);
+			memset(uci_option_str,'\0',64);
+			sprintf(uci_option_str,"wifilist.@wifi5g[%d].encryption",i);
+			uci_get_option_value(uci_option_str,(wifi_list+i)->encryption);
+			memset(uci_option_str,'\0',64);
+			if(strcmp((wifi_list+i)->encryption,"none")!=0)
+			{
+				sprintf(uci_option_str,"wifilist.@wifi5g[%d].key",i);
+				uci_get_option_value(uci_option_str,(wifi_list+i)->key);
+				memset(uci_option_str,'\0',64);
+			}
+		}
+	}
+
+	uci_free_context(ctx);
+	return wifi_list;
+}
+
+
+int is_connected_ap(const char *name,char *ppasswd)
+{
+	int i,m=0; 
+	int ret = 0;
+	char uci_option_str[64]="\0";
+	char sum[8]="\0";
+	char mac[64]="\0"; 
+	char password[64]="\0"; 
+	char disabled[8] = "\0";
+	wifilist_t *wifilist = NULL;
+	int wifinumber = 0;
+	int iwifimode = 0;
+	iwifimode = get_wifi_mode();
+		
+	wifilist=get_wifi_list(iwifimode,&wifinumber);
+
+	for(i = 0; i < wifinumber; i++){
+		if(!strcasecmp(wifilist[i].ssid,name))
+		{
+			strncpy(ppasswd,wifilist[i].key,strlen(wifilist[i].key));
+			ret = 1;
+		}
+	}
+
+	if(wifilist != NULL)
+		free(wifilist);
+	return ret;
+}
+
+void formatScanStrNl80211(char *outstr, ap_list_info_t *p_ap_list)
+{
+	char tmp[30];
+	char *ptmp;
+	int i;
+	int type_ssid_code=0;
+	int wifi_channel;
+	int wifimode=get_wifi_mode();
+	char record_password[64];
+	char mac[32];
+	if(p_ap_list->count <= 0 || p_ap_list->count >= 100)
+		return ;
+	for(i = 0; i < p_ap_list->count; i++){
+		wifi_channel = p_ap_list->ap_info[i].channel;
+		if(!((wifimode == M_2G && wifi_channel <= 14 && wifi_channel > 0) 
+			|| (wifimode == M_5G && wifi_channel >= 36))){
+			continue;
+		}
+		type_ssid_code=is_UTF8_or_gb2312(p_ap_list->ap_info[i].ssid,strlen(p_ap_list->ap_info[i].ssid));
+		if(type_ssid_code==is_gb2312){
+			continue;
+		}
+
+		strcat(outstr, "<AP ");
+		
+		strcat(outstr, "name=\"");
+		ptmp = xmlEncode(p_ap_list->ap_info[i].ssid);
+		strcat(outstr, ptmp);
+		strcat(outstr, "\" ");
+		free(ptmp);
+
+		strcat(outstr, "mac=\"");
+		memset(mac, 0, sizeof(mac));
+		changeMacStr(p_ap_list->ap_info[i].mac ,mac);
+		strcat(outstr, mac);
+		strcat(outstr, "\" ");
+
+		strcat(outstr, "channel=\"");
+		memset(tmp, 0, sizeof(tmp));
+		sprintf(tmp, "%d", p_ap_list->ap_info[i].channel);
+		strcat(outstr, tmp);
+		strcat(outstr, "\" ");
+
+		strcat(outstr, "rssi=\"");
+		memset(tmp, 0, sizeof(tmp));
+		sprintf(tmp, "%d", p_ap_list->ap_info[i].wifi_signal);
+		strcat(outstr, tmp);
+		strcat(outstr, "\" ");
+
+		strcat(outstr, "encrypt=\"");
+		strcat(outstr, p_ap_list->ap_info[i].encrypt);
+		strcat(outstr, "\" ");
+
+		strcat(outstr, "tkip_aes=\"");
+		strcat(outstr, p_ap_list->ap_info[i].tkip_aes);
+		strcat(outstr, "\" ");
+
+		memset(record_password, 0, sizeof(record_password));
+		if(is_connected_ap(p_ap_list->ap_info[i].ssid, record_password)){
+			strcat(outstr, "record=\"1\" ");
+
+			strcat(outstr, "password=\"");
+			strcat(outstr, record_password);
+			strcat(outstr, "\" ");
+		}
+		else{
+			strcat(outstr, "record=\"0\"");
+		}
+		
+		strcat(outstr, "></AP>");
+	}
+}
+
+static int cgi_get_scan_nl80211(char *	ifname,char *scanstr)	
+{
+	int i = 0, j = 0;
+	ap_list_info_t ap_list_all;
+	int wifi_channel;
+	int ret = 0;
+	char uci_option_str[64]="\0";
+	char tmp_str[64];
+	char cmd_str[64];
+	
+	if(ifname == NULL || scanstr == NULL){
+		return -1;
+	}
+
+	memset(&ap_list_all, 0, sizeof(ap_list_info_t));
+	ret = get_scan_list_nl80211(ifname, &ap_list_all);
+	if (ret){
+		int wifimode=get_wifi_mode();
+		if(wifimode == M_5G){
+			memset(uci_option_str, '\0', 64);
+			memset(tmp_str, '\0', 64);
+			memset(cmd_str, '\0', 64);
+			ctx=uci_alloc_context();
+			strcpy(uci_option_str,"wireless2.@wifi[0].ch5g"); 
+			ret = uci_get_option_value(uci_option_str, tmp_str);
+			if (ret){
+				uci_free_context(ctx);
+				return -1;
+			}
+			uci_free_context(ctx);
+
+			sprintf(cmd_str, "wl down;wl channel %s;wl up", tmp_str);			
+			system(cmd_str);
+			
+			memset(&ap_list_all, 0, sizeof(ap_list_info_t));
+			ret = get_scan_list_nl80211(ifname, &ap_list_all);
+			if (ret){
+				return -1;
+			}
+		}
+		else{
+			return -1;
+		}
+	}
+
+	strcpy(scanstr, "<APList>");
+	formatScanStrNl80211(scanstr, &ap_list_all);
+	strcat(scanstr, "</APList>");
+	
+	return 0;
+}	
+#undef WIFI_DRIVER_WEXT
+
 int cgi_scan(char *ifname, char *outstr)
 {
-	int skfd;
 	int ret;
+	
+#ifdef WIFI_DRIVER_WEXT
+#if 0
+	int skfd;
 
 	if((skfd = iw_sockets_open()) < 0)
 	{
@@ -1180,8 +1460,83 @@ int cgi_scan(char *ifname, char *outstr)
 	//printf("%s\n", outstr);
 	
 	iw_sockets_close(skfd);
+#endif	
+#else defined(WIFI_DRIVER_NL80211)
 
+	ret = cgi_get_scan_nl80211(ifname, outstr);
+	if (ret)
+		return -1;
+#endif
 	return 0;
 }
+#if 0
+int is_UTF8_or_gb2312(const char* str,long length)
+{
+   int i;
+   int nBytes=0;//UFT8可用1-6个字节编码,ASCII用一个字节
+   unsigned char chr;
+   int bAllAscii=1; //如果全部都是ASCII, 说明不是UTF-8
+   for(i=0;i<length;i++)
+   {
+      chr= *(str+i);
+      if( (chr&0x80) != 0 ) // 判断是否ASCII编码,如果不是,说明有可能是UTF-8,ASCII用7位编码,但用一个字节存,最高位标记为0,o0xxxxxxx
+        bAllAscii= 0;
+      if(nBytes==0) //如果不是ASCII码,应该是多字节符,计算字节数
+      {
+         if(chr>=0x80)
+         {
+            if(chr>=0xFC&&chr<=0xFD)
+             nBytes=6;
+            else if(chr>=0xF8)
+             nBytes=5;
+            else if(chr>=0xF0)
+             nBytes=4;
+            else if(chr>=0xE0)
+             nBytes=3;
+            else if(chr>=0xC0)
+             nBytes=2;
+            else
+            {
+              return is_gb2312;
+            }
+            nBytes--;
+         }
+      }
+      else //多字节符的非首字节,应为 10xxxxxx
+      {
+         if( (chr&0xC0) != 0x80 )
+         {
+            return is_gb2312;
+         }
+         nBytes--;
+      }
+   }
 
+   if( nBytes > 0 ) //违返规则
+   {
+      return is_gb2312;
+   }
+
+   if( bAllAscii ) //如果全部都是ASCII, 说明不是UTF-8
+   {
+      return is_ascii;
+   }
+   return is_utf8;
+}
+
+#endif
+void del_space(unsigned char *tmp_buf,int leng)
+{
+	int i;
+	for(i=leng;i>0;i--)
+	{
+		if(tmp_buf[i-1]==32)
+		{
+			tmp_buf[i-1]=0;
+		}else
+		{
+			break;
+		}
+	}
+}
 

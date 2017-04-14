@@ -16,7 +16,7 @@
  * =============================================================================*/
 #include "session_manage.h"
 #ifdef SESSION_MANAGE
-
+#define  VAULT_WATCH_TIME 1800
 extern int exit_flag;
 void session_watch_dog_task(void *self)
 {	
@@ -31,7 +31,10 @@ void session_watch_dog_task(void *self)
 			if(session_dnode->watch_time > 0)
 			{
 				session_dnode->watch_time -= 1;
-				
+				session_dnode->vault_watch_time -= 1;
+				if(session_dnode->vault_watch_time <= 0){
+					session_dnode->isVaultLogin = FALSE;
+				}
 				if(session_dnode->watch_time <= 0)
 				{
 					DMCLOG_D("delete session :%s",session_dnode->session);
@@ -84,6 +87,34 @@ int session_list_destroy(session_list_t *p_session_list)
 	DMCLOG_D("destroy session list succ");
 	return 0;
 }
+bool is_token_login(_In_ char *session,session_list_t *p_session_list)
+{
+	if(session == NULL)
+	{
+		DMCLOG_E("para is null");
+		return -1;
+	}
+	session_dnode_t *session_dnode = NULL;
+	pthread_mutex_lock(&p_session_list->mutex);
+	if(&p_session_list->head == NULL || dl_list_empty(&p_session_list->head))
+	{
+	 DMCLOG_E("the session list is null");
+	 pthread_mutex_unlock(&p_session_list->mutex);
+	 return FALSE;
+	}
+	dl_list_for_each(session_dnode, &(p_session_list->head), session_dnode_t, next)
+	{
+	 if(!strcmp(session_dnode->session,session))
+	 {
+		 DMCLOG_D("the session:%s = %d is exist",session,session_dnode->isVaultLogin);
+		 session_dnode ->vault_watch_time = VAULT_WATCH_TIME;
+		 pthread_mutex_unlock(&p_session_list->mutex);
+		 return session_dnode->isVaultLogin;
+	 }
+	}	 
+	pthread_mutex_unlock(&p_session_list->mutex);
+	return FALSE;
+}
 
 bool is_session_login(_In_ char *session,session_list_t *p_session_list)
 {
@@ -113,6 +144,37 @@ bool is_session_login(_In_ char *session,session_list_t *p_session_list)
 	return FALSE;
 }
 
+int set_token_login(_In_ char *session,_In_ bool isLogin,session_list_t *p_session_list)
+{
+	ENTER_FUNC();
+	if(session == NULL)
+	{
+		DMCLOG_E("para is null");
+		return -1;
+	}
+	session_dnode_t *session_dnode = NULL;
+	pthread_mutex_lock(&p_session_list->mutex);
+	if(&p_session_list->head == NULL || dl_list_empty(&p_session_list->head))
+	{
+	 DMCLOG_E("the session list is null");
+	 pthread_mutex_unlock(&p_session_list->mutex);
+	 return 0;
+	}
+	dl_list_for_each(session_dnode, &(p_session_list->head), session_dnode_t, next)
+	{
+	 if(!strcmp(session_dnode->session,session))
+	 {
+		 DMCLOG_D("the session:%s = %d is exist",session,isLogin);
+		 session_dnode->vault_watch_time = VAULT_WATCH_TIME;
+		 session_dnode->isVaultLogin = isLogin;
+		 pthread_mutex_unlock(&p_session_list->mutex);
+		 return 0;
+	 }
+	}	 
+	pthread_mutex_unlock(&p_session_list->mutex);
+	return -1;
+}
+
 int set_session_login(_In_ char *session,_In_ bool isLogin,session_list_t *p_session_list)
 {
 	if(session == NULL)
@@ -133,7 +195,7 @@ int set_session_login(_In_ char *session,_In_ bool isLogin,session_list_t *p_ses
 	 if(!strcmp(session_dnode->session,session))
 	 {
 		 DMCLOG_D("the session:%s is exist",session);
-		 session_dnode->isLogin = TRUE;
+		 session_dnode->isLogin = isLogin;
 		 pthread_mutex_unlock(&p_session_list->mutex);
 		 return 0;
 	 }
@@ -154,7 +216,7 @@ bool is_session_exist(_In_ char *session,session_list_t *p_session_list)
 	pthread_mutex_lock(&p_session_list->mutex);
 	if(&p_session_list->head == NULL || dl_list_empty(&p_session_list->head))
 	{
-	 DMCLOG_E("the session list is null");
+	 //DMCLOG_E("the session list is null");
 	 pthread_mutex_unlock(&p_session_list->mutex);
 	 return FALSE;
 	}
@@ -162,7 +224,7 @@ bool is_session_exist(_In_ char *session,session_list_t *p_session_list)
 	{
 	 if(!strcmp(session_dnode->session,session))
 	 {
-		 DMCLOG_D("the session:%s is exist",session);
+		 //DMCLOG_D("the session:%s is exist",session);
 		 pthread_mutex_unlock(&p_session_list->mutex);
 		 return TRUE;
 	 }
@@ -182,11 +244,11 @@ int add_session_to_list(char *session,session_list_t *p_session_list)
 	}
 	if(is_session_exist(session,p_session_list))
 	{
-		DMCLOG_D("the session:%s is exist",session);
+		//DMCLOG_D("the session:%s is exist",session);
 		update_session_time(session,p_session_list);
 		return 0;
 	}
-	DMCLOG_D("session = %s",session);
+	//DMCLOG_D("session = %s",session);
 	pthread_mutex_lock(&p_session_list->mutex);
 	session_dnode_t *fdi = (session_dnode_t *)calloc(1,sizeof(session_dnode_t));
 	if(fdi == NULL)
@@ -202,7 +264,8 @@ int add_session_to_list(char *session,session_list_t *p_session_list)
 	}else{
 		fdi->isLogin = TRUE;
 	}
-		
+	fdi->isVaultLogin = FALSE;
+	fdi->vault_watch_time = VAULT_WATCH_TIME;
 	fdi->watch_time = get_session_watch_time();
 	dl_list_add_tail(&p_session_list->head,&fdi->next);
 	DMCLOG_D("add succ session:%s,watch_time = %u",session,fdi->watch_time);

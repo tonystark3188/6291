@@ -35,6 +35,8 @@ typedef struct session_dnode {
 	char 	session[64];
 	bool 	isLogin;
 	int32_t watch_time;
+	bool 	isVaultLogin;
+	int32_t vault_watch_time;
 }session_dnode_t;
 
 typedef struct session_list{

@@ -76,14 +76,19 @@ smb_add_share() {
 	config_get browseable $1 browseable
 
 	[ -z "$name" -o -z "$path" ] && return
+	mount | grep -e "/dev/sd" -e "dev/mmcblk0p4" | awk '{print $3}' | while read line
+	do
+    		#echo $line
+    		name=$(echo $line | awk -F '/' '{print $4}')    
+    		echo -e "\n[$name]\n\tpath = $line" >> /var/etc/smb.conf  
+			[ -n "$users" ] && echo -e "\tvalid users = $users" >> /var/etc/smb.conf       
+        	[ -n "$read_only" ] && echo -e "\tread only = $read_only" >> /var/etc/smb.conf 
+                [ -n "$guest_ok" ] && echo -e "\tguest ok = $guest_ok" >> /var/etc/smb.conf   
+                [ -n "$create_mask" ] && echo -e "\tcreate mask = $create_mask" >> /var/etc/smb.conf
+                [ -n "$dir_mask" ] && echo -e "\tdirectory mask = $dir_mask" >> /var/etc/smb.conf   
+    			[ -n "$browseable" ] && echo -e "\tbrowseable = $browseable" >> /var/etc/smb.conf
+	done	
 
-	echo -e "\n[$name]\n\tpath = $path/SD-disk-1" >> /var/etc/smb.conf
-	[ -n "$users" ] && echo -e "\tvalid users = $users" >> /var/etc/smb.conf
-	[ -n "$read_only" ] && echo -e "\tread only = $read_only" >> /var/etc/smb.conf
-	[ -n "$guest_ok" ] && echo -e "\tguest ok = $guest_ok" >> /var/etc/smb.conf
-	[ -n "$create_mask" ] && echo -e "\tcreate mask = $create_mask" >> /var/etc/smb.conf
-	[ -n "$dir_mask" ] && echo -e "\tdirectory mask = $dir_mask" >> /var/etc/smb.conf
-	[ -n "$browseable" ] && echo -e "\tbrowseable = $browseable" >> /var/etc/smb.conf
 }
 
 start() {

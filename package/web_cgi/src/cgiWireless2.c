@@ -1,4 +1,9 @@
 #include "cgiWireless.h"
+#include "uci_for_cgi.h"
+#include "auto_connect.h"
+#if defined(WIFI_DRIVER_NL80211)
+#include "iw_nl80211.h"
+#endif
 
 int hasEncrypt=0;
 int haswpa=0;
@@ -268,7 +273,8 @@ void formatScanStr(char *outstr)
 
 	
 	//strcat(outstr, "mac=\"");
-	//strcat(outstr, macaddr);
+	strcat(outstr, macaddr);
+	strcat(outstr, ",");
 	//strcat(outstr, "\" ");
 
 	//strcat(outstr, "channel=\"");
@@ -1138,15 +1144,79 @@ crealloc:
 	return(0);
 }
 
+void formatScan2StrNl80211(char *outstr, ap_list_info_t *p_ap_list)
+{
+	char tmp[30];
+	char *ptmp;
+	int i;
+	int type_ssid_code=0;
+	int wifi_channel;
+	int wifimode=get_wifi_mode();
+	char mac[32];
+	if(p_ap_list->count <= 0 || p_ap_list->count >= 100)
+		return ;
+	for(i = 0; i < p_ap_list->count; i++){
+		wifi_channel = p_ap_list->ap_info[i].channel;
+		if(!((wifimode == M_2G && wifi_channel <= 14 && wifi_channel > 0) 
+			|| (wifimode == M_5G && wifi_channel >= 36))){
+			continue;
+		}
+		type_ssid_code=is_UTF8_or_gb2312(p_ap_list->ap_info[i].ssid,strlen(p_ap_list->ap_info[i].ssid));
+		if(type_ssid_code==is_gb2312){
+			continue;
+		}
+
+		strcat(outstr, p_ap_list->ap_info[i].ssid);
+		strcat(outstr, ",");
+
+		memset(mac, 0, sizeof(mac));
+		changeMacStr(p_ap_list->ap_info[i].mac ,mac);
+		strcat(outstr, mac);
+		strcat(outstr, ",");
+
+		memset(tmp, 0, sizeof(tmp));
+		sprintf(tmp, "%d", p_ap_list->ap_info[i].channel);
+		strcat(outstr, tmp);
+		strcat(outstr, ",");
+
+		memset(tmp, 0, sizeof(tmp));
+		sprintf(tmp, "%d", p_ap_list->ap_info[i].wifi_signal);
+		strcat(outstr, tmp);
+
+		strcat(outstr, "\n");
+	}
+}
+
+static int cgi_get_scan2_nl80211(char *	ifname,char *scanstr)	
+{
+	int i = 0, j = 0;
+	ap_list_info_t ap_list_all;
+	int wifi_channel;
+	int ret = 0;
+	if(ifname == NULL || scanstr == NULL){
+		return -1;
+	}
+
+	memset(&ap_list_all, 0, sizeof(ap_list_info_t));
+	ret = get_scan_list_nl80211(ifname, &ap_list_all);
+	if (ret){
+		return -1;
+	}
+
+	formatScan2StrNl80211(scanstr, &ap_list_all);
+	
+	return 0;
+}	
+
 
 int cgi_scan2(char *ifname, char *outstr)
 {
-	int skfd;
 	int ret;
-
+#ifdef WIFI_DRIVER_WEXT
+	int skfd;
+	
 	if((skfd = iw_sockets_open()) < 0)
 	{
-		//error
 		return -1;
 	}
 
@@ -1155,6 +1225,12 @@ int cgi_scan2(char *ifname, char *outstr)
 	
 	iw_sockets_close(skfd);
 
+#else defined(WIFI_DRIVER_NL80211)
+	ret = cgi_get_scan2_nl80211(ifname, outstr);
+	//printf("%s\n", outstr);
+	if (ret)
+		return -1;
+#endif
 	return 0;
 }
 

@@ -61,13 +61,22 @@ typedef struct
 	uint32_t uuid;	    //which hdisk the file belongs to.
 }disk_path_data_t;
 
+typedef enum
+{
+    FILE_TABLE_INSERT_INFO    				= 0x01,
+    FILE_TABLE_INSERT_BY_PATH    			= 0x02,
+    FILE_TABLE_INSERT_LIST    				= 0x03,
+    FILE_TABLE_ENCRYPT_INSERT_INFO    		= 0x04,
+}file_insert_cmd_t;
+
 
 //data collection of inserting new file record definition.
 typedef struct
 {
+	file_insert_cmd_t cmd;
+	struct dl_list *head;//list head for result
 	file_info_t file_info;  //file information
 }insert_data_t;
-
 
 //data collection of file record to rename
 typedef struct 
@@ -118,6 +127,7 @@ typedef struct
 //data collection of file list querying
 typedef struct
 {
+	pthread_mutex_t *mutex;
 	struct dl_list head; //list head for result
 	struct dl_list sur_head;//list head for surplus file's id
 	uint32_t user_id;    //user id
@@ -136,6 +146,7 @@ typedef struct
 	uint32_t curParentId;
 	bool curParentAttr;
 	char curPath[4096];
+	int encryptType;//1 // 1:filter the encrypt file;0:not filter encrypt file
 }file_list_t;
 
 typedef struct

@@ -36,21 +36,15 @@
 #define  MB (1024*KB)
 #define  GB (1024*MB)
 
-
-
 //typedef error_t (*traverse_handler)(sqlite3 *database, char **FieldValue);
 extern error_t get_file_list_by_parent_id(sqlite3 *database, file_list_t *file_list);
 extern error_t get_file_album_by_parent_id(sqlite3 *database, file_list_t *file_list);
 
-
-
-
-db_table_t g_file_table;
-static uint32_t  g_file_id = 0;
+db_table_t 			g_file_table;
+static uint32_t  	g_file_id = 0;
+static int   		database_work_status = DB_STATUS_WAITTING;
 
 static int get_id_callback(void *data, int nFields, char **FieldValue, char **FieldName);
-
-
 extern error_t get_file_path(sqlite3 *database, uint32_t id, file_info_t *pfi);
 extern int get_time_str_for_db(char *time_s, size_t size);
 
@@ -76,7 +70,30 @@ static int get_file_level(const char *path)
     return level;
 }
 
+int file_get_parent_encrypted_id(sqlite3 *database,char *path,int *encrypted_id)
+{
+	ENTER_FUNC();
+	if(database == NULL || path == NULL)
+	{
+		return ENULL_POINT;
+	}
 
+	error_t errcode = RET_SUCCESS;
+	DMCLOG_D("path=%s",path);
+	char *tmp = strrchr(path,'/');
+	*tmp = '\0';
+	//DMCLOG_D("path=%s",path);
+	errcode = query_dir_file_encrypted_id(database,path,encrypted_id);
+	if(errcode == EDB_RECORD_NOT_EXIST)
+	{
+		DMCLOG_D("rename file doesn't exist,src_path=%s",path);
+		*tmp = '/';
+		return EDB_RECORD_NOT_EXIST;
+	}
+	DMCLOG_D("parent encrypted_id=%d",*encrypted_id);
+	*tmp = '/';
+	return errcode;
+}
 int file_get_parent_id(sqlite3 *database,char *path,int *parent_id)
 {
 	if(database == NULL || path == NULL)
@@ -97,7 +114,38 @@ int file_get_parent_id(sqlite3 *database,char *path,int *parent_id)
 	return errcode;
 }
 
+static int get_name_callback(void **data, int nFields, char **FieldValue, char **FieldName)
+{
+    char **name = (char **)data;
 
+	if(FieldValue[0] != NULL)
+	{
+		//DMCLOG_D("FieldValue[0]=%s",FieldValue[0]);
+		//if(*name == NULL)
+		{
+			*name = (char*)calloc(1,strlen(FieldValue[0])+1);
+			strcpy(*name,FieldValue[0]);
+			//DMCLOG_D("*name=%s",*name);
+		}
+	}
+	
+	return 0;
+}
+int file_get_name_by_encrypt_id(sqlite3 *database,int encrypt_id,char **name){
+//	ENTER_FUNC();
+	if(database == NULL)
+	{
+		return ENULL_POINT;
+	}
+
+	char sql[SQL_CMD_QUERY_BUF_SIZE] = {0};
+	error_t errcode = RET_SUCCESS;
+//	DMCLOG_D("path=%s",path);
+	sprintf(sql, "SELECT NAME FROM %s where ENCRYPT_ID = %u",
+		FILE_TABLE_NAME, encrypt_id);
+
+	return sqlite3_exec_busy_wait(database, sql, get_name_callback, name);
+}
 
 //get  appointed level's name in a path
 //eg.  the name of third level of '/root/aa/bb/cc'  is 'bb'
@@ -236,17 +284,21 @@ error_t query_file_info(sqlite3 *database,char *path,file_info_t *pfi)
     return errcode;	
 }
 
+int file_encrypted_id_query_callback(void *data, int nFields, char **FieldValue, char **FieldName)
+{
+    unsigned *g_id = (unsigned *)data;
+    load_file_encrypt_id(FieldName, FieldValue, nFields, g_id);
+    return 0;
+}
 int file_id_query_callback(void *data, int nFields, char **FieldValue, char **FieldName)
 {
     unsigned *g_id = (unsigned *)data;
     load_file_id(FieldName, FieldValue, nFields, g_id);
     return 0;
 }
-
-error_t query_dir_file_id(sqlite3 *database,char *path,unsigned *g_id)
+error_t query_dir_file_encrypted_id(sqlite3 *database,char *path,unsigned *g_id)
 {
-	ENTER_FUNC();
-    char sql[SQL_CMD_QUERY_BUF_SIZE];
+    char sql[SQL_CMD_QUERY_BUF_SIZE] = {0};
 	error_t errcode = RET_SUCCESS;
     
 	if(database == NULL||path == NULL)
@@ -257,25 +309,59 @@ error_t query_dir_file_id(sqlite3 *database,char *path,unsigned *g_id)
 	char *path_escape = db_path_escape(path);
 	if(path_escape == NULL)
 	{
-		DMCLOG_D("rename file error,src_path=%s",path);
+		DMCLOG_E("rename file error,src_path=%s",path);
 		return EDB_RECORD_NOT_EXIST;
 	}
-	sprintf(sql, "SELECT * FROM %s where PATH = '%s'",
-		FILE_TABLE_NAME, path_escape);
+	sprintf(sql, "SELECT * FROM %s where PATH = '%s'",FILE_TABLE_NAME, path_escape);
 	safe_free(path_escape);
-	if((errcode = sqlite3_exec_busy_wait(database, sql, file_id_query_callback, g_id))
+	//DMCLOG_D("sql=%s",sql);
+	if((errcode = sqlite3_exec_busy_wait(database, sql, file_encrypted_id_query_callback, g_id))
 			!= RET_SUCCESS)
 	{
-        log_debug("exit error");
+        DMCLOG_E("exit error");
 		return errcode;
 	}
 
     if(*g_id == INVALID_FILE_ID)
     {
-        log_debug("EDB_RECORD_NOT_EXIST");
+        DMCLOG_E("EDB_RECORD_NOT_EXIST");
 		return EDB_RECORD_NOT_EXIST;
 	}
-	EXIT_FUNC();
+    return errcode;	
+}
+
+error_t query_dir_file_id(sqlite3 *database,char *path,unsigned *g_id)
+{
+    char sql[SQL_CMD_QUERY_BUF_SIZE] = {0};
+	error_t errcode = RET_SUCCESS;
+    
+	if(database == NULL||path == NULL)
+	{
+		DMCLOG_E("the para is null");
+		return EINVAL_ARG;
+	}
+	char *path_escape = db_path_escape(path);
+	if(path_escape == NULL)
+	{
+		DMCLOG_E("rename file error,src_path=%s",path);
+		return EDB_RECORD_NOT_EXIST;
+	}
+	sprintf(sql, "SELECT ID FROM %s where PATH = '%s'",FILE_TABLE_NAME, path_escape);
+	safe_free(path_escape);
+
+	if((errcode = sqlite3_exec_busy_wait(database, sql, file_id_query_callback, g_id))
+			!= RET_SUCCESS)
+	{
+        DMCLOG_E("exit error");
+		return errcode;
+	}
+
+
+    if(*g_id == INVALID_FILE_ID)
+    {
+        DMCLOG_E("EDB_RECORD_NOT_EXIST");
+		return EDB_RECORD_NOT_EXIST;
+	}
     return errcode;	
 }
 
@@ -301,7 +387,7 @@ error_t query_file_info_by_parentid_and_name(sqlite3 *database,unsigned parent_i
 	//DMCLOG_D("name = %s,parent_id = %u",name,parent_id);
     if(pfi->index == INVALID_FILE_ID)
     {
-        log_debug("EDB_RECORD_NOT_EXIST");
+        //log_debug("EDB_RECORD_NOT_EXIST");
 		return EDB_RECORD_NOT_EXIST;
 	}
     return errcode;	
@@ -588,17 +674,18 @@ static error_t load_file_insert_cmd(char *sql,file_info_t *pfi)
 		char *path_escape = db_path_escape(pfi->path);
 		DMCLOG_D("path_escape = %s,parent_id = %u,index = %u",path_escape,pfi->parent_id,pfi->index);
 		n = snprintf(sql, SQL_CMD_WRITE_BUF_SIZE, "INSERT INTO %s(ID,NAME,PATH,PARENT_ID,TYPE,SIZE,CREATE_TIME,"\
-	    "MEDIA_INFO_INDEX,DIR,FILE_UUID,MIME_TYPE,CHANGE_TIME,ACCESS_TIME) "\
-        "VALUES(%u,'%s','%s',%u,%d,%lld,%u,%d,%d,'%s','%s',%u,%u);", FILE_TABLE_NAME,
+	    "MEDIA_INFO_INDEX,DIR,FILE_UUID,MIME_TYPE,CHANGE_TIME,ACCESS_TIME,ENCRYPT_ID) "\
+        "VALUES(%u,'%s','%s',%u,%d,%lld,%u,%d,%d,'%s','%s',%u,%u,%d);", FILE_TABLE_NAME,
          pfi->index, name_str_escape,path_escape,pfi->parent_id, pfi->file_type, pfi->file_size,
-         pfi->create_time,pfi->attr,pfi->isFolder,pfi->file_uuid,pfi->mime_type,pfi->modify_time,pfi->access_time);
+         pfi->create_time,pfi->attr,pfi->isFolder,pfi->file_uuid,pfi->mime_type,pfi->modify_time,pfi->access_time,pfi->encryptId);
 		safe_free(path_escape);
 	}else{
+	
 		n = snprintf(sql, SQL_CMD_WRITE_BUF_SIZE, "INSERT INTO %s(ID,NAME,PATH,PARENT_ID,TYPE,SIZE,CREATE_TIME,"\
-	    "MEDIA_INFO_INDEX,DIR,FILE_UUID,MIME_TYPE,CHANGE_TIME,ACCESS_TIME) "\
-        "VALUES(%u,'%s','%s',%u,%d,%lld,%u,%d,%d,'%s','%s',%u,%u);", FILE_TABLE_NAME,
+	    "MEDIA_INFO_INDEX,DIR,FILE_UUID,MIME_TYPE,CHANGE_TIME,ACCESS_TIME,ENCRYPT_ID) "\
+        "VALUES(%u,'%s','%s',%u,%d,%lld,%u,%d,%d,'%s','%s',%u,%u,%d);", FILE_TABLE_NAME,
          pfi->index, name_str_escape,"",pfi->parent_id, pfi->file_type, pfi->file_size,
-         pfi->create_time,pfi->attr,pfi->isFolder,pfi->file_uuid,pfi->mime_type,pfi->modify_time,pfi->access_time);
+         pfi->create_time,pfi->attr,pfi->isFolder,pfi->file_uuid,pfi->mime_type,pfi->modify_time,pfi->access_time,pfi->encryptId);
 	}
 	if(n >= SQL_CMD_WRITE_BUF_SIZE)
 	{
@@ -663,11 +750,36 @@ void load_file_item(char **FieldName, char **FieldValue, int nFields, file_info_
 		pfi->file_type = atoi(FieldValue[4]);
 	if(FieldValue[5] != NULL)
 		pfi->file_size = strtoull(FieldValue[5], NULL, 10);
-
-	if(FieldValue[7] != NULL)
+    
+	if(FieldValue[9] != NULL)
 	{
-		pfi->attr = atoi(FieldValue[7]);
+		strcpy(pfi->file_uuid, FieldValue[9]);
 	}
+	if(FieldValue[11] != NULL)
+        pfi->modify_time= strtoull(FieldValue[11], NULL, 10);
+    if(FieldValue[13] != NULL)
+    {
+        pfi->encryptId= strtoull(FieldValue[13], NULL, 10);
+        if(pfi->encryptId != 0)
+            DMCLOG_D("pfi->encryptId = %d",pfi->encryptId);
+    }
+    
+    
+}
+
+void load_view_item(char **FieldName, char **FieldValue, int nFields, file_info_t *pfi)
+{
+	if(FieldValue[1] != NULL)
+	{
+		pfi->name = (char *)calloc(1,strlen(FieldValue[1]) + 1);
+		strcpy(pfi->name , FieldValue[1]);
+	}
+	
+	if(FieldValue[3] != NULL)
+		pfi->parent_id = strtoul(FieldValue[3], NULL, 10);
+	if(FieldValue[5] != NULL)
+		pfi->file_size = strtoull(FieldValue[5], NULL, 10);
+
 	if(FieldValue[9] != NULL)
 	{
 		strcpy(pfi->file_uuid, FieldValue[9]);
@@ -675,6 +787,7 @@ void load_file_item(char **FieldName, char **FieldValue, int nFields, file_info_
 	if(FieldValue[11] != NULL)
         pfi->modify_time= strtoull(FieldValue[11], NULL, 10);
 }
+
 
 void load_file_uuid_and_id(char **FieldName, char **FieldValue, int nFields, file_uuid_t *pfi)
 {
@@ -707,10 +820,17 @@ void load_file_attr(char **FieldName, char **FieldValue, int nFields, int  *attr
 	if(FieldValue[7] != NULL)
 	{
 		*attr = atoi(FieldValue[7]);
+
 	}
 }
 
-
+//load item information,a helper function in sqlite exec callback 
+void load_file_encrypt_id(char **FieldName, char **FieldValue, int nFields, unsigned *id)
+{
+	if(FieldValue[13] != NULL)
+    	*id = strtoul(FieldValue[13], NULL, 10);
+   
+}
 
 //load item information,a helper function in sqlite exec callback 
 void load_file_id(char **FieldName, char **FieldValue, int nFields, unsigned *id)
@@ -795,6 +915,7 @@ int dm_do_hide(sqlite3 *database,unsigned parent_id,bool attr)
 		}   
 		return errcode;
 	}
+
 	
 	DMCLOG_D("result_cnt(%u)", file_list.result_cnt);
     if(file_list.result_cnt > 0)
@@ -845,6 +966,7 @@ int dm_do_album_hide(sqlite3 *database,unsigned parent_id,bool attr)
 		}   
 		return errcode;
 	}
+
 	
 	DMCLOG_D("result_cnt(%u)", file_list.result_cnt);
     if(file_list.result_cnt > 0)
@@ -918,6 +1040,70 @@ int dm_do_delete(sqlite3 *database,unsigned parent_id)
     return errcode;
 }
 
+int dm_do_encrypt_delete(sqlite3 *database,unsigned parent_id,int encryptId)
+{
+    error_t errcode = RET_SUCCESS;
+    file_list_t file_list;
+    file_info_t *item,*n;
+    memset(&file_list,0,sizeof(file_list_t));
+    file_list.parent_id = parent_id;
+    dl_list_init(&file_list.head);
+    if((errcode = get_file_list_by_parent_id(database, &file_list)) != RET_SUCCESS)
+    {
+        DMCLOG_E("get file list by parent_id error");
+        dl_list_for_each_safe(item, n, &file_list.head, file_info_t, next)
+        {
+            free_db_fd(&item);
+        }
+        return errcode;
+    }
+    
+    DMCLOG_D("result_cnt(%u)", file_list.result_cnt);
+    if(file_list.result_cnt > 0)
+    {
+        dl_list_for_each(item, &(file_list.head), file_info_t, next)
+        {
+            // init item member
+            if(item->isFolder == 1)
+            {
+                //the file is folder
+                dm_do_encrypt_delete(database,item->index,item->encryptId);
+            }
+            //the file is normal file
+            if((errcode = dm_do_delete_by_id(database, item->index)) != 0)
+            {
+                DMCLOG_E("delete normal file error");
+                break;
+            }
+            
+            if(item->encryptId != 0)
+            {
+                encrypt_info_t pInfo;
+                memset(&pInfo,0,sizeof(encrypt_info_t));
+                pInfo.id = item->encryptId;
+                encrypt_table_delete(database, &pInfo);
+            }
+        }
+    }
+    dl_list_for_each_safe(item, n, &(file_list.head), file_info_t, next)
+    {
+        free_db_fd(&item);
+    }
+    if((errcode = dm_do_delete_by_id(database, parent_id)) != 0)
+    {
+        DMCLOG_E("delete normal file error");
+        return errcode;
+    }
+    if(encryptId != 0)
+    {
+        encrypt_info_t pInfo;
+        memset(&pInfo,0,sizeof(encrypt_info_t));
+        pInfo.id = encryptId;
+        encrypt_table_delete(database, &pInfo);
+    }
+    return errcode;
+}
+
 
 static error_t dm_do_delete_by_path(sqlite3 *database, uint32_t parent_id,int file_type)
 {
@@ -980,6 +1166,60 @@ static error_t file_table_delete_normal(sqlite3 *database,char *path)
 	return errcode;
 }
 
+static error_t file_table_delete_encrypt(sqlite3 *database,char *path)
+{
+    unsigned parent_id;
+    int id = 0;
+    error_t errcode = RET_SUCCESS;
+    if(database == NULL || path == NULL)
+    {
+        return ENULL_POINT;
+    }
+    errcode = file_get_parent_id(database,path,&parent_id);
+    if(errcode != RET_SUCCESS)
+    {
+        DMCLOG_D("del file doesn't exist,src_path=%s",path);
+        return EDB_RECORD_NOT_EXIST;
+    }
+    
+    DMCLOG_D("parent_id = %d",parent_id);
+    
+    char *name = bb_basename(path);
+    DMCLOG_D("name = %s",name);
+    file_info_t pfi;
+    memset(&pfi,0,sizeof(file_info_t));
+    errcode = query_file_info_by_parentid_and_name(database,parent_id,name,&pfi);
+    if(errcode == EDB_RECORD_NOT_EXIST)
+    {
+        DMCLOG_D("file doesn't exist,src_path=%s",path);
+        return EDB_RECORD_NOT_EXIST;
+    }
+    
+    if(pfi.isFolder == 0)//delete normal file
+    {
+        if((errcode = dm_do_delete_by_id(database, pfi.index)) != 0)
+        {
+            DMCLOG_E("delete normal file error");
+            return errcode;
+        }
+        
+        if(pfi.encryptId != 0)
+        {
+            encrypt_info_t pInfo;
+            memset(&pInfo,0,sizeof(encrypt_info_t));
+            pInfo.id = pfi.encryptId;
+            encrypt_table_delete(database, &pInfo);
+        }
+    }else{
+        errcode = dm_do_encrypt_delete(database,pfi.index,pfi.encryptId);
+        if(errcode!= RET_SUCCESS)
+        {
+            return errcode;
+        }
+    }
+    return errcode;
+}
+
 static error_t file_table_delete_type_by_path(sqlite3 *database,char *path,int file_type)
 {
 	unsigned parent_id;
@@ -1008,7 +1248,6 @@ static error_t file_table_delete_type_by_path(sqlite3 *database,char *path,int f
 
 static error_t file_table_delete(sqlite3 *database, void *target)
 {
-	ENTER_FUNC();
 	error_t errcode = RET_SUCCESS;
 	if(database == NULL || target == NULL)
 	{
@@ -1019,7 +1258,10 @@ static error_t file_table_delete(sqlite3 *database, void *target)
 	if(pdel_data->cmd == FILE_TABLE_DELETE_INFO)
 	{
 		return file_table_delete_normal(database,pdel_data->path);
-	}else if(pdel_data->cmd == FILE_TABLE_DELETE_TYPE_BY_PATH)
+	}else if(pdel_data->cmd == FILE_TABLE_DELETE_ENCRYPT)
+    {
+        return file_table_delete_encrypt(database,pdel_data->path);
+    }else if(pdel_data->cmd == FILE_TABLE_DELETE_TYPE_BY_PATH)
 	{
 		return file_table_delete_type_by_path(database,pdel_data->path,pdel_data->file_type);
 	}else if(pdel_data->cmd == FILE_TABLE_DELETE_LIST)
@@ -1037,20 +1279,8 @@ static error_t file_table_delete(sqlite3 *database, void *target)
 			}
 		}
 	}
-	EXIT_FUNC();
 	return errcode;
 }	
-
-static int get_file_type_list_by_path_callback(void *data, int nFields, char **FieldValue, char **FieldName)
-{
-	file_uuid_list_t *plist = (file_uuid_list_t *)data;
-	file_uuid_t *pfi = (file_uuid_t *)calloc(1,sizeof(file_uuid_t));
-	assert(pfi != NULL);
-	load_file_uuid_and_id(FieldName, FieldValue, nFields, pfi);
-	dl_list_add_tail(&plist->head, &pfi->next);
-	plist->result_cnt++;
-	return 0;
-}
 
 //get a new file id 
 static uint32_t alloc_file_id(void)
@@ -1182,12 +1412,12 @@ static error_t create_full_path(sqlite3 *database, file_info_t *pfi, uint32_t *l
 *input param:item_info-->file information buffer
 *return : RET_SUCCESS if ok.
 */
-static error_t dm_file_insert(sqlite3 *database, void *item_info)
+static error_t file_table_insert_normal(sqlite3 *database, void *item_info)
 {
     file_info_t *pfi = (file_info_t *)item_info;
 	
     char *sql = get_db_write_task_sql_buf();
-	uint32_t parent_id;
+	uint32_t parent_id = 0;
 	error_t errcode;
 	
     if(database == NULL || pfi == NULL)
@@ -1220,11 +1450,6 @@ static error_t dm_file_insert(sqlite3 *database, void *item_info)
 	}
 	//insert
 	unsigned id;
-	DMCLOG_D("parent_id = %u",parent_id);
-	char *fullname = (char *)calloc(1,strlen(DOCUMENT_ROOT) + strlen(pfi->path) + 1);
-	sprintf(fullname,"%s%s",DOCUMENT_ROOT,pfi->path);
-	pfi->attr = dm_get_attr_hide(fullname);
-	safe_free(fullname);
 	errcode = query_file_id_by_parentid_and_name(database,parent_id,bb_basename(pfi->path),&id);
     if(errcode == EDB_RECORD_NOT_EXIST)
    	{
@@ -1236,7 +1461,7 @@ static error_t dm_file_insert(sqlite3 *database, void *item_info)
 		file_tmp.index = alloc_file_id();
 		file_tmp.path = pfi->path;
 		file_tmp.name = bb_basename(pfi->path);
-		file_tmp.attr = pfi->attr;
+//		file_tmp.attr = pfi->attr;
 		if((errcode = load_file_insert_cmd(sql,&file_tmp)) != RET_SUCCESS)
 		{
 			return errcode;
@@ -1245,7 +1470,7 @@ static error_t dm_file_insert(sqlite3 *database, void *item_info)
 		if((errcode = sqlite3_exec_busy_wait(database, sql, NULL, NULL))
 				!= RET_SUCCESS)
 		{
-		    log_warning("db:insert %s error\n", pfi->path);
+		    DMCLOG_E("db:insert %s error\n", pfi->path);
 	        return errcode;
 		}
 	}else{
@@ -1255,6 +1480,139 @@ static error_t dm_file_insert(sqlite3 *database, void *item_info)
 	}
 	return errcode;
 }
+
+/*
+ *description:insert new file record to file table
+ *input param:item_info-->file information buffer
+ *return : RET_SUCCESS if ok.
+ */
+static error_t file_table_insert_encrypt(sqlite3 *database, void *item_info)
+{
+    file_info_t *pfi = (file_info_t *)item_info;
+    
+    char *sql = get_db_write_task_sql_buf();
+    uint32_t parent_id = 0;
+    error_t errcode;
+    
+    if(database == NULL || pfi == NULL)
+    {
+        log_warning("file table insert error:invalid parameters\n");
+        return EINVAL_ARG;
+    }
+    //make sure whether parent directory exists
+    DMCLOG_D("pfi->path = %s",pfi->path);
+    errcode = file_get_parent_id(database, pfi->path, &parent_id);
+    if(errcode == EDB_RECORD_NOT_EXIST)
+    {
+        DMCLOG_E("parent item %s is not exist",pfi->path);
+        return -1;
+    }
+    DMCLOG_D("parent_id = %d",parent_id);
+    //insert
+    unsigned id = 0;
+    errcode = query_file_id_by_parentid_and_name(database,parent_id,bb_basename(pfi->path),&id);
+    if(errcode == EDB_RECORD_NOT_EXIST)
+   	{
+        DMCLOG_D("the file is not exist");
+        file_info_t file_tmp;
+        memset(&file_tmp,0,sizeof(file_info_t));
+        memcpy(&file_tmp,pfi,sizeof(file_info_t));
+        file_tmp.parent_id = parent_id;
+        file_tmp.index = alloc_file_id();
+        file_tmp.path = pfi->path;
+        file_tmp.name = bb_basename(pfi->path);
+        
+        if(pfi->isEncryptFile == 1)
+        {
+        	char tmp_path[MAX_ENCRYPT_PATH_SIZE] = {0};
+        	sprintf(tmp_path,"%s%s",DOCUMENT_ROOT,pfi->path);
+        	DMCLOG_D("tmp=%s",tmp_path);
+
+        	//查询父目录是否已加密，得到parent_encrypted_id
+			errcode = file_get_parent_encrypted_id(database,pfi->path,&pfi->encrypt_info.parent_id);
+            if(errcode == EDB_RECORD_NOT_EXIST)
+            {//父目录没有加密，则直接保存在safebox，parent_encrypted_id=1
+            	pfi->encrypt_info.parent_id = 1;
+                //DMCLOG_E("encrypt insert error");
+                //return errcode;
+            }
+            //DMCLOG_D("pfi->encrypt_info.parent_id=%d",pfi->encrypt_info.parent_id);
+            if(strcmp(tmp_path,SAFE_BOX_PATH) == 0){
+				pfi->encrypt_info.parent_id = 0;
+        	}
+            //父目录的encrypted_id 即 encrypt_table 中 id
+            errcode = encrypt_table_insert(database, &pfi->encrypt_info);
+            if(errcode != RET_SUCCESS)
+            {
+                DMCLOG_E("encrypt insert error");
+                return errcode;
+            }
+            errcode = get_max_encrypt_id(database,&pfi->encryptId);
+            if(errcode != RET_SUCCESS)
+            {
+                DMCLOG_E("encrypt insert error");
+                return errcode;
+            }
+            
+            file_tmp.encryptId = pfi->encryptId;
+            DMCLOG_D("pfi->encryptId=%d",pfi->encryptId);
+        }
+        
+        if((errcode = load_file_insert_cmd(sql,&file_tmp)) != RET_SUCCESS)
+        {
+            return errcode;
+        }
+        
+        if((errcode = sqlite3_exec_busy_wait(database, sql, NULL, NULL))
+           != RET_SUCCESS)
+        {
+            DMCLOG_E("db:insert %s error\n", pfi->path);
+            return errcode;
+        }
+    }else{
+        DMCLOG_D("file :%s is exist",pfi->path);
+        return -1;
+    }
+    return errcode;
+}
+
+static error_t file_table_insert(sqlite3 *database, void *target)
+{
+	error_t errcode = RET_SUCCESS;
+	if(database == NULL || target == NULL)
+	{
+		return ENULL_POINT;
+	}
+	
+	insert_data_t *pinsert_data = (insert_data_t *)target;
+	if(pinsert_data->cmd == FILE_TABLE_INSERT_INFO)
+	{
+		return file_table_insert_normal(database,&pinsert_data->file_info);
+    }else if(pinsert_data->cmd == FILE_TABLE_ENCRYPT_INSERT_INFO)
+    {
+        return file_table_insert_encrypt(database,&pinsert_data->file_info);
+    }else if(pinsert_data->cmd == FILE_TABLE_INSERT_BY_PATH)
+	{
+		
+	}else if(pinsert_data->cmd == FILE_TABLE_INSERT_LIST)
+	{
+		file_info_t *item,*n;
+		dl_list_for_each_safe(item, n, pinsert_data->head, file_info_t, next)
+		{
+			errcode = file_table_insert_normal(database,item);
+			if(errcode != RET_SUCCESS)
+			{
+				DMCLOG_E("insert normal file error [%s]",item->path);
+				break;
+			}
+			dl_list_del(&item->next);
+			safe_free(item->path);
+			safe_free(item);
+		}
+	}
+	return errcode;
+}
+
 
 static error_t _dm_scan_file_insert(sqlite3 *database,void *item_info)
 {
@@ -1322,14 +1680,27 @@ int db_scan_surplus_files(sqlite3 *database,const char *path,unsigned parent_id,
 			}
 			full_path = (char *)calloc(1,strlen(DOCUMENT_ROOT) + strlen(path) + strlen(item->name) + 2);
 			sprintf(full_path,"%s%s/%s",DOCUMENT_ROOT,path,item->name);
-			if(access(full_path,F_OK) != 0)/*  如果不存在将相关信息加入链表*/
+			if(access(full_path,F_OK) != 0 && (strncmp(full_path,SAFE_BOX_PATH,strlen(SAFE_BOX_PATH))))/*  如果不存在将相关信息加入链表*/
 			{
 				//the file is normal file
 				DMCLOG_D("item->name = %s",item->name);
 				file_id_t *file_id = (file_id_t *)calloc(1,sizeof(file_id_t));
 				file_id->index = item->index;
 				strcpy(file_id->file_uuid,item->file_uuid);
+				plist->total_cnt++;
 				dl_list_add_tail(&plist->sur_head, &file_id->next);
+				
+				if(plist->total_cnt == 128)
+				{
+					DMCLOG_D("del start");
+					if((errcode = dm_db_clean_surplus_files(database,plist,plist->mutex)) < 0)/*将磁盘的文件插入数据库*/
+					{
+						DMCLOG_E("quit files inserting");
+						return errcode;
+					}
+					DMCLOG_D("list del end");
+					plist->total_cnt = 0;
+				}
 			}
 			free(full_path);
 			
@@ -1342,39 +1713,58 @@ int db_scan_surplus_files(sqlite3 *database,const char *path,unsigned parent_id,
     return errcode;
 }
 
+int _dm_db_insert_new_files(sqlite3 *database,file_list_t *plist,pthread_mutex_t *mutex)
+{
+//	ENTER_FUNC();
+	error_t errcode = RET_SUCCESS;
+	file_info_t *item,*n;
+	if(mutex == NULL)
+	{
+		DMCLOG_E("para is null");
+		return -1;
+	}
+	pthread_mutex_lock(mutex);
+    sqlite3_exec_busy_wait(database, "begin", NULL, NULL);
+	dl_list_for_each_safe(item, n, &(plist->head), file_info_t, next)
+	{
+		if(get_fuser_flag() == AIRDISK_OFF_PC && (errcode = _dm_scan_file_insert(database,item)) != RET_SUCCESS)
+        {
+            DMCLOG_E("file insert failed");
+			errcode = -1;
+           	break;
+        }
+		dl_list_del(&item->next);
+		safe_free(item->path);
+		safe_free(item);
+	}
+	sqlite3_exec_busy_wait(database, "commit", NULL, NULL);
+	pthread_mutex_unlock(mutex);
+//	EXIT_FUNC();
+	return errcode;
+}
+
+
 static struct file_dnode *_dm_insert(sqlite3 *database,char *fullname,unsigned parent_id,file_list_t *plist)
 {
-	error_t errcode = RET_SUCCESS;
-	struct stat statbuf;
+	error_t errcode = RET_SUCCESS;	
 	struct file_dnode *cur;
+	file_info_t *item,*n;
 	cur = xzalloc(sizeof(*cur));
-	if (lstat(fullname, &statbuf)) {
-		printf(fullname);
-		safe_free(cur);
-		return NULL;
-	}
-	
 	cur->fullname = fullname;
-	cur->dn_mode = statbuf.st_mode;
 	cur->name = bb_basename(fullname);
-	cur->index = 0;
-    errcode = query_file_id_by_parentid_and_name(database,parent_id,cur->name,&cur->index);
-	
-    if(errcode == EDB_RECORD_NOT_EXIST)
+	file_info_t *file_info = (file_info_t *)calloc(1,sizeof(file_info_t));
+	assert(file_info != NULL);
+    errcode = query_file_info_by_parentid_and_name(database,parent_id,cur->name,file_info);
+	if(errcode == EDB_RECORD_NOT_EXIST)
     {
-    	file_info_t *file_info = (file_info_t *)calloc(1,sizeof(file_info_t));
-		
-    	if (S_ISDIR(cur->dn_mode))
-		{
-			file_info->isFolder = 1;// the file is folder
-			file_info->path = strdup(cur->fullname + strlen(DOCUMENT_ROOT));
-		}else{
-			file_info->isFolder = 0;// the file is normal
-			file_info->file_type = db_get_mime_type(cur->fullname,strlen(cur->fullname));//TODO Oliver
+    	struct stat statbuf;
+    	if (lstat(fullname, &statbuf)) {
+			printf(fullname);
+			safe_free(cur);
+			return NULL;
 		}
-		
+		cur->dn_mode = statbuf.st_mode;
 		cur->index = alloc_file_id();
-		
 		file_info->name = strdup(cur->name);
     	file_info->create_time = statbuf.st_ctime;
 		file_info->modify_time = statbuf.st_mtime;
@@ -1384,10 +1774,51 @@ static struct file_dnode *_dm_insert(sqlite3 *database,char *fullname,unsigned p
 		file_info->attr = dm_get_attr_hide(cur->fullname);
 		strcpy(file_info->file_uuid,"1234567890");
 		file_info->file_size = statbuf.st_size;
+    	if (S_ISDIR(cur->dn_mode))
+		{
+			file_info->isFolder = 1;// the file is folder
+			file_info->path = strdup(cur->fullname + strlen(DOCUMENT_ROOT));
+			DMCLOG_D("insert dir :%s",file_info->path);
+			pthread_mutex_lock(plist->mutex);
+		    sqlite3_exec_busy_wait(database, "begin", NULL, NULL);
+			if((errcode = _dm_scan_file_insert(database,file_info)) != RET_SUCCESS)
+	        {
+	            DMCLOG_D("file insert failed");
+				safe_free(file_info);
+				safe_free(cur);
+				return NULL;
+	        }
+			sqlite3_exec_busy_wait(database, "commit", NULL, NULL);
+			pthread_mutex_unlock(plist->mutex);
+			safe_free(file_info->path);
+			safe_free(file_info);
+		}else{
+			file_info->isFolder = 0;// the file is normal
+			file_info->file_type = db_get_mime_type(cur->fullname,strlen(cur->fullname));//TODO Oliver
+			plist->total_cnt++;
+			dl_list_add_tail(&plist->head, &file_info->next);
+		}
+		if(plist->total_cnt == 128)
+		{
+			//DMCLOG_D("insert start");
+			if((errcode = _dm_db_insert_new_files(database,plist,plist->mutex)) < 0)/*将磁盘的文件插入数据库*/
+			{
+				DMCLOG_E("quit files inserting");
+				return errcode;
+			}
+			//DMCLOG_D("list insert end");
+			plist->total_cnt = 0;
+		}
+    }else{
+    	if(file_info->isFolder == 1)
+    	{
+			cur->dn_mode = S_IFDIR;
+		}else{
+			cur->dn_mode = S_IFREG;
+		}
 		
-		dl_list_add_tail(&plist->head, &file_info->next);
-		
-    }
+		cur->index = file_info->index;
+	}
 	return cur;
 }
 
@@ -1404,6 +1835,7 @@ static struct file_dnode **_scan_one_dir(sqlite3 *database,const char *path, uns
 	}
 	dn = NULL;
 	nfiles = 0;
+	DMCLOG_D("scan :%s",path);
 	while ((entry = readdir(dir)) != NULL&&get_fuser_flag() == AIRDISK_OFF_PC) {
 		char *fullname;
 		/* are we going to list the file- it may be . or .. or a hidden file */
@@ -1424,6 +1856,7 @@ static struct file_dnode **_scan_one_dir(sqlite3 *database,const char *path, uns
 		cur->dn_next = dn;
 		dn = cur;
 		nfiles++;
+		usleep(1000);
 	}
 	closedir(dir);
 	if (dn == NULL)
@@ -1486,50 +1919,20 @@ static int _dm_scan_and_display_dirs_recur(sqlite3 *database,struct file_dnode *
 int dm_db_clean_surplus_files(sqlite3 *database,file_list_t *plist,pthread_mutex_t *mutex)
 {
 	error_t errcode = RET_SUCCESS;
-	file_id_t *item;
-	/*int now_time = 0;
-	int record_time = 0;
-	struct  sysinfo info; */
-	if(get_fuser_flag() == AIRDISK_ON_PC )
-	{
-		DMCLOG_E("airdisk on pc");
-		return -1;
-	}
+	file_id_t *item,*n;
 	pthread_mutex_lock(mutex);
     sqlite3_exec_busy_wait(database, "begin", NULL, NULL);
-	
-	dl_list_for_each(item, &(plist->sur_head), file_id_t, next)
+	dl_list_for_each_safe(item, n, &(plist->sur_head), file_id_t, next)
 	{
-		/*sysinfo(&info); 
-		now_time = info.uptime;
-		if(now_time - record_time > 0)
-		{
-			record_time = now_time + 1;
-			sqlite3_exec_busy_wait(database, "commit", NULL, NULL);
-			pthread_mutex_unlock(mutex);
-			if(get_fuser_flag() == AIRDISK_ON_PC)
-			{
-				DMCLOG_E("airdisk on pc");
-				return 0;
-			}
-			pthread_mutex_lock(mutex);
-    			sqlite3_exec_busy_wait(database, "begin", NULL, NULL);
-		}*/
-		DMCLOG_D("index = %u",item->index);
+		usleep(1000);
 		if(get_fuser_flag() == AIRDISK_OFF_PC && (errcode = dm_do_delete_by_id(database,item->index)) != RET_SUCCESS)
         {
-            DMCLOG_D("file insert failed");
+            DMCLOG_D("file del failed");
 			errcode = -1;
            	break;
         }
-		/*DMCLOG_D("file uuid = %s",item->file_uuid);
-		if(get_fuser_flag() == AIRDISK_OFF_PC && (errcode = dm_do_delete_by_uuid(database,item->file_uuid)) != RET_SUCCESS)
-        {
-            DMCLOG_D("file insert failed");
-			errcode = -1;
-           	break;
-        }*/
-		
+		dl_list_del(&item->next);
+		safe_free(item);
 	}
 	sqlite3_exec_busy_wait(database, "commit", NULL, NULL);
 	pthread_mutex_unlock(mutex);
@@ -1575,20 +1978,124 @@ int dm_db_insert_new_files(sqlite3 *database,file_list_t *plist,pthread_mutex_t 
 	return errcode;
 }
 
-static error_t dm_file_table_scan(sqlite3 *database, void *path_info)
+
+
+static error_t file_table_scan(sqlite3 *database, void *path_info)
 {
+	database_work_status = DB_STATUS_SCANNING;
 	error_t errcode = RET_SUCCESS;
     scan_data_t *pfi = (scan_data_t *)path_info;
 	
     if(database == NULL || pfi == NULL)
     {
         log_warning("file table scanning error:invalid parameters\n");
+		database_work_status = DB_STATUS_WAITTING;
         return EINVAL_ARG;
     }
 
 	struct stat statbuf;
 	if (lstat(pfi->disk_path, &statbuf)) {
 		printf("pfi->disk_path = %s\n",pfi->disk_path);
+		database_work_status = DB_STATUS_WAITTING;
+		return EINVAL_ARG;
+	}
+
+	struct file_dnode **dnp;
+	struct file_dnode dn;
+	memset(&dn,0,sizeof(struct file_dnode));
+	dn.fullname = pfi->disk_path;
+	dnp = dnalloc(1);
+	dnp[0] = &dn;
+	file_info_t *item,*n;
+	file_id_t *s_item,*s_n;
+	file_list_t *plist = (file_list_t *)calloc(1,sizeof(file_list_t));
+	assert(plist != NULL);
+	dl_list_init(&plist->head);
+	dl_list_init(&plist->sur_head);
+	plist->mutex = pfi->mutex;
+	unsigned g_id = INVALID_FILE_ID;
+	char *disk_path = pfi->disk_path + strlen(DOCUMENT_ROOT);
+    errcode = query_dir_file_id(database,disk_path,&g_id);
+    if(errcode == EDB_RECORD_NOT_EXIST)
+    {
+    	file_info_t *file_info = (file_info_t *)calloc(1,sizeof(file_info_t));
+    	file_info->path = strdup(disk_path);
+		file_info->name = strdup(bb_basename(disk_path));
+		file_info->file_size = statbuf.st_size;
+		file_info->create_time = statbuf.st_ctime ;
+		file_info->modify_time = statbuf.st_mtime;
+		file_info->access_time = statbuf.st_atime;
+		file_info->isFolder = 1;
+        file_info->parent_id = 0;
+		file_info->attr = dm_get_attr_hide(pfi->disk_path);
+		file_info->index = alloc_file_id();
+     	dl_list_add_tail(&plist->head, &file_info->next);
+
+		dn.index = file_info->index;
+		if((errcode = _dm_scan_and_display_dirs_recur(database,dnp,plist)) < 0)/*扫描未插入数据库的文件*/
+		{
+			DMCLOG_D("quit files scanning");
+			goto EXIT;
+		}
+    }else{
+    	dn.index = g_id;
+		if((errcode = _dm_scan_and_display_dirs_recur(database,dnp,plist)) < 0)/*扫描未插入数据库的文件*/
+		{
+			DMCLOG_D("quit files scanning");
+			goto EXIT;
+		}
+		
+	   	DMCLOG_D("scan drive files finished");
+		plist->total_cnt = 0;
+		if((errcode = db_scan_surplus_files(database,disk_path,g_id,plist)) < 0)/*扫描数据库中不存在的文件*/
+		{
+			DMCLOG_D("quit database files scanning");
+			goto EXIT;
+		}
+
+		DMCLOG_D("scan database files finished");
+
+		if((errcode = dm_db_clean_surplus_files(database,plist,pfi->mutex)) < 0)/*删除数据库中多余的数据*/
+		{
+			DMCLOG_D("quit files cleanning");
+			goto EXIT;
+		}
+		DMCLOG_D("clean database files finished");
+	}
+	if((errcode = _dm_db_insert_new_files(database,plist,pfi->mutex)) < 0)/*将磁盘的文件插入数据库*/
+	{
+		DMCLOG_D("quit files inserting");
+		goto EXIT;
+	}
+EXIT:
+	dl_list_for_each_safe(s_item, s_n, &(plist->sur_head), file_id_t, next)
+	{
+		safe_free(s_item);
+	}
+	safe_free(plist);
+	DMCLOG_D("file process finished");
+	database_work_status = DB_STATUS_WAITTING;
+	return 0;
+}
+
+
+static error_t dm_file_table_scan(sqlite3 *database, void *path_info)
+{
+	database_work_status = DB_STATUS_SCANNING;
+	error_t errcode = RET_SUCCESS;
+    scan_data_t *pfi = (scan_data_t *)path_info;
+	
+    if(database == NULL || pfi == NULL)
+    {
+        log_warning("file table scanning error:invalid parameters\n");
+		database_work_status = DB_STATUS_WAITTING;
+        return EINVAL_ARG;
+    }
+
+	struct stat statbuf;
+	if (lstat(pfi->disk_path, &statbuf)) {
+		printf("pfi->disk_path = %s\n",pfi->disk_path);
+		database_work_status = DB_STATUS_WAITTING;
 		return EINVAL_ARG;
 	}
 
@@ -1672,6 +2179,7 @@ EXIT:
 	}
 	safe_free(plist);
 	DMCLOG_D("file process finished");
+	database_work_status = DB_STATUS_WAITTING;
 	return 0;
 }
 
@@ -1900,15 +2408,14 @@ static error_t file_table_reindex(sqlite3 *database)
 	return  sqlite3_exec_busy_wait(database, sql, NULL, NULL);
 }
 
-
 extern error_t file_table_query(sqlite3 *database, QueryApproach approach, void *buf);
 
 //register database file table's operation functions, these functions are the entries to file table.
 void register_file_table_ops(void)
 {
     memset(&g_file_table, 0, sizeof(g_file_table));
-	g_file_table.ops.scan			 = dm_file_table_scan;
-    g_file_table.ops.insert          = dm_file_insert;
+	g_file_table.ops.scan			 = file_table_scan;
+    g_file_table.ops.insert          = file_table_insert;
 	g_file_table.ops.dm_delete  	 = file_table_delete;
 	g_file_table.ops.rename          = file_table_rename;
 	g_file_table.ops.query           = file_table_query;
@@ -1943,3 +2450,10 @@ error_t  file_table_init(char *g_database)
     sqlite3_close(database);	
 	return errcode;
 }
+
+int GetDmFileTableScanStatus()
+{
+	DMCLOG_D("database_work_status: %d", database_work_status);
+	return database_work_status;
+}
+

@@ -71,6 +71,55 @@ boot() {
 #	rm -f /tmp/wireless.tmp
 
 	uci_apply_defaults
+	mac=`cfg get mac |awk -F "=" '{print $2}'`
+	MAC=$(echo $mac | tr '[a-z]' '[A-Z]')
+        #MAC=${mac:0:2}${mac:3:2}${mac:6:2}${mac:9:2}${mac:12:2}${mac:15:2}
+        mac1=${MAC:6:6}
+        smb_pwd=${MAC:4:8}
+
+        sn=`cfg get qqsn |awk -F "=" '{print $2}'`
+	SN=$(echo $sn | tr '[a-z]' '[A-Z]')
+	sed -e '/sn/d' -i /tmp/state/status
+        echo sn=$SN >> /tmp/state/status
+	psk=${SN:8:8}
+        wifimode=`uci get system.@system[0].wifimode`
+        lehename=`uci get system.@system[0].name`
+        flag=`cfg get flag |awk -F "=" '{print $2}'`
+
+	if [ "$lehename" == "" ] && [ "$flag" == "1" ];then
+                uci set system.@system[0].name=LEHE$mac1
+        fi
+
+        if [ "$wifimode" == "ap" ];then
+                uci set wireless.@wifi-iface[0].key=$psk
+                #uci set wireless.@wifi-iface[0].key=12345678
+                uci set wireless.@wifi-iface[0].ssid=LEHE$mac1
+        else
+		uci set system.@system[0].wifimode="ap"
+		uci commit
+		#/sbin/sw.sh sta;
+                #uci set wireless.@wifi-iface[0].p2p_go_ssid=DIRECT-LEHE$mac1
+                #uci set wireless.@wifi-iface[0].p2p_go_key=$psk
+                #uci set wireless.@wifi-iface[0].p2p_go_key=12345678
+
+        fi
+
+	wifimode_btn=`get_wifimode_btn`
+	if [ "$wifimode_btn" = "2g" ];then
+		uci set wireless2.@wifi[0].mode=2g
+	else
+		uci set wireless2.@wifi[0].mode=5g
+	fi
+
+        uci commit
+        smbpwd=`uci get samba.@samba[0].password`
+        if [ "$smbpwd" == "" ];then
+
+                uci set samba.@samba[0].password=$smb_pwd
+                uci set samba.@samba[0].guest_password=$psk
+	        uci commit
+		
+        fi
 	
 	# temporary hack until configd exists
 	/sbin/reload_config

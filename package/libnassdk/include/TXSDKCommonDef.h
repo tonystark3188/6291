@@ -55,6 +55,8 @@ enum error_code
     err_sys_path_access_permission          = 0x0000001D,       //(29)      system_path没有读写权限
     err_invalid_network_type				= 0x0000001E,		//(30)		初始化时传入的网络类型非法
     err_invalid_run_mode					= 0x0000001F,		//(31)      初始化时传入的SDK运行模式非法
+    err_lanav_service_started               = 0x00000020,       //(32)		lanav_service已经启动了
+    err_invalid_lanav_callback              = 0x00000021,       //(33)      非法的局域网音视频回调
 
     err_login_failed                        = 0x00010001,       //(65537)   登录失败
     err_login_invalid_deviceinfo            = 0x00010002,       //(65538)   设备信息非法

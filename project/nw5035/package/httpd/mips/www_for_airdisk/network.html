@@ -1,0 +1,266 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html >
+<head>
+	<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+	<!-- H5页面窗口自动调整到设备宽度，并禁止用户缩放页面 -->
+	<meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+	<!-- 忽略将页面中的数字识别为电话号码 -->
+	<meta name="format-detection" content="telephone=no" />
+	<!-- 忽略Android平台中对邮箱地址的识别 -->
+	<meta name="format-detection" content="email=no" />
+	<!-- ios7.0版本以后，safari上已看不到效果 -->
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<!-- 可选default、black、black-translucent -->
+	<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+
+	<title>接入互联网</title>
+	<link rel="stylesheet" type="text/css" href="css/init.css">
+	<link rel="stylesheet" type="text/css" href="css/dialog.css">
+	
+	<script type="text/javascript" src="js/jquery-1.8.2.min.js"></script>
+	<script type="text/javascript" src="js/jquery.xml2json.js"></script>
+	<script type="text/javascript" src="js/layer/layer.js"></script>
+	<script type="text/javascript" src="js/adcgi-0.0.1.js"></script>
+	<script type="text/javascript" src="js/controller/dmdialog.js"></script>
+	<script type="text/javascript" src="js/controller/network.js"></script>
+	<script type="text/javascript" src="js/controller/dmplatform.js"></script>
+
+<style type="text/css">
+	@import url(./css/init.css);
+
+	html{font-size:62.5%}
+
+	.clear{
+		clear: both;
+	}
+
+	body{
+		background: rgb(244,244,244);
+	}
+
+	#container{
+		margin-top: 8px;
+		
+	}
+	#dmui_listview{
+		width: auto;
+		background: white;
+		border-top: solid 1px rgb(224,224,224); 
+		border-bottom: solid 1px rgb(224,224,224); 
+		padding-left: 16px;
+
+	}
+	#connected_ssid_div{
+		width: 100%;
+	}
+
+	.connected_ssid{
+		width: auto;
+		background: white;
+		border-top: solid 1px rgb(224,224,224); 
+		border-bottom: solid 1px rgb(224,224,224); 	
+	}
+
+	#selecte_network{
+		height: 24px;
+		line-height: 24px;
+		margin:16px 0px 8px 16px;
+		color: #747474;
+		font-size: 1.8rem;
+		font-weight: bold;
+	}
+	#loading{
+		width: 16px;
+		height: 16px;
+		margin-top: -3px;
+		margin-left: 8px;
+	}
+
+	.listview_item_top{
+		width: auto;
+		border-bottom: solid 1px rgb(224,224,224);
+	}
+	.listview_item_middle{
+		width: auto;
+		border-bottom: solid 1px rgb(224,224,224);
+	}
+
+	.listview_item_bottom{
+		width: auto;
+	}
+
+
+	.item_img_left{
+		height: 49px;
+		line-height: 49px;
+		float: left;	
+		margin-left: 16px;
+	}
+
+	#remoteApName{
+		margin-left: 16px;
+	}
+
+	.item_title{
+		height: 49px;
+		line-height: 49px;
+		color: #2A2A2A;
+		font-size: 1.8rem;
+		font-weight: bold;
+		float: left;
+	}
+	.item_value{
+		height: 49px;
+		line-height: 49px;
+		float: right;
+		font-size: 1.6rem;
+		color: #BCBCBC;
+		margin-right: 16px;
+		-webkit-tap-highlight-color: rgba(0,0,0,0;);
+	}
+	.item_value_img{
+		width: 29px;
+		height: 21px;
+	}
+	.item_img_hook{
+		width: 21px;
+		height: 16px;		
+	}
+	.item_value_follow{
+		height: 49px;
+		line-height: 49px;
+		float: left;
+		font-size:  1.6rem;
+		color: #BCBCBC;
+		margin-left: 16px;
+	}
+	.clickable_value{
+		color: #EF4444;
+		font-weight: bold;
+		
+	}
+
+	.placeholder{
+		width: 100%;
+		height: 48px;
+	}
+
+	.footerBar{
+		width: 100%;
+		height: 48px;
+		background:white;
+		border-top: solid 1px  rgb(224,224,224);
+		position:fixed;
+		left: 0px;
+		bottom:0px;
+	}
+	.operation_position{
+		width: 50%;
+		float: left;
+		text-align: center;
+	}
+	.operation{
+
+		width: 56px;
+		height: 48px;
+		margin:0 auto;
+		text-align: center;
+	}
+
+	.operation_img{
+		margin-top: 6px;
+		margin-bottom: 4px;
+	}
+	.operation_text{
+
+		height: 100%;
+		line-height: 100%;
+		font-size:  0.9rem;
+		color: #518EF1;		
+	}
+
+	.operation_img>img{
+		width: 24px;
+		height: 24px;
+	}
+
+	.clickable_value{	
+		color: #EF4444;
+		font-size: 1.2rem;
+
+	}
+	.item_button{
+		width: 60px;
+		height: 18px;	
+		line-height: 18px;	
+		text-align: center;
+		float: left;
+		font-size: 1.0rem;
+		color: #BCBCBC;
+
+		-webkit-tap-highlight-color: rgba(0,0,0,0;);
+		border: solid 1px #EF4444;
+		border-radius: 3px;
+	}
+	.left_text{
+		height: 20px;	
+		line-height: 20px;
+		float: left;	
+		color: #EF4444;
+		font-size: 1.3rem;
+		margin:0px 0px 8px 16px;
+	}
+</style>
+
+
+</head>
+<body>
+	<div id="container">
+		<div id="connected_ssid_dev">
+			<div class="connected_ssid">
+				<div id="remoteApName" class="item_title">(未连接)</div>
+				<div class="clear"></div>
+			</div>
+			
+		</div>
+	<!--
+		<div class="connected_ssid">
+			<div class="item_img_left"><img src="img/icon_hook.png"></div>
+			<div class="item_title">airdisk_0001</div>
+			<div class="item_value"><img src="img/icon_wifi_unlock.png"></div>
+			<div class="clear"></div>
+		</div>
+		-->
+		<div id="selecte_network"><span>选取网络</span><img id="loading" src="img/loading.gif" style="display:none" /></div>
+		<div id="switch_item" style="display:none;height:40px;" >
+			<div class="left_text">如无可连接的WiFi,建议切换为室外模式。</div><div class="item_button" id="switch_button"><span  class="clickable_value" >前往切换</span></div>
+			<div id="clear"></div>
+		</div>
+
+		
+		<div id="dmui_listview">
+			<div id="content">
+
+			</div>
+		</div>
+		<div class="placeholder"></div><!--fixed悬浮出来的footer-->
+		<div class="footerBar">
+			<div class="operation_position">
+				<div class="operation" id="operation_refresh">
+					<div class="operation_img"><img src="img/icon_opration_refresh.png"></img></div>
+					<div class="operation_text">刷新</div>
+				</div>			
+			</div>
+
+			<div class="operation_position">
+				<div class="operation" id="operation_add">
+					<div class="operation_img"><img src="img/icon_opration_add.png"></img></div>
+					<div class="operation_text">添加网络</div>
+				</div>
+			</div>
+		</div>
+		<div id="clear"></div>
+		<!--<div class="msg_box"></div>-->
+	</div>
+</body>
+</html>

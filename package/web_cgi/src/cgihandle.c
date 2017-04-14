@@ -2,16 +2,20 @@
 #include "cgiWireless.h"
 #include <sys/time.h>
 #include <unistd.h>
+#include <linux/wireless.h>
 #include "my_def.h"
 #include "socket_uart.h"
 #include "cfg_api.h"
-
+#include "msg.h"
 // #include "auto_connect.h"
-extern char *get_conf_str(char *var);
+extern char *get_conf_str3(char *var);
 
 #define get_power_level_num  1
 #define get_Firmware_Edition 5
+#define OTASIZE 1024
 #define rtl_encryp_control "/proc/rtl_encryp_control"
+#define FILENAME_MAX 2048
+#define DM_CONF_FILE "/usr/mips/conf/dm_router.conf"
 int error_num=0;
 char error_info[1024]="\0";
 
@@ -29,6 +33,59 @@ enum wifi_mode
 	M_5G=5
 };
 
+#if WIRELESS_EXT <= 11
+#ifndef SIOCDEVPRIVATE
+#define SIOCDEVPRIVATE      0x8BE0
+#endif
+#define SIOCIWFIRSTPRIV      SIOCDEVPRIVATE
+#endif
+#define RTPRIV_IOCTL_SHOW_CONNSTATUS	(SIOCIWFIRSTPRIV + 0x1B)
+#define RTPRIV_IOCTL_GET_MAC_TABLE_STRUCT	(SIOCIWFIRSTPRIV + 0x1F)
+
+
+
+#define MAC_ADDR_LEN        6
+#define ETH_LENGTH_OF_ADDRESS      6
+#define MAX_LEN_OF_MAC_TABLE      64
+
+
+
+typedef union _MACHTTRANSMIT_SETTING {
+	struct {
+		unsigned short MCS:7;	/* MCS */
+		unsigned short BW:1;	/*channel bandwidth 20MHz or 40 MHz */
+		unsigned short ShortGI:1;
+		unsigned short STBC:2;	/*SPACE */
+		unsigned short rsv:3;
+		unsigned short MODE:2;	/* Use definition MODE_xxx. */
+	} field;
+	unsigned short word;
+} MACHTTRANSMIT_SETTING, *PMACHTTRANSMIT_SETTING;
+
+typedef struct _RT_802_11_MAC_ENTRY {
+	unsigned char ApIdx;
+	unsigned char Addr[MAC_ADDR_LEN];
+	unsigned char Aid;
+	unsigned char Psm;		/* 0:PWR_ACTIVE, 1:PWR_SAVE */
+	unsigned char MimoPs;		/* 0:MMPS_STATIC, 1:MMPS_DYNAMIC, 3:MMPS_Enabled */
+	signed char AvgRssi0;
+	signed char AvgRssi1;
+	signed char AvgRssi2;
+	unsigned int ConnectedTime;
+	MACHTTRANSMIT_SETTING TxRate;
+	unsigned int LastRxRate;
+	signed short StreamSnr[3];				/* BF SNR from RXWI. Units=0.25 dB. 22 dB offset removed */
+	signed short SoundingRespSnr[3];			/* SNR from Sounding Response. Units=0.25 dB. 22 dB offset removed */
+/*	signed short TxPER;	*/					/* TX PER over the last second. Percent */
+/*	signed short reserved;*/
+
+} RT_802_11_MAC_ENTRY, *PRT_802_11_MAC_ENTRY;
+
+typedef struct _RT_802_11_MAC_TABLE {
+	unsigned long Num;
+	RT_802_11_MAC_ENTRY Entry[MAX_LEN_OF_MAC_TABLE];
+} RT_802_11_MAC_TABLE, *PRT_802_11_MAC_TABLE;
+
 ///////////////////////////////////////////////////////
 //for storage//////////////////////////////////////////
 ///////////////////////////////////////////////////////
@@ -36,6 +93,70 @@ static const unsigned long long G = 1024*1024*1024ull;
 static const unsigned long long M = 1024*1024;
 static const unsigned long long K = 1024;
 static char str[20];
+
+static int my_system(const char * cmd) 
+{ 
+	FILE * fp; 
+	int res; char buf[1024]; 
+	if (cmd == NULL) 
+	{ 
+		printf("my_system cmd is NULL!\n");
+		return -1;
+	}
+
+	if ((fp = popen(cmd, "r") ) == NULL) 
+	{ 
+		perror("popen");
+		printf("popen error: %s/n", strerror(errno)); return -1; 
+	} 
+	else
+	{
+		while(fgets(buf, sizeof(buf), fp)) 
+		{ 
+			printf("%s", buf); 
+		} 
+		if ( (res = pclose(fp)) == -1) 
+		{ 
+			printf("close popen file pointer fp error!\n"); return res;
+		} 
+		else if (res == 0) 
+		{
+			return res;
+		} 
+		else 
+		{ 
+			printf("popen res is :%d\n", res); return res; 
+		} 
+	}
+	return 0;
+}
+
+void handle_mac_format(char *in, char *out)
+{
+	int i,j,len;
+	len = strlen(in);
+	if(strstr(in,":") != NULL)
+	{
+		strcpy(out,in);	
+	}
+	else
+	{
+		for(i=0,j=0;i < len; i++,j++)
+		{
+			if(in[i] >= 65 && in[i] <= 90)
+				in[i] += 32;
+			out[j] = in[i];
+			if((i+1)%2 == 0)
+			{
+				j++;
+				out[j] = ':';
+			}
+		}
+		out[j] = '\0';
+		
+	}
+	
+}
 
 int getsys(xmlNodePtr root);
 int setsys(xmlNodePtr root);
@@ -54,6 +175,7 @@ int getFTP(xmlNodePtr tag, char *retstr);
 int getSAMBA(xmlNodePtr tag, char *retstr);
 int getDMS(xmlNodePtr tag, char *retstr);
 int getScan(xmlNodePtr tag, char *retstr);
+int getOnline(xmlNodePtr tag, char *retstr);
 int getStorage(xmlNodePtr tag, char *retstr);
 int getVersion(xmlNodePtr tag, char *retstr);
 int getJoinWired(xmlNodePtr tag, char *retstr);
@@ -62,8 +184,13 @@ int getpower(xmlNodePtr tag, char *retstr);
 int getClientStatus(xmlNodePtr tag, char *retstr);
 int get3G(xmlNodePtr tag, char *retstr);
 int getBtnReset(xmlNodePtr tag, char *retstr);
+int internet(xmlNodePtr tag, char *retstr);
 int getairplay(xmlNodePtr tag, char *retstr);
-
+int getotastatus(xmlNodePtr tag, char *retstr);
+int getRepairAuto(xmlNodePtr tag, char *retstr);
+int getDMClient(xmlNodePtr tag, char *retstr);
+int getWifiSwitch(xmlNodePtr tag, char *retstr);
+int getdiskotaupgrade(xmlNodePtr tag, char *retstr);
 tagHandle gtaghandle_get[]=
 {
 	{FN_GET_SSID, getssid},
@@ -71,6 +198,7 @@ tagHandle gtaghandle_get[]=
 	{FN_GET_WorkMode, getWorkMode},
 	{FN_GET_APList, getScan},
 	{FN_GET_Power, getpower},
+	{FN_GET_Online, getOnline},
 	{FN_GET_Storage, getStorage},
 	{FN_GET_FTP, getFTP},
 	{FN_GET_SAMBA, getSAMBA},
@@ -82,7 +210,11 @@ tagHandle gtaghandle_get[]=
 	{FN_GET_Client_Status,getClientStatus},
 	{FN_GET_3G,get3G},
 	{FN_GET_BTN_RST,getBtnReset},
+
 	{FN_SET_AIRPLAY_NAME,getairplay},
+
+	{FN_GET_WIFI_SWITCH,getWifiSwitch},
+	{FN_GET_GetDMClient,getDMClient},
 };
 
 void printstr(char *str)
@@ -100,7 +232,7 @@ void printstr(char *str)
 	fclose(fw_fp);
 #endif
 }
-
+int setWifiSwitch(xmlNodePtr tag, char *retstr);
 int setssid(xmlNodePtr tag, char *retstr);
 int setWorkMode(xmlNodePtr tag, char *retstr);
 int setJoinWireless(xmlNodePtr tag, char *retstr);
@@ -110,11 +242,24 @@ int setSAMBA(xmlNodePtr tag, char *retstr);
 int setDMS(xmlNodePtr tag, char *retstr);
 int Upgrade(xmlNodePtr tag, char *retstr);
 int halt(xmlNodePtr tag, char *retstr);
+int SyncSystem(xmlNodePtr tag, char *retstr);
 int TimeSync(xmlNodePtr tag, char *retstr);
 int setClient(xmlNodePtr tag, char *retstr);
 int set3G(xmlNodePtr tag, char *retstr);
 int setairplay(xmlNodePtr tag, char *retstr);
 int setiperf(xmlNodePtr tag, char *retstr);
+int setotastatus(xmlNodePtr tag, char *retstr);
+int setFsckTest(xmlNodePtr tag, char *retstr);
+int setRepairHandle(xmlNodePtr tag, char *retstr);
+int setRepairAuto(xmlNodePtr tag, char *retstr);
+int setForgetWifiInfo(xmlNodePtr tag, char *retstr);
+int setDisabledClient(xmlNodePtr tag, char *retstr);
+int setDMClient(xmlNodePtr tag, char *retstr);
+int setFormat(xmlNodePtr tag, char *retstr);
+
+
+
+
 
 tagHandle gtaghandle_set[]=
 {
@@ -129,11 +274,17 @@ tagHandle gtaghandle_set[]=
 	{FN_SET_WebDAV, NULL},
 	{FN_Upgrade,Upgrade},
 	{FN_HALT,halt},
+
 	{FN_Time_Sync,TimeSync},
 	{FN_SET_Client,setClient},
 	{FN_SET_3G,set3G},
 	{FN_SET_AIRPLAY_NAME, setairplay},
 	{FN_SET_iperf,setiperf},
+
+
+
+	{FN_SET_WIFI_SWITCH,setWifiSwitch},
+	{FN_FORMAT,setFormat},
 };
 
 
@@ -157,11 +308,17 @@ char *xmldecode(char *xml)
 		int f;
 		char tmp[10];
 		
-		i = strlen(xml);
+		i = strlen(xml)+1;
 		ret = (char *)malloc(i);
+		if(ret == NULL)
+		{	
+			cgi_log("xmldecode malloc fail \r\n");
+			exit(1);
+		}
+		memset(ret,0,i);
 		
 		k=0;
-		for(j=0; j<i;)
+		for(j=0; j<i-1;)
 		{
 				if(xml[j] != '&')
 				{
@@ -401,6 +558,7 @@ static const char *human_fstype(long f_type)
 		{ 0x858458f6, "romfs" },
 		{ 0x73717368, "squashfs" },
 		{ 0x62656572, "sysfs" },
+		{ 0x2011bab0, "exfat" },
 		{ 0, "UNKNOWN" }
 	};
 
@@ -444,10 +602,10 @@ char* kscale(unsigned long b, unsigned long bs)
 ///////////////////////////////////////////////////////////
 int getssid(xmlNodePtr tag, char *retstr)
 {
-	char name[32]="\0";
+	char name[33]="\0";
 	char encrypt[32]="\0";
 	char channel[5]="\0";
-	char password[32]="\0";
+	char password[33]="\0";
 	char encrypt_len[5]="\0";
 	char format[8]="\0";
 	char mac[32]="\0";
@@ -533,6 +691,17 @@ int getssid(xmlNodePtr tag, char *retstr)
 	return 0;
 
 }
+#define remote_ap_num 9
+int updateSysVal(const char *para,const char *val){
+	char set_str[128]={0};
+	char tmp[128]={0};
+	sprintf(set_str,"sed -e \'/%s/d\' -i /tmp/state/status",para);
+	system(set_str);
+	memset(set_str,0,sizeof(set_str));
+	
+	sprintf(set_str,"echo \'%s=%s\' >> /tmp/state/status",para, val);
+	system(set_str);
+}
 
 int getRemoteAP(xmlNodePtr tag, char *retstr)
 {
@@ -587,7 +756,7 @@ int getRemoteAP(xmlNodePtr tag, char *retstr)
 	}
 	else
 		NULL;
-	strcpy(ifname,"wlan1");
+	strcpy(ifname,"wlan0");
 	cgi_get_channel(ifname, channel);  //channel
 	strcpy(uci_option_str,"wireless.@wifi-iface[1].key");  //password
 	uci_get_option_value(uci_option_str,password);
@@ -860,16 +1029,81 @@ int getWebDAV(xmlNodePtr tag, char *retstr)
 	return 0;
 }
 
-
+#define BUF_LEN 8192
 int getScan(xmlNodePtr tag, char *retstr)
 {
 	char mode[3]="\0";
 	char wlan1_disabled[3]="\0";
 	char uci_option_str[64]="\0";
+	char wifi_module[16]={0};
 	//xmlDoc		   *doc = NULL;
 	//xmlNodePtr     curNode;
 	//xmlNodePtr	   rootnode;
+	p_debug("access getScan");
+    ctx=uci_alloc_context();
+	if(NULL == ctx)
+		return ;
+	uci_set_confdir(ctx,"/factory/");
 	
+	strcpy(uci_option_str,"factoryconfig.@save[0].wifi_module"); 
+	uci_get_option_value(uci_option_str,wifi_module);
+	memset(uci_option_str,'\0',64);
+	uci_free_context(ctx);
+	if(!strcmp(wifi_module,"AP6181"))
+		{
+		system("iw wlan0 scan | sed -e 's#(on wlan0# (on wlan0#g' | awk -f /etc/iwscan.awk >/tmp/aplist.txt");
+		//sleep(1);
+		
+		do
+		{
+			usleep(100000);//100ms
+		}while(access("/tmp/scan.done",F_OK)!=0);
+		
+		FILE *fd=NULL;
+		fd=fopen("/tmp/aplist.txt","r");
+
+		while(fd==NULL){
+			sleep(1);
+			fd=fopen("/tmp/aplist.txt","r");
+		}
+		int read_len=0;
+		int write_len=0;
+		char fileBuf[BUF_LEN]={0};
+		//while(!feof(fd)){
+
+			fseek(fd,0L,SEEK_END);
+			int len=ftell(fd);
+			rewind(fd);
+			read_len = fread(fileBuf,1,len,fd);
+			p_debug("len=%d",len);
+			if(read_len <= 0)
+			{	
+				p_debug("fread error,read_len = %d,errno = %d",read_len,errno);
+				fclose(fd);
+				p_debug("leave getScan");
+				return 0;
+			}		
+			strcpy(retstr,fileBuf);
+			p_debug("ret=%s",retstr);/*
+			write_len=fwrite(fileBuf,read_len,1,stdout);
+			if(write_len==0)
+			{	
+				fflush(stdout);
+				fclose(fd);
+				p_debug("write error");
+				return;
+			}
+	 		fflush(stdout);
+			fclose(fd);
+			p_debug("write done");
+			*/
+		//}
+		p_debug("leave getScan");
+		return 0;
+		
+	}
+	
+/*	
 	strcpy(uci_option_str,"powertools.@system[0].mode"); 
 	uci_get_option_value(uci_option_str,mode);
 	memset(uci_option_str,'\0',64);
@@ -877,12 +1111,16 @@ int getScan(xmlNodePtr tag, char *retstr)
 	strcpy(uci_option_str,"wireless.@wifi-iface[1].disabled"); 
 	uci_get_option_value(uci_option_str,wlan1_disabled);
 	memset(uci_option_str,'\0',64);
-	
+
+	strcpy(uci_option_str,"wireless.@wifi-iface[1].disabled"); 
+	uci_get_option_value(uci_option_str,wlan1_disabled);
+	memset(uci_option_str,'\0',64);
+
 	if( !strcmp(mode,"2") )
 	{
 		//return 1;
 		;
-	}
+	}*/	
 /*	
 	if( !strcmp(wlan1_disabled,"1") )
 	{
@@ -960,7 +1198,96 @@ int getScan(xmlNodePtr tag, char *retstr)
 	return 0;
 	
 }
+int getOnline(xmlNodePtr tag, char *retstr)
+{
 
+	#if 0
+	char buffer[BUFSIZ]; 
+	FILE *read_fp; 
+	int chars_read; 
+	int count=0; 
+	char *ppid;
+	memset( buffer, 0, BUFSIZ ); 
+	char tmpStr[64];
+
+	sprintf(tmpStr,"%s","ps |grep file_download.cgi|wc -l");
+
+	read_fp=popen(tmpStr,"r");
+	if(read_fp!=NULL)
+	{
+		chars_read = fread(buffer, sizeof(char), BUFSIZ-1, read_fp); 
+		if (chars_read > 0){
+			//p_debug("buffer==%s==",buffer);
+			//count=atoi(buffer);
+			count=buffer[0]-'0';
+			count=count-2;
+			p_debug("count=%d",count);
+			pclose(read_fp);
+			//return count;
+		}else {
+			p_debug("chars_read=%d",chars_read);
+			pclose(read_fp);
+			//return 0;
+		}
+
+	}else {
+		p_debug("read fp error");
+		//return 0;
+	}
+
+	sprintf(retstr,"<Users count=\"%d\"/>",count);
+	p_debug(retstr);
+	return 0;
+	#endif
+	int    socket_id;
+	struct   iwreq wrq;
+	char data[4096]="\0";
+	int    ret;
+	RT_802_11_MAC_TABLE    *mp;
+	int count = 0;
+	char mode[64] = "\0";
+	char uci_option_str[64] = "\0";
+	FILE *read_fp; 
+	int chars_read = 0;
+	char tmpStr[64];
+	char buffer[64] = "\0";
+	memset(uci_option_str,'\0',64);
+	strcpy(uci_option_str,"system.@system[0].wifimode"); 
+	uci_get_option_value(uci_option_str,mode);
+	if(strcmp(mode,"ap") == 0)
+	{	
+		sprintf(tmpStr,"%s","wl -i wl0.1 assoclist |wc -l");
+	}
+	else if (strcmp(mode,"sta") == 0)
+	{
+		sprintf(tmpStr,"%s","wl -i p2p-p2p0-0 assoclist |wc -l");
+	}
+	else
+	{
+		sprintf(tmpStr,"%s","wl -i wl0.1 assoclist |wc -l");
+	}
+	read_fp=popen(tmpStr,"r");
+	if(read_fp!=NULL)
+	{
+		chars_read = fread(buffer, sizeof(char), BUFSIZ-1, read_fp); 
+		if (chars_read > 0){
+			count=buffer[0]-'0';
+			p_debug("count=%d",count);
+			pclose(read_fp);
+		}else {
+			p_debug("chars_read=%d",chars_read);
+			pclose(read_fp);
+			//return 0;
+		}
+	}else{
+		count=0;
+	}
+	
+	sprintf(retstr,"<Users count=\"%d\"></Users>",count);
+	p_debug(retstr);
+	return 0;
+
+}
 int getStorage(xmlNodePtr tag, char *retstr)
 {
 	FILE* mount_table;
@@ -1082,7 +1409,19 @@ int getStorage(xmlNodePtr tag, char *retstr)
 	      }
 	      strcat(retstr,tmpstr);
 	      memset(tmpstr,0,128);
-	      
+
+		//cgi_log(mount_entry->mnt_opts);
+		  if(strstr(mount_entry->mnt_opts,"rw")){
+			  sprintf(tmpstr," rw=\"%s\"","rw");
+			  strcat(retstr,tmpstr);
+	      	  memset(tmpstr,0,128);
+		  }else{
+			  sprintf(tmpstr," rw=\"%s\"","ro");
+			  strcat(retstr,tmpstr);
+			  memset(tmpstr,0,128);
+
+		  }
+		  
 	      char s1[20];
 	      char s2[20];
 	      char s3[20];
@@ -1090,10 +1429,13 @@ int getStorage(xmlNodePtr tag, char *retstr)
 	      strcpy(s1, kscale(fs.f_blocks, fs.f_bsize));
 	      strcpy(s2, kscale(fs.f_blocks - fs.f_bfree, fs.f_bsize));
 	      strcpy(s3, kscale(fs.f_bavail, fs.f_bsize));
-	      sprintf(tmpstr," total=\"%s\" used=\"%s\" free=\"%s\" fstype=\"%s\" ></Section>",
+	      sprintf(tmpstr," total=\"%s\" used=\"%s\" free=\"%s\" total_byte=\"%lld\" used_byte=\"%lld\" free_byte=\"%lld\" fstype=\"%s\" ></Section>",
 	          s1,
 	          s2,
 	          s3,
+			  (unsigned long long)(fs.f_blocks*(unsigned long long)fs.f_bsize),
+			  (unsigned long long)((fs.f_blocks - fs.f_bfree)* (unsigned long long)fs.f_bsize),
+			  (unsigned long long)(fs.f_bavail*(unsigned long long)fs.f_bsize),
 	          human_fstype(fs.f_type)
 	          );
 	      strcat(retstr,tmpstr);
@@ -1278,9 +1620,61 @@ int getJoinWired(xmlNodePtr tag, char *retstr)
 	return 0;
 	
 }
+int get_conf_str2(char *dest,char *var)
+{
+	FILE *fp=fopen("/etc/fw_version.conf","r");
+	if(NULL == fp)
+	{
+		//printf("open /etc/config/nrender.conf failed \n");
+		return 0;
+	}
+	char tmp[128];
+	char *ret_str;
+	bzero(tmp,128);
+	while(fgets(tmp,128,fp)!=NULL)
+	{
+		if('\n'==tmp[strlen(tmp)-1])
+		{
+			tmp[strlen(tmp)-1]=0;
+		}
+		//printf("get string from /etc/config/nrender.conf:%s\n",tmp);
+		if(!strncmp(var,tmp,strlen(var)))
+		{
+			ret_str = malloc(strlen(tmp)-strlen(var));
+			if(!ret_str)
+			{
+				fclose(fp);
+				return 0;
+			}
+			bzero(ret_str,strlen(tmp)-strlen(var));
+			strcpy(ret_str,tmp+strlen(var)+1);
+			
+			//printf("ret string:%s\n",ret_str);
+			fclose(fp);
+			strcpy(dest,ret_str);
+			free(ret_str);
+			return 0;
+		}
+		
+	}
+	fclose(fp);
+	return 0;
+}
 
 int getVersion(xmlNodePtr tag, char *retstr)
 {
+	char versionName[64]={0};
+	get_conf_str2(versionName,"versionName");
+
+	char *version=get_conf_str3("fw_version");
+
+	if(!version)
+		return 0;
+
+
+sprintf(retstr,"<Version fw1=\"%s\" fw2=\"%s-%s\"></Version>",FW_1,versionName,version);
+
+#if 0
 	char *version=get_conf_str("fw_version");
 	int cfg_ret = 0;
 	char version_flag[32] = "\0";
@@ -1297,8 +1691,48 @@ int getVersion(xmlNodePtr tag, char *retstr)
 	}
 	free(version);
 	return 0;
+#endif
 }
-
+int get_conf_str(char *dest,char *var)
+{
+	FILE *fp=fopen("/tmp/state/status","r");
+	if(NULL == fp)
+	{
+		//printf("open /etc/config/nrender.conf failed \n");
+		return 0;
+	}
+	char tmp[128];
+	char *ret_str;
+	bzero(tmp,128);
+	while(fgets(tmp,128,fp)!=NULL)
+	{
+		if('\n'==tmp[strlen(tmp)-1])
+		{
+			tmp[strlen(tmp)-1]=0;
+		}
+		//printf("get string from /etc/config/nrender.conf:%s\n",tmp);
+		if(!strncmp(var,tmp,strlen(var)))
+		{
+			ret_str = malloc(strlen(tmp)-strlen(var));
+			if(!ret_str)
+			{
+				fclose(fp);
+				return 0;
+			}
+			bzero(ret_str,strlen(tmp)-strlen(var));
+			strcpy(ret_str,tmp+strlen(var)+1);
+			
+			//printf("ret string:%s\n",ret_str);
+			fclose(fp);
+			strcpy(dest,ret_str);
+			free(ret_str);
+			return 0;
+		}
+		
+	}
+	fclose(fp);
+	return 0;
+}
 
 int getpower(xmlNodePtr tag, char *retstr)
 {
@@ -1496,6 +1930,90 @@ int fd1,fd2;
 	return 0;
 	
 }
+
+int getDMClient(xmlNodePtr tag, char *retstr)
+{
+	char status[5]="\0";
+	char uci_option_str[64]="\0";
+
+	memset(uci_option_str,'\0',64);
+	strcpy(uci_option_str,"wireless.@wifi-iface[1].disabled"); 
+	uci_get_option_value(uci_option_str,status);
+	
+	sprintf(retstr,"<GetDMClient disabled=\"%s\"></GetDMClient>",status);
+}
+int getWifiSwitch(xmlNodePtr tag, char *retstr){
+	char wifimode[5]="\0";
+	int mode=0;
+	char uci_option_str[64]="\0";
+
+	memset(uci_option_str,'\0',64);
+	strcpy(uci_option_str,"system.@system[0].wifimode"); 
+	uci_get_option_value(uci_option_str,wifimode);
+
+	if(!strcmp(wifimode,"sta"))	
+		mode=1;
+	else
+		mode=0;
+	
+	sprintf(retstr,"<%s mode=\"%d\"></%s>",FN_GET_WIFI_SWITCH,mode,FN_GET_WIFI_SWITCH);
+		
+
+}
+
+
+int setWifiSwitch(xmlNodePtr tag, char *retstr){
+	char *wifiMode=NULL;//0 for AP+STA; 1 for P2P-GO
+	char *pxml=NULL;
+	char *ntmp=NULL;
+	int flag=0;
+	int ret;
+	/**/
+
+	if((pxml=xmlGetprop(tag,(const xmlChar*)WIFI_SWITCH_MODE))!=NULL)
+		{
+		if((wifiMode=(char *)malloc(strlen(pxml)+1))!=NULL)
+			{
+				memset(wifiMode,0,strlen(pxml)+1);
+				ntmp = xmldecode(pxml);
+				strcpy(wifiMode,ntmp);
+				free(pxml);
+				free(ntmp);	
+				pxml=NULL;
+				ntmp=NULL;
+			}
+	}
+
+	printf("Content-type:text/html\r\n\r\n");
+
+	p_debug("wifiMode=%s\n",wifiMode);
+	if(!strcmp(wifiMode,"0"))//ap mode
+	{
+		flag=1;
+		fprintf(stdout,"<%s><Return status=\"true\" delay=\"10\"></Return></%s>\r\n",SETSYSSTR,SETSYSSTR);
+		fflush(stdout);
+		
+	}else if(!strcmp(wifiMode,"1"))//p2p mode
+	{
+		flag=2;//system("wifi_switch2.sh sta");
+		fprintf(stdout,"<%s><Return status=\"true\" delay=\"10\"></Return></%s>\r\n",SETSYSSTR,SETSYSSTR);
+		fflush(stdout);
+	}
+	else {
+		fprintf(stdout,"<%s><Return status=\"false\" delay=\"10\">Please check your parameter</Return></%s>\r\n",SETSYSSTR,SETSYSSTR);
+		fflush(stdout);		
+	}
+
+	free(wifiMode);
+	wifiMode=NULL;
+	if(flag==1)	
+		ret = my_system("/sbin/sw.sh ap >/dev/null");
+	else if(flag==2)	
+		ret = my_system("/sbin/sw.sh sta >/dev/null");
+	p_debug("wifi_switch return value:%d\n",ret);
+	return 0;
+}
+
 ///////////////////////////////////////////////////////////
 //设置需要先检查参数是否正确，然后应答一个正确或者错误码
 //////////////////////////////////////////////////////////
@@ -1923,6 +2441,8 @@ int setJoinWireless(xmlNodePtr tag, char *retstr)  //wlan1 disabled=0;network re
 	strcpy(str_sp,"wireless.@wifi-iface[1].disabled=0");
 	uci_set_option_value(str_sp);
 	memset(str_sp,0,64);
+	system("nor set client_disabled=0");
+	
 	
 	ttag = strstr(tag, JoinWireless_SET_AP);
 
@@ -2013,10 +2533,11 @@ int setJoinWireless(xmlNodePtr tag, char *retstr)  //wlan1 disabled=0;network re
 				// free(ntmp);
 				pxml=NULL;
 				// ntmp=NULL;
+				//printstr(password);
 			}
 		}
 	}
-	printstr(password);
+	
 		//strcpy(password,xmlGetProp(tag->children,(const xmlChar*)JoinWireless_SET_AP_password));
 	if( !strcmp(encrypt,"WPA-PSK") || !strcmp(encrypt,"WPA2-PSK") || !strcmp(encrypt,"WPA/WPA2-PSK") )
 	{
@@ -2213,111 +2734,9 @@ int setJoinWireless(xmlNodePtr tag, char *retstr)  //wlan1 disabled=0;network re
 
 	}
 #endif
-
-
-	wifilist_t *wifilist;
-
-	int iwifimode=get_wifi_mode();
+	system("uci commit");
 	
-	int wifinumber=0;
-	wifilist=get_wifi_list(iwifimode,&wifinumber);
-
-	int i=0;
-	int flag=0;
-
-
-	
-	
-	
-	
-	for(i=0;i<wifinumber;i++)
-	{
-		if( !memcmp( (wifilist+i)->ssid, ssid_str ,strlen(ssid_str)) )
-		{
-			
-			flag=1;
-			break;
-		}
-	}
-	
-	// sprintf(str_sp,"flag=%d",flag);
-	// printstr(str_sp);
-	// memset(str_sp,0,64);
-
-	// sprintf(str_sp,"iwifimode=%d",iwifimode);
-	// printstr(str_sp);
-	// memset(str_sp,0,64);
-
-	if(flag)
-	{
-		sprintf(str_sp,"uci set wifilist.@wifi%dg[%d].ssid='%s'",iwifimode,i,ssid_str);
-		//uci_set_option_value(str_sp);
-		system(str_sp);
-		memset(str_sp,0,64);
-
-		if(!memcmp(encrypt_config,"none",4) || !memcmp(encrypt_config,"wep",3))
-		{
-			sprintf(str_sp,"uci set wifilist.@wifi%dg[%d].encryption=%s",iwifimode,i,encrypt_config);
-		}
-		else
-		{
-			sprintf(str_sp,"uci set wifilist.@wifi%dg[%d].encryption=%s+%s",iwifimode,i,encrypt_config,tkip_aes_config);
-		}
-		//uci_set_option_value(str_sp);
-		system(str_sp);
-		memset(str_sp,0,64);
-		if(memcmp(encrypt_config,"none",4)!=0)
-		{
-			sprintf(str_sp,"uci set wifilist.@wifi%dg[%d].key='%s'",iwifimode,i,password);
-		}
-		//uci_set_option_value(str_sp);
-		system(str_sp);
-		memset(str_sp,0,64);
-		sprintf(str_sp,"uci set wifilist.@wifi%dg[%d].bssid=%s",iwifimode,i,macaddr);
-		//uci_set_option_value(str_sp);
-		system(str_sp);
-		memset(str_sp,0,64);
-		system("uci commit wifilist");
-
-	
-	}
-	else
-	{
-		sprintf(str_sp,"uci add wifilist wifi%dg",iwifimode);
-		system(str_sp);
-		memset(str_sp,0,64);
-		sprintf(str_sp,"uci set wifilist.@wifi%dg[-1].ssid='%s'",iwifimode,ssid_str);
-		system(str_sp);
-		memset(str_sp,0,64);
-		sprintf(str_sp,"uci set wifilist.@wifi%dg[-1].bssid='%s'",iwifimode,macaddr);
-		system(str_sp);
-		memset(str_sp,0,64);
-		if(!strcmp(encrypt_config,"none") || !strcmp(encrypt_config,"wep"))
-		{
-			sprintf(str_sp,"uci set wifilist.@wifi%dg[-1].encryption=%s",iwifimode,encrypt_config);
-		}
-		else
-		{
-			sprintf(str_sp,"uci set wifilist.@wifi%dg[-1].encryption=%s+%s",iwifimode,encrypt_config,tkip_aes_config);
-		}
-		system(str_sp);
-		memset(str_sp,0,64);
-		if(strcmp(encrypt_config,"none")!=0)
-		{
-			sprintf(str_sp,"uci set wifilist.@wifi%dg[-1].key='%s'",iwifimode,password);
-		}
-		system(str_sp);
-		memset(str_sp,0,64);
-		sprintf(str_sp,"uci set wifilist.number%dg.num=%d",iwifimode,wifinumber+1);
-		system(str_sp);
-		memset(str_sp,0,64);
-
-		system("uci commit wifilist");
-
-
-	}
-	system("cp -f /etc/config/wifilist /user/wifilist");
-
+	system("control_dns.sh >/dev/null 2>&1 &");
 	
 	free(name);
 	free(encrypt);
@@ -2326,34 +2745,19 @@ int setJoinWireless(xmlNodePtr tag, char *retstr)  //wlan1 disabled=0;network re
 	free(channel);
 	free(pxml);
 
-	free(wifilist);
-
+	char wifimode[8]={0};
+	strcpy(uci_option_str,"system.@system[0].wifimode");  //cur_mode
+	uci_get_option_value(uci_option_str,wifimode);
+	memset(uci_option_str,'\0',64);
+	if(!strcmp(wifimode,"sta")){
+		system("/sbin/sw.sh ap >/dev/null");
+	}
+	
 	// system("uci set network.wan.workmode=1");
 	// system("brctl addif br-lan eth0");
-	system("uci commit");
 	
-	
-	//system("/etc/init.d/network restart");
-	
-	//system("wifi down >/dev/null 2>&1");
-	//if(cur_mode[0]!= '1')
-// 	if(strcmp(WiredMode,"dhcp"))
-// 	{
-// 	//	
-// 		system("sync");
-// 		sleep(1);
-// 	//	system("reboot");
-// 		system("ifup wan");
-// //		system("/etc/init.d/network restart");
-// 	}
-// 	else
-	system("touch /tmp/wifi_client_is_connecting");
-	// system("wifi >/dev/null 2>&1");
-	// sleep(5);
-	//system("set_client.sh >/dev/null 2>&1 &");
-	system("control_dns.sh >/dev/null 2>&1 &");
-	system("rm -f /tmp/wifi_client_is_connecting");
-	
+	system("save_wifi &");
+
 	return 0;
 }
 int setJoinWired(xmlNodePtr tag, char *retstr)  //wlan1 disabled=1;network restart
@@ -2430,7 +2834,7 @@ int setJoinWired(xmlNodePtr tag, char *retstr)  //wlan1 disabled=1;network resta
 			system("uci set network.wan.workmode=0");
 			system("uci commit");
 			system("brctl delif br-lan eth0");
-			system("ifconfig wlan1 down");
+			system("ifconfig wlan0 down");
 			system("killall udhcpc >/dev/null 2>&1");
 			system("udhcpc -t 0 -i eth0  -b -p /var/run/dhcp-eth0.pid -O rootpath -R >/dev/null &");
 			goto quit;
@@ -3190,11 +3594,6 @@ int TimeSync(xmlNodePtr tag, char *retstr)
 		time_tm.tm_yday = 0;
 		time_tm.tm_isdst = 0;
 		
-		timep = mktime(&time_tm);
-		time_tv.tv_sec = timep;
-		time_tv.tv_usec = 0;
-		time_tz.tz_dsttime=0;
-		
 		zone_tmp=zone;
 		memcpy(zone_str,zone_tmp,3);
 		zone_tmp+=3;
@@ -3217,8 +3616,7 @@ int TimeSync(xmlNodePtr tag, char *retstr)
 			time_tz.tz_minuteswest=hour*60+minutes;
 			time_tz.tz_minuteswest=-time_tz.tz_minuteswest;
 		}
-		
-		
+				
 		if(strcmp(zone_cur,zone_str)!=0)
 		{
 			sprintf(str_sp,"system.@system[0].timezone=%s",zone_str);
@@ -3228,12 +3626,18 @@ int TimeSync(xmlNodePtr tag, char *retstr)
 			system(str_sp);
 			memset(str_sp,0,64);
 		}
+		system("uci commit");
+
+		timep = mktime(&time_tm);
+		time_tv.tv_sec = timep;
+		time_tv.tv_usec = 0;
+		time_tz.tz_dsttime=0;
+				
 		settimeofday(&time_tv, &time_tz);
-		
 	}
 	
 	
-	system("uci commit");
+	//system("uci commit");
 	
 	free(value);
 	free(zone);
@@ -3279,7 +3683,7 @@ int setClient(xmlNodePtr tag, char *retstr)
 			strcpy(enable_config,"0");
 			//strcpy(htmode,"HT20");
 			if(shutdown_client_in_system)
-				system("ifconfig wlan1 up");
+				system("ifconfig wlan0 up");
 		}
 		else if(!strcmp(enable,"OFF"))
 		{
@@ -3287,7 +3691,7 @@ int setClient(xmlNodePtr tag, char *retstr)
 			strcpy(enable_config,"1");
 			//strcpy(htmode,"HT40+");
 			system("touch /tmp/shutdown_client_in_system");
-			system("ifconfig wlan1 down");
+			system("ifconfig wlan0 down");
 			//system("touch /tmp/manul_shutdown_client");
 		}
 		
@@ -3561,3 +3965,124 @@ int setiperf(xmlNodePtr tag, char *retstr)
 	free(pxml);
 	return 0;
 }
+#define ROOT_PATH "/tmp/mnt/USB-disk-1/hack"
+
+void updateVer(int flag){
+	char set_str[128]={0};
+	char tmp[128]={0};
+	
+	if(flag==0){
+
+		sprintf(set_str,"sed -e \'/%s/d\' -i /tmp/state/status",
+"unfinishedVer");
+		system(set_str);
+		memset(set_str,0,sizeof(set_str));
+		
+		sprintf(set_str,"echo \'%s=%d\' >> /tmp/state/status","unfinishedVer", time(NULL));
+		system(set_str);
+	
+	}else if(flag==1){
+		sprintf(set_str,"sed -e \'/%s/d\' -i /tmp/state/status",
+"completedVer");
+		system(set_str);
+		memset(set_str,0,sizeof(set_str));
+		
+		sprintf(set_str,"echo \'%s=%d\' >> /tmp/state/status","completedVer", time(NULL));
+		system(set_str);
+
+	}else {
+		sprintf(set_str,"sed -e \'/%s/d\' -i /tmp/state/status",
+"unfinishedVer");
+		system(set_str);
+		memset(set_str,0,sizeof(set_str));
+		
+		sprintf(set_str,"echo \'%s=%d\' >> /tmp/state/status","unfinishedVer", time(NULL));
+		system(set_str);
+		
+		sprintf(set_str,"sed -e \'/%s/d\' -i /tmp/state/status",
+"completedVer");
+		system(set_str);
+		memset(set_str,0,sizeof(set_str));
+		
+		sprintf(set_str,"echo \'%s=%d\' >> /tmp/state/status","completedVer", time(NULL));
+		system(set_str);
+	
+		
+	}
+
+
+}
+
+int setFormat(xmlNodePtr tag, char *retstr){
+
+	int fd;
+	char real_file_path[64]={0};
+	#if 1
+	sprintf(real_file_path,"rm -rf %s >/dev/null","/tmp/mnt/USB-disk-1/ota/");
+	system(real_file_path);
+
+	sprintf(real_file_path,"rm -rf %s >/dev/null","/tmp/mnt/USB-disk-1/public/");
+	system(real_file_path);
+	
+	memset(real_file_path,0,64);
+	sprintf(real_file_path,"rm -rf %s >/dev/null",ROOT_PATH);
+	system("/etc/init.d/dm_letv stop >/dev/null");
+	system(real_file_path);
+	//system("mcu_control -s 1 >/dev/null");//
+	updateSysVal("led_status","1");//
+	updateSysVal("lv_n","0");//
+	updateSysVal("o_n","0");//
+	updateSysVal("v_n","0");//
+	updateSysVal("p_n","0");//
+	updateSysVal("p_n","0");//
+	updateVer(2);
+
+	fd=access(real_file_path,0);
+	
+	//if( remove(real_file_path) == 0 )
+	if(fd<0){	
+		p_debug("Remove file %s OK \n",real_file_path);
+		fprintf(stdout,"Content-type:text/html\r\n\r\n");
+		fprintf(stdout,"<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+		fprintf(stdout,"<%s><Return status=\"true\" ></Return></%s>\r\n",SETSYSSTR,SETSYSSTR);
+		fflush(stdout);		
+		
+		//sleep(1);
+		system("/etc/init.d/dm_letv start >/dev/null");
+		system("/etc/init.d/samba restart >/dev/null");
+		system("reboot -f");
+		//system("uci set system.@system[0].unfinishedVer=\"0\"");
+		//system("uci set system.@system[0].finishedVer=\"0\"");
+		//system("uci commit");
+	}else
+	#endif
+	{
+		system("fuser -Km /tmp/mnt/USB-disk-1/ >/dev/null");
+		system("block umount >/dev/null");
+		system("mkfs.vfat /dev/sda1 >/dev/null");
+		//sleep(5);
+		system("block mount >/dev/null");
+		fd=access(real_file_path,0);
+		if(fd<0){	
+			
+			system("/etc/init.d/dm_letv start >/dev/null");
+			p_debug("Remove file %s OK \n",real_file_path);
+			fprintf(stdout,"Content-type:text/html\r\n\r\n");
+			fprintf(stdout,"<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+			fprintf(stdout,"<%s><Return status=\"true\" ></Return></%s>\r\n",SETSYSSTR,SETSYSSTR);
+			fflush(stdout);	
+		}else
+		{
+			p_debug("Remove file %s fail \n",real_file_path);	
+			fprintf(stdout,"Content-type:text/html\r\n\r\n");
+			fprintf(stdout,"<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+			fprintf(stdout,"<%s><Return status=\"false\" ></Return></%s>\r\n",SETSYSSTR,SETSYSSTR);
+			fflush(stdout);
+		}
+		system("reboot -f");
+		//return -1;
+	}
+
+	return 0;
+}
+

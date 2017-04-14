@@ -251,7 +251,7 @@ static int fuser_mount_point(void)
 	int status = 0;
 	if(!fp)
 		return -1;
-
+/*
 	ret = notify_server_release_disk(RELEASE_DISK, &status);
 	if(ret == 0 && status == 0){
 		printf("notify server release disk success\n");
@@ -259,7 +259,7 @@ static int fuser_mount_point(void)
 	else{
 		printf("notify server release disk fail,ret=%d,status=%d\n", ret, status);
 	}
-		
+*/		
 	while (fgets(line, sizeof(line), fp))
 	{
 		if(strstr(line,disk_type[0]) || strstr(line,disk_type[1]) || strstr(line,disk_type[2]))
@@ -319,7 +319,7 @@ int get_button_reset_status(int *reset_status)
 	else
 	{
 		*reset_status = (int)g_uart_cmd.data;
-		//printf("reset value = %d\n\r", *reset_status);
+		printf("reset value = %d\n\r", *reset_status);
 	}
 	return ret;
 }
@@ -774,6 +774,61 @@ EXIT:
 		free(disk_st_buf);
 	return ret;
 }
+int clean_admin(){
+		system("uci del system.@system[0].sid;uci del system.@system[0].code;uci commit;");
+		system("uci del userconfig.@save[0].sid -c /factory/ && uci del userconfig.@save[0].code -c /factory/ && uci commit userconfig -c /factory");
+}
+int get_conf_str(char *dest,char *var)
+{
+	FILE *fp=fopen("/tmp/state/status","r");
+	if(NULL == fp)
+	{
+		//printf("open /etc/config/nrender.conf failed \n");
+		return 0;
+	}
+	char tmp[128];
+	char *ret_str;
+	bzero(tmp,128);
+	while(fgets(tmp,128,fp)!=NULL)
+	{
+		if('\n'==tmp[strlen(tmp)-1])
+		{
+			tmp[strlen(tmp)-1]=0;
+		}
+		//printf("get string from /etc/config/nrender.conf:%s\n",tmp);
+		if(!strncmp(var,tmp,strlen(var)))
+		{
+			ret_str = malloc(strlen(tmp)-strlen(var));
+			if(!ret_str)
+			{
+				fclose(fp);
+				return 0;
+			}
+			bzero(ret_str,strlen(tmp)-strlen(var));
+			strcpy(ret_str,tmp+strlen(var)+1);
+			
+			//printf("ret string:%s\n",ret_str);
+			fclose(fp);
+			strcpy(dest,ret_str);
+			free(ret_str);
+			return 0;
+		}
+		
+	}
+	fclose(fp);
+	return 0;
+}
+
+int updateSysVal(const char *para,const char *val){
+	char set_str[128]={0};
+	char tmp[128]={0};
+	sprintf(set_str,"sed -e \'/%s/d\' -i /tmp/state/status",para);
+	system(set_str);
+	memset(set_str,0,sizeof(set_str));
+	
+	sprintf(set_str,"echo \'%s=%s\' >> /tmp/state/status",para, val);
+	system(set_str);
+}
 
 //wl -i wl0.1 assoclist
 int main() 
@@ -806,7 +861,7 @@ int main()
 		printf("error::Open socket error!\n\n");
 		return -1;
 	}
-
+	char old_led_status[8]={0};
 	get_pc_detect_status(&detect_status_old);
 #if 0
 	if(detect_status_old == DETECT_BOARD)
@@ -902,20 +957,21 @@ int main()
 		}
 		else if( (host_power_sta_new == HOST_POWER_OFF) && (host_power_sta_old == HOST_POWER_ON) )
 		{ //turn off wifi
+			printf("turn off wifi\n");
 			system("echo 0 > /sys/class/leds/longsys\:blue\:led/brightness");
 			system("echo 0 > /sys/class/leds/longsys\:green\:led/brightness");
 			system("killall udhcpc");
 			system("killall dnsmasq");
 			system("killall wpa_supplicant");
 			system("ifconfig wlan0 down");
-			int status;
+			/*int status;
 			ret = notify_server_release_disk(RELEASE_DISK, &status);
 			if(ret == 0 && status == 0){
 				printf("notify server release disk success\n");
 			}
 			else{
 				printf("notify server release disk fail,ret=%d,status=%d\n", ret, status);
-			}
+			}*/
 		}
 		host_power_sta_old=host_power_sta_new;
 
@@ -951,9 +1007,18 @@ int main()
 				printf("no allow mount pc\r\n");
 			}
 			else{
-				fuser_mount_point();
-				usleep(500000);
-				dm_cycle_change_inotify(disk_changed);
+				printf("fuser_mount_point0\r\n");	
+				usleep(200000);
+				ret = get_pc_detect_status(&detect_status_now);
+				if(ret < 0){
+					continue;
+				}
+				if(detect_status_now == DETECT_PC){
+			       	printf("fuser_mount_point1\r\n");	
+					fuser_mount_point();
+					usleep(500000);
+					//dm_cycle_change_inotify(disk_changed);
+				}
 			}
 			detect_status_old = detect_status_now;
 		}
@@ -962,6 +1027,7 @@ int main()
 				system("sync");
 				system("reboot -f");
 			}
+			printf("mount_point1\r\n");	
 
 			mount_point();
 			usleep(500000);
@@ -970,8 +1036,8 @@ int main()
 				printf("no allow mount pc\r\n");
 			}
 			else{
-				notify_server_unrelease();
-				dm_cycle_change_inotify(disk_changed);
+				//notify_server_unrelease();
+				//dm_cycle_change_inotify(disk_changed);
 			}
 		}
 		else if(detect_status_now == DETECT_PC){
@@ -979,25 +1045,37 @@ int main()
 				printf("umountumount\r\n");
 				fuser_mount_point();
 				usleep(500000);
-				dm_cycle_change_inotify(disk_changed);
+				//dm_cycle_change_inotify(disk_changed);
 			}
 			else if((pc_disable_old == 0) && (pc_disable_now == 1)){			
 				printf("mountmount\r\n");
 				mount_point();
 				usleep(500000);
-				dm_cycle_change_inotify(disk_changed);
+				//dm_cycle_change_inotify(disk_changed);
 			}
 		}
 		detect_status_old = detect_status_now;
 		pc_disable_old = pc_disable_now;
-					
+			
 		if(detect_status_now != DETECT_PC && reset_status == BUTTON_DOWN_LED_OFF){	
-			fuser_mount_point();
-			system("echo none > /sys/class/leds/longsys\:blue\:led/trigger");
-			system("echo none > /sys/class/leds/longsys\:green\:led/trigger");
+			//fuser_mount_point();
+			printf("power off\n");
+		
+			system("/etc/init.d/dm_letv stop");
+			//updateSysVal("led_status","2");//green blink
+			system("echo timer > /sys/class/leds/led\:sys\:green/trigger; \
+				echo gpio > /sys/class/leds/led\:sys\:blue/trigger;echo 0 > /sys/class/leds/led\:sys\:blue/brightness; \
+				echo gpio > /sys/class/leds/led\:sys\:yellow/trigger;echo 0 > /sys/class/leds/led\:sys\:yellow/brightness; ");
 		}
 		else if(reset_status == BUTTON_DOWN_RESET){
-			system_reset();
+			sleep(1);
+			system("echo default-on > /sys/class/leds/led\:sys\:green/trigger; \
+				echo gpio > /sys/class/leds/led\:sys\:blue/trigger;echo 0 > /sys/class/leds/led\:sys\:blue/brightness;");
+
+
+			//updateSysVal("led_status","3");//green default-on
+			clean_admin();
+
 			while(1){
 				//usleep(200000);
 				sleep(1);
@@ -1005,11 +1083,40 @@ int main()
 				if(ret < 0){
 					continue;
 				}
-
+				int last_reset_status=reset_status;
 				printf("reset_status = %d\n", reset_status);
+				if(reset_status == BUTTON_FACTORY_RESET){
+					system("echo gpio > /sys/class/leds/led\:sys\:green/trigger; echo 0 > /sys/class/leds/led\:sys\:green/brightness;\
+						echo gpio > /sys/class/leds/led\:sys\:blue/trigger; echo 0 > /sys/class/leds/led\:sys\:yellow/brightness;\
+						echo gpio > /sys/class/leds/led\:sys\:yellow/trigger;echo 0 > /sys/class/leds/led\:sys\:yellow/brightness; ");			
+					system("sh /lib/netifd/reset2factory.sh && reboot");
+					return;
+				}
 				if(reset_status == BUTTON_UP)
 				{
-					system("reboot -f");
+						printf("reset_status2 = %d\n", reset_status);
+				//	updateSysVal("led_status","1");//default 
+					get_conf_str(old_led_status,"led_status");
+					
+					printf("old-status=%s\n",old_led_status);
+					if(!strcmp(old_led_status,"3"))
+					{
+						system("echo gpio > /sys/class/leds/led\:sys\:green/trigger; echo 0 > /sys/class/leds/led\:sys\:green/brightness;\
+						echo timer > /sys/class/leds/led\:sys\:blue/trigger; \
+						echo gpio > /sys/class/leds/led\:sys\:yellow/trigger;echo 0 > /sys/class/leds/led\:sys\:yellow/brightness; ");				
+					}else if(!strcmp(old_led_status,"1"))
+					{
+							system("echo gpio > /sys/class/leds/led\:sys\:green/trigger; echo 0 > /sys/class/leds/led\:sys\:green/brightness;\
+							echo default-on > /sys/class/leds/led\:sys\:blue/trigger; \
+							echo gpio > /sys/class/leds/led\:sys\:yellow/trigger;echo 0 > /sys/class/leds/led\:sys\:yellow/brightness; ");			
+					}
+
+					system("/etc/init.d/dm_letv start");
+					//system("echo timer > /sys/class/leds/led\:sys\:blue/trigger; \
+					//	echo gpio > /sys/class/leds/led\:sys\:green/trigger; \
+					//	echo 0 > /sys/class/leds/led\:sys\:green/brightness;");
+					break;
+					//system("reboot -f");
 					// ret = set_reset_mcu();
 					// if(ret < 0){
 					// 	printf("set reset mcu fail!\n\r");
@@ -1022,7 +1129,15 @@ int main()
 			}
 		}
 		else if(reset_status == BUTTON_DOUBLE){
-			system("sh /sbin/2g_5g_switch.sh &");
+			//system("sh /sbin/2g_5g_switch.sh &");
+		}else if(reset_status == BUTTON_DOWN_ONCE){
+			//work mode 
+			char work_mode[8]={0};
+			get_conf_str(work_mode,"w_m");
+			if(!strcmp(work_mode,"0")){
+				system("ifconfig wlan0 up >/dev/null");
+			}
+			updateSysVal("w_m","1");
 		}
 		
 		ret = get_wifi_connect_info();
@@ -1036,7 +1151,7 @@ int main()
 		}
 		if(idle_cnt >= IDLE_WIFI_TIME){
 			while(1){	
-				usleep(200000);
+				usleep(300000);
 				ret = set_system_poweroff();	
 				if(ret < 0){
 					printf("set system poweroff fail!\n\r");

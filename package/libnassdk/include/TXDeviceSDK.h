@@ -17,10 +17,10 @@ enum tx_test_mode_enum
 enum tx_network_type
 {
 	network_type_none			= 0,
-	network_type_wifi			= 1, // wifi网络以及除了移动、联通、电信、香港之外的网络
-	network_type_mobile			= 2, // 移动网络
-	network_type_unicom			= 3, // 联通网络
-	network_type_telecom		= 4, // 电信网络
+	network_type_wifi			= 1, // wifi网络以及除了xg移动、xg联通、xg电信、香港之外的网络
+	network_type_mobile			= 2, // 2g/3g/4g下的移动网络
+	network_type_unicom			= 3, // 2g/3g/4g下的联通网络
+	network_type_telecom		= 4, // 2g/3g/4g下的电信网络
 	network_type_hongkong		= 5, // 香港
 };
 
@@ -28,6 +28,13 @@ enum tx_sdk_run_mode
 {
 	sdk_run_mode_default		= 0, //正常模式
 	sdk_run_mode_low_power		= 1, //低功耗模式
+};
+
+enum tx_cache_binderinfo_mode 
+{
+	tx_cache_binderinfo_mode_auto = 0, // 自动模式。自动模式下，如果是android和windows平台则开启绑定者列表缓存，如果其他平台则不开启
+	tx_cache_binderinfo_mode_on,       // 开启缓存
+	tx_cache_binderinfo_mode_off,      // 禁用缓存
 };
 
 //设备信息：需要在初始化设备时提供的一些硬件相关信息，比如操作系统、ip地址等等
@@ -52,6 +59,8 @@ typedef struct _tx_device_info
 
     unsigned int                test_mode;                  //测试环境标志位
     int							run_mode;					//SDK运行模式，必须从枚举变量tx_sdk_run_mode中取值
+    int						    support_lan_av;				//IPCamera是否支持局域网音视频功能，主要供TV在局域网获取Camera的音视频数据，默认为0表示不支持，支持此必须实现TXLanAudioVideo.h里面的接口
+	int                         cache_binderinfo_mode;      //是否在本地保存绑定者信息，当设备的授权者个数很多时，开启缓存可以加快重启进程后获取设备绑定者列表的速度
 } tx_device_info;
 
 //设备绑定者信息
@@ -59,7 +68,7 @@ typedef struct tag_tx_binder_info
 {
     int                 type;			//绑定者类型
     unsigned long long  tinyid;			//绑定者tinyid
-    unsigned long long  uin;			//绑定者uin
+    unsigned long long  uin;			//绑定者uin, 出于保护用户隐私的考虑，这个值总是0，如果确实有获取uin的需求，请联系qq物联helper
     char                nick_name[128];	//绑定者昵称
     int                 gender;			//绑定者性别
     char                head_url[1024];	//绑定者头像url

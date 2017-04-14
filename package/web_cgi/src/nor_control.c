@@ -17,8 +17,10 @@ char *g_nor_parameter[] = {
 	[16] = "smb_password",     [17] = "smb_enable",     
 	[18] = "smb_anonymous_en", [19] = "ftp_password",
 	[20] = "ftp_enable",       [21] = "dms_enable",     
-	[22] = "dms_name",         [23] = "wifi_mode",  
-	[24] = NULL,   
+	[22] = "dms_name",         [23] = "wifi_mode", 
+	[24] = "client_disabled",  [25] = "root_pwd",  
+	[26] = "disk_st", 		   [27] = "sid", 
+	[28] = "code",				[29] = NULL,
 };
 
 static void debugwrite(char *str)
@@ -116,7 +118,7 @@ int cfg_nor_set(char *argv)
 		i++;
 	}
 	uci_free_context(ctx);
-	system("uci commit userconfig -c /user/");
+	system("uci commit userconfig -c /factory/");
 	return 0;
 }
 

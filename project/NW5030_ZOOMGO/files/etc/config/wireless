@@ -1,0 +1,24 @@
+config wifi-device  radio0
+	option type     mac80211
+	option channel  149
+	option hwmode	11g
+	option path	'platform/jzmmc_v1.2.1/mmc_host/mmc1/mmc1:0001/mmc1:0001:2'
+	option htmode	
+	option disabled 1
+
+config wifi-iface
+	option device   radio0
+	option network  lan
+	option mode     ap
+	option ssid     airdisk-AA1122
+	option encryption none
+
+config wifi-iface
+	option device   radio0
+	option network  wan
+	option mode     sta
+	option ssid     disable
+	option bssid	00:11:22:33:44:55
+	option encryption none
+	option key      88888888
+	option disabled  1

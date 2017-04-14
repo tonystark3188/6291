@@ -30,7 +30,7 @@
 
 
 /*############################## Includes ####################################*/
-#include "network/net_util.h"
+//#include "network/net_util.h"
 #include "router_inotify.h"
 #include "defs.h"
 #include "base.h"
@@ -38,6 +38,8 @@
 #include "router_cycle.h"
 #include "config.h"
 #include "server.h"
+#include "search_task.h"
+
 
 static const char	*config_file = CONFIG;
 #define FOCK_TIME 5
@@ -174,10 +176,10 @@ void file_server_prcs_task(void)
 	open_listening_ports(ctx);
 	DMCLOG_D("dm_server started on port(s) %d,%d,%d", get_sys_init_port(),get_sys_router_port(), get_sys_file_port());
 	while (exit_flag == 0)
-		shttpd_poll(ctx, 5000);
+		shttpd_poll(ctx, 2000);
 
 	DMCLOG_D("quit shttpd poll");
-
+	
 	shttpd_fini(ctx);
 	safe_close(listen_fd);
 	DMCLOG_D("safe_exit_flag = %d",safe_exit_flag);
@@ -232,6 +234,9 @@ static void set_option(const char *opt,const char *val)
 	}else if(strcmp(opt,DISK_UUID_NAME)==0)
 	{
 		strcpy(g_p_sys_conf_info->uuid_name,val);
+	}else if(strcmp(opt,SESSION_WATCH_TIME)==0)
+	{
+		g_p_sys_conf_info->session_watch_time = atoi(val);
 	}else if(strcmp(opt,POWER_ACCESS)==0)
 	{
 		if(atoi(val) == 1)
@@ -287,9 +292,71 @@ static void set_option(const char *opt,const char *val)
 			g_p_sys_conf_info->fun_list_flag |= 0x0080;//128
 		}
 	}
+	else if(strcmp(opt,PASSWORD_ACCESS)==0)
+	{
+		if(atoi(val) == 1)
+		{
+			g_p_sys_conf_info->fun_list_flag |= 0x0100;//256
+		}
+	}
+	else if(strcmp(opt,FILE_SEARCH_ACCESS)==0)
+	{
+		if(atoi(val) == 1)
+		{
+			g_p_sys_conf_info->fun_list_flag |= 0x0400;//1024
+		}
+	}else if(strcmp(opt,FILE_HIDE_ACCESS)==0)
+	{
+		if(atoi(val) == 1)
+		{
+			g_p_sys_conf_info->fun_list_flag |= 1<<12;
+		}
+	}
+	else if(strcmp(opt,ADD_NETWORK_ACCESS)==0)
+	{
+		if(atoi(val) == 1)
+		{
+			g_p_sys_conf_info->fun_list_flag |= 0x2000;//8192->1<<13
+		}
+	}
+	else if(strcmp(opt,PC_MOUNT_ACCESS)==0)
+	{
+		if(atoi(val) == 1)
+		{
+			g_p_sys_conf_info->fun_list_flag |= 0x4000;//16384->1<<14
+		}
+	}
+	else if(strcmp(opt,NET_INFO_ACCESS)==0)
+	{
+		if(atoi(val) == 1)
+		{
+			g_p_sys_conf_info->fun_list_flag |= 0x8000;//32768->1<<15
+		}
+	}
+	else if(strcmp(opt,ADVANCED_FUNC_ACCESS)==0)
+	{
+		if(atoi(val) == 1)
+		{
+			g_p_sys_conf_info->fun_list_flag |= 0x10000;//65536->1<<16
+		}
+	}else if(strcmp(opt,DELETE_FILE_LIST_ACCESS)==0)
+	{
+		if(atoi(val) == 1)
+		{
+			g_p_sys_conf_info->fun_list_flag |= 1<<17;//0x20000
+		}
+	}
 	else if(strcmp(opt,PRODUCT_MODEL)==0)
 	{
 		strcpy(g_p_sys_conf_info->product_model,val);
+	}
+	else if(strcmp(opt,ROM_TYPE)==0)
+	{
+		strcpy(g_p_sys_conf_info->rom_type,val);
+	}
+	else if(strcmp(opt,USB_SW_TYPE)==0)
+	{
+		strcpy(g_p_sys_conf_info->usb_sw_type,val);
 	}
 	else{
 		DMCLOG_E("unknow opt:%s", opt);
@@ -336,10 +403,10 @@ initialize_config(const char *config_file)
 int child_fun()
 {
     int rslt = 0;
-	(void) signal(SIGTERM, signal_handler);
+	/*(void) signal(SIGTERM, signal_handler);
 	(void) signal(SIGINT, signal_handler);
 	(void) signal(SIGSEGV,signal_handler);
-	(void) signal(SIGABRT,signal_handler);
+	(void) signal(SIGABRT,signal_handler);*/
 	(void) signal(SIGPIPE,SIG_IGN);
 	InitializeCriticalSection(&power_info_global.mutex);
     /* 云通信模块发过来的消息的处理线程 */
@@ -379,6 +446,18 @@ int child_fun()
         goto quit;
     }
 	#endif
+
+	#ifdef SEARCH_TASK_MANAGE
+	PTHREAD_T tid_search_manage_task;
+	rslt = PTHREAD_CREATE(&tid_search_manage_task, NULL, (void *)search_manage_task_func, NULL);
+	if (0 != rslt){ 
+        DMCLOG_D("Create router server msg prcs thread failed!");
+        rslt = -1;
+        goto quit;
+    }
+	PTHREAD_DETACH(tid_search_manage_task);
+	#endif
+	
 	PTHREAD_DETACH(tid_discovery_server);
 	PTHREAD_DETACH(tid_router_server);
 	PTHREAD_DETACH(tid_file_server);
@@ -389,7 +468,7 @@ int child_fun()
    	dm_router_cycle();
 quit:
 	DestroyCriticalSection(&power_info_global.mutex);
-	sleep(8);
+	sleep(4);
     DMCLOG_D("----------------msg server main task quit!----------");
     return rslt;
 }

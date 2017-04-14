@@ -34,13 +34,12 @@
 #include <signal.h>
 #include "file_json.h"
 #include "config.h"
-#include "get_service_list.h"
 #include "session.h"
 #include "router_task.h"
 #include "task/scan_task.h"
 #include "api_process.h"
 #include "uci_api.h"
-static unsigned long acc_count = 0;
+
 typedef int (*API_FUNC)(ClientTheadInfo *p_client_info);
 
 typedef struct _tag_handle
@@ -59,6 +58,48 @@ tag_handle all_tag_handle[]=
 #define TAGHANDLE_NUM (sizeof(all_tag_handle)/sizeof(all_tag_handle[0]))
 
 extern struct usr_dnode *usr_dn;
+static int dm_usr_logout(struct conn *c)
+{
+	ENTER_FUNC();
+	int res = 0;
+	DMCLOG_D("c->session = %s",c->session);
+	res = handle_db_logout(c->session);
+	if(res < 0)
+	{
+		return -1;
+	}
+	EXIT_FUNC();
+	return 0;
+}
+static int dm_usr_login(struct conn *c)
+{
+	int res = 0;
+	//l_dm_gen_session(c->session, c->username, c->password, c->cur_time);
+	if(c->session == NULL||!*c->session||c->client_ip == NULL)
+	{
+		DMCLOG_D("get session error");
+		return -1;
+	}
+	
+	DMCLOG_D("c->ip = %s",c->client_ip);
+	EnterCriticalSection(&c->ctx->mutex);
+	res = handle_db_del_usr_for_ip(c->client_ip);
+	LeaveCriticalSection(&c->ctx->mutex);
+	if(res < 0)
+	{
+		DMCLOG_D("handle_db_del_usr_for_ip error");
+		return -1;
+	}
+	DMCLOG_D("c->session = %s",c->session);
+	EnterCriticalSection(&c->ctx->mutex);
+	res = handle_db_login(c->session,c->device_uuid,c->device_name,c->client_ip,c->username,c->password);
+	LeaveCriticalSection(&c->ctx->mutex);
+	if(res < 0)
+	{
+		return -1;;
+	}
+	return 0;
+}
 
 
 int dm_tcp_scan_notify(int release_flag)
@@ -183,27 +224,19 @@ int get_route_mac(char *mac)
 int get_route_id(char *device_id)
 {
  	int ret = 0;
-	char mac[32] = {0};
 	if(device_id == NULL)
 	{
 		DMCLOG_E("para is null");
 		return -1;
 	}
-	//ret = get_route_mac(device_id);
-	strcpy(device_id,"airdisk_0003");
-	/*if(ret == 0)
+	ret = dm_get_device_id(device_id);
+	if(ret != 0)
 	{
-		//char mac[] = "00:0f:2a:d2:fe:ef";
-
-	    unsigned char addr[6];
-
-	    sscanf(mac,"%2x:%2x:%2x:%2x:%2x:%2x",addr,addr+1,addr+2,addr+3,addr+4,addr+5);
-
-		strcpy(device_id,addr);
-
-		DMCLOG_D("device_id = %s",device_id);
-		return 0;
-	}*/
+		DMCLOG_E("get device id error");
+		return -1;
+	}
+	DMCLOG_D("device_id = %s",device_id);
+	//strcpy(device_id,"airdisk_0005");//"airdisk_0003",4,5
 	return ret;
 }
 
@@ -246,6 +279,13 @@ int _get_route_details(ClientTheadInfo *p_client_info)
 
 	if(get_route_mac(mac) == 0)
 		JSON_ADD_OBJECT(dev_json, "mac",JSON_NEW_OBJECT(mac,string));
+
+	char key[32] = {0};
+	int ret = dm_get_p2p_key(key);
+	if(ret >= 0)
+	{
+		JSON_ADD_OBJECT(dev_json, "p2pUuid",JSON_NEW_OBJECT(key,string));
+	}
 	
 	//JSON_ADD_OBJECT(miscellaneous_json, "device_name",JSON_NEW_OBJECT("",string));
 	//JSON_ADD_OBJECT(miscellaneous_json, "device_id",JSON_NEW_OBJECT(1234,int));
@@ -388,10 +428,8 @@ int api_process(ClientTheadInfo *p_client_info)
 { 
 	uint8_t i = 0;
 	uint8_t switch_flag = 0;
-	int res_sz;
 	int ret = -1;
 	char *cmd_buf = "input cmd is not finished!";
-	//DMCLOG_D("p_client_info->cmd = %d",p_client_info->cmd);
 	for(i = 0; i<TAGHANDLE_NUM; i++)
 	{
 		if(p_client_info->cmd == all_tag_handle[i].tag)
@@ -403,8 +441,7 @@ int api_process(ClientTheadInfo *p_client_info)
 	
 	if(switch_flag == 0)
 	{
-		res_sz = strlen(cmd_buf);
-		p_client_info->retstr = (char *)malloc(res_sz + 1);
+		p_client_info->retstr = (char *)calloc(1,strlen(cmd_buf) + 1);
 		if(p_client_info->retstr == NULL)
 		{
 			return -1;
@@ -417,14 +454,7 @@ int api_process(ClientTheadInfo *p_client_info)
 
 int dm_get_version(struct conn *c)
 {
-	int res = 0;
 	JObj* response_json=JSON_NEW_EMPTY_OBJECT();
-	JObj* header_json=JSON_NEW_EMPTY_OBJECT();
-	if(c->error != 0)
-	{
-		DMCLOG_D("json cmd is error");
-		goto EXIT;
-	}
 	strcpy(c->ver,get_sys_dm_router_version());
 	JObj *response_data_array = JSON_NEW_ARRAY();
 	JObj* ver_info = JSON_NEW_EMPTY_OBJECT();
@@ -432,41 +462,23 @@ int dm_get_version(struct conn *c)
 	JSON_ARRAY_ADD_OBJECT (response_data_array,ver_info);
 	JSON_ADD_OBJECT(response_json, "data", response_data_array);
 EXIT:
-	JSON_ADD_OBJECT(header_json, "cmd", JSON_NEW_OBJECT(c->cmd,int));
-	JSON_ADD_OBJECT(header_json, "seq", JSON_NEW_OBJECT(c->seq,int));
-	JSON_ADD_OBJECT(header_json, "error", JSON_NEW_OBJECT(c->error,int));
-	JSON_ADD_OBJECT(response_json, "header", header_json);
-	res = file_json_to_string(c,response_json);
-	if(res < 0)
-	{
-		JSON_PUT_OBJECT(response_json);
-		return -1;
-	}
+	file_json_to_string(c,response_json);
 	JSON_PUT_OBJECT(response_json);
 	return 0;
 }
 
 int dm_login(struct conn *c)
 {
-	int res = 0;
-	time_t timep;
-	struct tm *p;
 	JObj* response_json = JSON_NEW_EMPTY_OBJECT();
-	JObj* header_json=JSON_NEW_EMPTY_OBJECT();
 	JObj *response_data_array = JSON_NEW_ARRAY();
 	if(c->error != 0)
 	{
 		DMCLOG_D("json cmd is error");
 		goto EXIT;
 	}
-	time(&timep);
-	p = localtime(&timep);
-	timep = mktime(p);
-	DMCLOG_D("time()->localtime()->mktime():%d",timep);
-	acc_count++;
-	c->cur_time = timep + acc_count;
+	
 	DMCLOG_D("device_name = %s",c->device_name);
-	res = dm_usr_login(c);
+	int res = dm_usr_login(c);
 	if(res < 0)
 	{
 		c->error = ERROR_LOGIN;
@@ -505,16 +517,7 @@ int dm_login(struct conn *c)
 	JSON_ARRAY_ADD_OBJECT (response_data_array,database_sign);
 EXIT:
 	JSON_ADD_OBJECT(response_json, "data", response_data_array);
-	JSON_ADD_OBJECT(header_json, "cmd", JSON_NEW_OBJECT(c->cmd,int));
-	JSON_ADD_OBJECT(header_json, "seq", JSON_NEW_OBJECT(c->seq,int));
-	JSON_ADD_OBJECT(header_json, "error", JSON_NEW_OBJECT(c->error,int));
-	JSON_ADD_OBJECT(response_json, "header", header_json);
-	res = file_json_to_string(c,response_json);
-	if(res < 0)
-	{
-		JSON_PUT_OBJECT(response_json);
-		return -1;
-	}
+	file_json_to_string(c,response_json);
 	JSON_PUT_OBJECT(response_json);
 	return 0;
 }
@@ -522,30 +525,16 @@ EXIT:
 int dm_logout(struct conn *c)
 {
 	ENTER_FUNC();
-	int res = 0;
 	JObj* response_json = JSON_NEW_EMPTY_OBJECT();
-	JObj* header_json=JSON_NEW_EMPTY_OBJECT();
-	if(c->error != 0)
-	{
-		DMCLOG_D("json cmd is error");
-		goto EXIT;
-	}
-	res = dm_usr_logout(c);
+	int res = dm_usr_logout(c);
 	if(res  < 0)
 	{
 		c->error = ERROR_LOGOUT;
 	}
+	if(c->ctx->session_reset != NULL)
+		c->ctx->session_reset(false,&c->ctx->p_session_list);
 EXIT:
-	JSON_ADD_OBJECT(header_json, "cmd", JSON_NEW_OBJECT(c->cmd,int));
-	JSON_ADD_OBJECT(header_json, "seq", JSON_NEW_OBJECT(c->seq,int));
-	JSON_ADD_OBJECT(header_json, "error", JSON_NEW_OBJECT(c->error,int));
-	JSON_ADD_OBJECT(response_json, "header", header_json);
-	res = file_json_to_string(c,response_json);
-	if(res < 0)
-	{
-		JSON_PUT_OBJECT(response_json);
-		return -1;
-	}
+	file_json_to_string(c,response_json);
 	JSON_PUT_OBJECT(response_json);
 	EXIT_FUNC();
 	return 0;
@@ -554,22 +543,18 @@ EXIT:
 
 int dm_get_service_info(struct conn *c)
 {
-	int ret = 0;
+	#if 0
 	int i = 0;
 	JObj* response_json=JSON_NEW_EMPTY_OBJECT();
-	JObj* header_json=JSON_NEW_EMPTY_OBJECT();
-	if(c->error != 0)
-	{
-		DMCLOG_D("json cmd is error");
-		goto EXIT;
-	}
 	service_list_t p_service_list;
 	memset(&p_service_list,0,sizeof(service_list_t));
-	ret = get_service_list(&p_service_list);
+	int ret = get_service_list(&p_service_list);
+	
 	DMCLOG_D("count = %d",p_service_list.count);
 	if(ret < 0)
 	{
 		c->error = ERROR_GET_SERVICE_LIST;
+		goto EXIT;
 	}
 	JObj *response_data_array = JSON_NEW_ARRAY();
 	for(i = 0;i < p_service_list.count;i++)
@@ -581,33 +566,18 @@ int dm_get_service_info(struct conn *c)
 	}
 	JSON_ADD_OBJECT(response_json, "data", response_data_array);
 EXIT:
-	JSON_ADD_OBJECT(header_json, "cmd", JSON_NEW_OBJECT(c->cmd,int));
-	JSON_ADD_OBJECT(header_json, "seq", JSON_NEW_OBJECT(c->seq,int));
-	JSON_ADD_OBJECT(header_json, "error", JSON_NEW_OBJECT(c->error,int));
-	JSON_ADD_OBJECT(response_json, "header", header_json);
-	ret = file_json_to_string(c,response_json);
-	if(ret < 0)
-	{
-		JSON_PUT_OBJECT(response_json);
-		return -1;
-	}
+	file_json_to_string(c,response_json);
 	JSON_PUT_OBJECT(response_json);
 	return 0;
+#endif
 }
 
 int _dm_del_client_info(struct conn *c)
 {
 	ENTER_FUNC();
-	int res = 0;
 	JObj* response_json=JSON_NEW_EMPTY_OBJECT();
-	JObj* header_json=JSON_NEW_EMPTY_OBJECT();
-	if(c->error != 0)
-	{
-		DMCLOG_D("json cmd is error");
-		goto EXIT;
-	}
 	//EnterCriticalSection(&c->ctx->mutex);
-	res = _del_dev_from_list_by_ip(c->client_ip);
+	int res = _del_dev_from_list_by_ip(c->client_ip);
 	//LeaveCriticalSection(&c->ctx->mutex);
 	if(res < 0)
 	{
@@ -616,16 +586,7 @@ int _dm_del_client_info(struct conn *c)
 		goto EXIT;
 	}
 EXIT:
-	JSON_ADD_OBJECT(header_json, "cmd", JSON_NEW_OBJECT(c->cmd,int));
-	JSON_ADD_OBJECT(header_json, "seq", JSON_NEW_OBJECT(c->seq,int));
-	JSON_ADD_OBJECT(header_json, "error", JSON_NEW_OBJECT(c->error,int));
-	JSON_ADD_OBJECT(response_json, "header", header_json);
-	res = file_json_to_string(c,response_json);
-	if(res < 0)
-	{
-		JSON_PUT_OBJECT(response_json);
-		return -1;
-	}
+	file_json_to_string(c,response_json);
 	JSON_PUT_OBJECT(response_json);
 	EXIT_FUNC();
 	return 0;
@@ -634,34 +595,8 @@ EXIT:
 
 int dm_router_get_option(struct conn *c)
 {
-	int i = 0;
-	int ret = 0;
 	JObj* response_json=JSON_NEW_EMPTY_OBJECT();
-	JObj* header_json=JSON_NEW_EMPTY_OBJECT();
-	if(c->error != 0)
-	{
-		DMCLOG_D("json cmd is error");
-		goto EXIT;
-	}
-	/*JObj *response_data_array = JSON_NEW_ARRAY();
-	for(i = 0; i < TAGHANDLE_NUM; i++)
-	{
-		JObj *cmd_info = JSON_NEW_EMPTY_OBJECT();
-		JSON_ADD_OBJECT(cmd_info, "cmdID", JSON_NEW_OBJECT(1,int));
-		JSON_ARRAY_ADD_OBJECT (response_data_array,cmd_info);
-	}
-	JSON_ADD_OBJECT(response_json, "data", response_data_array);*/
-EXIT:
-	JSON_ADD_OBJECT(header_json, "cmd", JSON_NEW_OBJECT(c->cmd,int));
-	JSON_ADD_OBJECT(header_json, "seq", JSON_NEW_OBJECT(c->seq,int));
-	JSON_ADD_OBJECT(header_json, "error", JSON_NEW_OBJECT(c->error,int));
-	JSON_ADD_OBJECT(response_json, "header", header_json);
-	ret = file_json_to_string(c,response_json);
-	if(ret < 0)
-	{
-		JSON_PUT_OBJECT(response_json);
-		return -1;
-	}
+	file_json_to_string(c,response_json);
 	JSON_PUT_OBJECT(response_json);
 	return 0;
 }
@@ -669,14 +604,7 @@ EXIT:
 int dm_router_get_status_changed(struct conn *c)
 {
 	ENTER_FUNC();
-	int res = 0;
 	JObj* response_json = JSON_NEW_EMPTY_OBJECT();
-	JObj* header_json=JSON_NEW_EMPTY_OBJECT();
-	if(c->error != 0)
-	{
-		DMCLOG_D("json cmd is error");
-		goto EXIT;
-	}
 	c->statusFlag = dm_get_status_changed();
 	if(c->statusFlag < 0)
 	{
@@ -689,16 +617,7 @@ int dm_router_get_status_changed(struct conn *c)
 		JSON_ADD_OBJECT(response_json, "data", response_data_array);
 	}
 EXIT:
-	JSON_ADD_OBJECT(header_json, "cmd", JSON_NEW_OBJECT(c->cmd,int));
-	JSON_ADD_OBJECT(header_json, "seq", JSON_NEW_OBJECT(c->seq,int));
-	JSON_ADD_OBJECT(header_json, "error", JSON_NEW_OBJECT(c->error,int));
-	JSON_ADD_OBJECT(response_json, "header", header_json);
-	res = file_json_to_string(c,response_json);
-	if(res < 0)
-	{
-		JSON_PUT_OBJECT(response_json);
-		return -1;
-	}
+	file_json_to_string(c,response_json);
 	JSON_PUT_OBJECT(response_json);
 	EXIT_FUNC();
 	return 0;
@@ -706,74 +625,35 @@ EXIT:
 
 int dm_router_get_func_list(struct conn *c)
 {
-	ENTER_FUNC();
 	int res = 0;
 	JObj* response_json = JSON_NEW_EMPTY_OBJECT();
-	JObj* header_json=JSON_NEW_EMPTY_OBJECT();
-	if(c->error != 0)
-	{
-		DMCLOG_D("json cmd is error");
-		goto EXIT;
-	}
-	c->statusFlag = get_func_list_flag();
 	JObj *response_data_array = JSON_NEW_ARRAY();
 	JObj* status_info = JSON_NEW_EMPTY_OBJECT();
-	JSON_ADD_OBJECT(status_info, "statusFlag",JSON_NEW_OBJECT(c->statusFlag,int));
+	JSON_ADD_OBJECT(status_info, "statusFlag",JSON_NEW_OBJECT(get_func_list_flag(),int));
 	JSON_ARRAY_ADD_OBJECT (response_data_array,status_info);
 	JSON_ADD_OBJECT(response_json, "data", response_data_array);
-EXIT:
-	JSON_ADD_OBJECT(header_json, "cmd", JSON_NEW_OBJECT(c->cmd,int));
-	JSON_ADD_OBJECT(header_json, "seq", JSON_NEW_OBJECT(c->seq,int));
-	JSON_ADD_OBJECT(header_json, "error", JSON_NEW_OBJECT(c->error,int));
-	JSON_ADD_OBJECT(response_json, "header", header_json);
-	res = file_json_to_string(c,response_json);
-	if(res < 0)
-	{
-		JSON_PUT_OBJECT(response_json);
-		return -1;
-	}
+	file_json_to_string(c,response_json);
 	JSON_PUT_OBJECT(response_json);
-	EXIT_FUNC();
 	return 0;
 }
 
 int dm_router_set_status_changed_listener(struct conn *c)
 {
-	ENTER_FUNC();
-	int res = 0;
 	JObj* response_json = JSON_NEW_EMPTY_OBJECT();
-	JObj* header_json=JSON_NEW_EMPTY_OBJECT();
-	if(c->error != 0)
-	{
-		DMCLOG_D("json cmd is error");
-		goto EXIT;
-	}
 	if(c->session&&!*c->session)
 	{
 		DMCLOG_D("session is error");
 		goto EXIT;
 	}
 	DMCLOG_D("c->cient_port = %d",c->client_port);
-	//EnterCriticalSection(&c->ctx->mutex);
-	res = _add_dev_to_list(c->session,c->client_port,c->statusFlag);
-	//LeaveCriticalSection(&c->ctx->mutex);
+	int res = _add_dev_to_list(c->session,c->client_ip,c->client_port,c->statusFlag);
 	if(res < 0)
 	{
 		c->error = ERROR_SET_STATUS_CHANGED;
 	}
 EXIT:
-	JSON_ADD_OBJECT(header_json, "cmd", JSON_NEW_OBJECT(c->cmd,int));
-	JSON_ADD_OBJECT(header_json, "seq", JSON_NEW_OBJECT(c->seq,int));
-	JSON_ADD_OBJECT(header_json, "error", JSON_NEW_OBJECT(c->error,int));
-	JSON_ADD_OBJECT(response_json, "header", header_json);
-	res = file_json_to_string(c,response_json);
-	if(res < 0)
-	{
-		JSON_PUT_OBJECT(response_json);
-		return -1;
-	}
+	file_json_to_string(c,response_json);
 	JSON_PUT_OBJECT(response_json);
-	EXIT_FUNC();
 	return 0;
 }
 
@@ -783,7 +663,6 @@ int Parser_GetVersion(struct conn *c)
 }
 int Parser_Login(struct conn *c)
 {
-	int res = 0;
 	JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
 	if(data_json == NULL)
 	{
@@ -815,7 +694,7 @@ int Parser_Login(struct conn *c)
 	{
 		DMCLOG_D("malloc error");
 		c->error = SERVER_OUT_MEMORY;
-		res = -1;
+		goto EXIT;
 	}
 	S_STRNCPY(c->device_uuid,deviceUuid,DEVICE_UUID_LEN);
 	
@@ -824,13 +703,14 @@ int Parser_Login(struct conn *c)
 	{
 		DMCLOG_D("malloc error");
 		c->error = SERVER_OUT_MEMORY;
-		res = -1;
+		goto EXIT;
 	}
 	DMCLOG_D("deviceName = %s",deviceName);
 	S_STRNCPY(c->device_name,deviceName,DEVICE_NAME_LEN);
 EXIT:
 	if(c->r_json != NULL)
 		JSON_PUT_OBJECT(c->r_json);
+	return 0;
 }
 int Parser_Logout(struct conn *c)
 {
@@ -869,7 +749,8 @@ int Parser_Logout(struct conn *c)
 	strcpy(c->session,session);
 EXIT:
 	if(c->r_json != NULL)
-			JSON_PUT_OBJECT(c->r_json);
+		JSON_PUT_OBJECT(c->r_json);
+	return 0;
 }
 int Parser_GetServiceInfo(struct conn *c)
 {
@@ -900,8 +781,8 @@ int Parser_DelClientInfo(struct conn *c)
 	DMCLOG_D("cleint ip = %s",c->client_ip);
 EXIT:
 	if(c->r_json != NULL)
-			JSON_PUT_OBJECT(c->r_json);
-
+		JSON_PUT_OBJECT(c->r_json);
+	return 0;
 }
 int Parser_DiskScanning(struct conn *c)
 {
@@ -909,28 +790,31 @@ int Parser_DiskScanning(struct conn *c)
 }
 int Parser_ReleaseDisk(struct conn *c)
 {
-	int ret = 0;
 	JObj *data_json = JSON_GET_OBJECT(c->r_json,"data");
 	if(data_json == NULL)
 	{
-		ret = -1;
+		c->error = INVALIDE_COMMAND;
 		goto EXIT;
 	}
 	JObj *para_json = JSON_GET_ARRAY_MEMBER_BY_ID(data_json,0);
 	JObj *release_flag_json = JSON_GET_OBJECT(para_json,"release_flag");
-	if(release_flag_json != NULL)
+	JObj *event_json = JSON_GET_OBJECT(para_json,"event");
+	JObj *action_node_json = JSON_GET_OBJECT(para_json,"action_node");
+	if(release_flag_json != NULL && event_json != NULL && action_node_json != NULL)
 	{
 		c->release_flag = JSON_GET_OBJECT_VALUE(release_flag_json,int);
-		DMCLOG_D("release_flag = %d", c->release_flag);
+		c->event = JSON_GET_OBJECT_VALUE(release_flag_json,int);
+		strcpy(c->action_node, JSON_GET_OBJECT_VALUE(release_flag_json,string));
+		DMCLOG_D("release_flag: %d, event: %d, action_node: %s", c->release_flag, c->event, c->action_node);
 	}
 	else{
-		ret = -1;
+		c->error = INVALIDE_COMMAND;
 		goto EXIT;
 	}
 EXIT:
 	if(c->r_json != NULL)
 		JSON_PUT_OBJECT(c->r_json);
-	return ret;
+	return 0;
 }
 int Parser_RouterGetOption(struct conn *c)
 {
@@ -971,8 +855,8 @@ int Parser_RouterSetStatusListen(struct conn *c)
 	DMCLOG_D("port = %d",c->client_port);
 EXIT:
 	if(c->r_json != NULL)
-			JSON_PUT_OBJECT(c->r_json);
-
+		JSON_PUT_OBJECT(c->r_json);
+	return 0;
 }
 
 

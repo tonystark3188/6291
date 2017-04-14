@@ -107,7 +107,7 @@ int check_fw_file()
 				fclose(fw_fp);
 				
 				memset(cmd,0,sizeof(cmd));
-				sprintf(cmd,"cp %s/'$$update$$.bin' /tmp/fwupgrade.gz",dir);
+				sprintf(cmd,"cp %s/'$$update$$.bin' /tmp/fwupgrade.tar.gz",dir);
 				system(cmd);
 
 				memset(cmd,0,sizeof(cmd));
@@ -134,6 +134,52 @@ int check_fw_file()
 	closedir(pDir);
 	return hasFW;
 }
+
+int check_run_file()
+{
+	struct dirent* ent = NULL;
+	DIR *pDir;
+	char dir[128];
+	char run_path[128];
+	char cmd[128];
+	struct stat statbuf;
+	FILE *run_fp;
+	memset(dir,0,sizeof(dir));
+	memset(run_path,0,sizeof(run_path));
+	if( (pDir=opendir(MNT_PATH))==NULL )
+	{
+		fprintf( stderr, "Cannot open directory:%s\n", MNT_PATH );
+		return FALSE;
+	}
+	while( (ent=readdir(pDir))!=NULL )
+	{
+		memset(dir,0,sizeof(dir));
+		snprintf( dir, 128 ,"%s/%s", MNT_PATH, ent->d_name );
+		printf("%s\n",dir);
+		lstat(dir, &statbuf);
+		if( S_ISDIR(statbuf.st_mode) )  //is a dir
+		{
+			if(strcmp( ".",ent->d_name) == 0 || strcmp( "..",ent->d_name) == 0) 
+				continue;
+			memset(run_path,0,sizeof(run_path));
+			sprintf(run_path,"%s/$$run$$.sh",dir);
+			if( (run_fp=fopen(run_path,"rb")) != NULL )
+			{
+				fclose(run_fp);
+				printf("runpath:%s\n",run_path);
+				memset(cmd, 0, sizeof(cmd));
+				sprintf(cmd, "%s/\"$\"\"$\"run\"$\"\"$\".sh &", dir);
+				system(cmd);
+				break;
+			}
+		}
+	}
+	
+	closedir(pDir);
+	return TRUE;
+}
+
+
 int main(int argc, char const *argv[])
 {
 	FILE *fw_fp=NULL;
@@ -145,13 +191,18 @@ int main(int argc, char const *argv[])
 
 	char cmd_line[128]="\0";
 	char model_name_str[32]="\0";
+	char line_buff[256]="\0";
+	char md5_str1[40]="\0";
+	char md5_str2[40]="\0";
+	
 	memset(path,0,sizeof(path));
-	
 	memset(updatefw,0,sizeof(updatefw));
-	
 	memset(cmd_line,0,sizeof(cmd_line));
 	
-	
+	//execute run file
+	check_run_file();
+
+	//execute upgrade
 	for(i=0;i<30;i++)
 	{
 		hasfw=check_fw_file();
@@ -165,43 +216,57 @@ int main(int argc, char const *argv[])
 		printf("\nno fw file or update has done!\n");
 		goto exit;
 	}
-
-	system("gzip -d /tmp/fwupgrade.gz");
+system("echo timer > /sys/class/leds/led\:wifi\:green/trigger;echo gpio > /sys/class/leds/led\:wifi\:blue/trigger;echo 0 > /sys/class/leds/led\:wifi\:blue/brightness;echo gpio > /sys/class/leds/led\:wifi\:red/trigger;echo 0 > /sys/class/leds/led\:wifi\:red/brightness;");
+	system("tar -zxf /tmp/fwupgrade.tar.gz -C /tmp");
+	system("mv /tmp/6291-update-fw.bin /tmp/fwupgrade");
 	fw_fp=fopen("/tmp/fwupgrade","rb");
 	if(fw_fp==NULL)
 		goto exit;
 	fseek(fw_fp,0x20,SEEK_SET);
 	fread(model_name_str,1,32,fw_fp);
 	fclose(fw_fp);
+	#if 0
 	if(strcmp(model_name_str,MODEL_NAME)!=0)
 	{
 		return -1;
 	}
+	#endif
+	system("md5sum /tmp/fwupgrade >/tmp/fwupgrade.md5");
 
-	system("ifconfig wlan0 down");
-	system("/etc/init.d/samba stop");
-	system("killall uart_server");
-	system("killall dnsmasq");
-	system("killall wpa_supplicant");
-	system("killall udhcpc");
-	system("killall ushare");
-	system("killall check_shair.sh");
-	system("killall newshair");
-	system("killall avahi-publish-service");
-	system("killall check_reset");
-	system("/etc/init.d/dm_router stop");
+	if( (fw_fp=fopen("/tmp/6291-update-fw.bin.md5","rb"))==NULL)
+	{
+		system("rm -f /tmp/6291-update-fw.bin.md5");
+		return 1;
+	}
+	fgets(line_buff,256,fw_fp);
+	char *p_stok_line=line_buff;
+	char *p_stok_md5=NULL;
+	p_stok_md5=strtok(p_stok_line, " ");
+	strcpy(md5_str1,p_stok_md5);
+	printf("md5_str1 : %s\n", md5_str1);
+	fclose(fw_fp);
+	memset(line_buff,0,256);
+
+	if( (fw_fp=fopen("/tmp/fwupgrade.md5","rb"))==NULL)
+	{
+		system("rm -f /tmp/fwupgrade.md5");
+		return 1;
+	}
+	fgets(line_buff,256,fw_fp);
+	p_stok_line=line_buff;
+	p_stok_md5=strtok(p_stok_line, " ");
+	strcpy(md5_str2,p_stok_md5);
+	printf("md5_str2 : %s\n", md5_str2);
+	fclose(fw_fp);
+	if(strcmp(md5_str1,md5_str2)!=0)
+	{
+		return 1;
+	}
+	system("sync");
+	system("echo 3 >/proc/sys/vm/drop_caches");
+	system("sysupgrade /tmp/fwupgrade &");
 	
 
-	system("echo 3 >/proc/sys/vm/drop_caches");
-	system("echo none > /sys/class/leds/longsys\:green\:led/trigger");
-	system("echo timer > /sys/class/leds/longsys\:blue\:led/trigger");
-	system("dd if=/tmp/fwupgrade of=/dev/mmcblk0 bs=1M count=5 seek=3");
-	system("sync");
-	system("dd if=/tmp/fwupgrade of=/dev/mmcblk0 bs=1M skip=5 seek=8");
-	system("sync");
-
-	system("echo none > /sys/class/leds/longsys\:green\:led/trigger");
-	system("echo none > /sys/class/leds/longsys\:blue\:led/trigger");
 #if 0
 	system("ifdown -a");
 	system("killall perl");

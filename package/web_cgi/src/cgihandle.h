@@ -19,7 +19,7 @@
 typedef char* xmlNodePtr;
 typedef char xmlChar;
 #endif
-
+#include <locale.h>
 #include "uci_for_cgi.h"
 
 extern int error_num;
@@ -35,7 +35,7 @@ extern char error_info[1024];
 
 #define FW_1 "1.0.1"
 #define FW_2 "1.2.04"
-#define FW_3 "1.2.04.8"
+#define FW_3 "1.2.04.16"
 
 
 //function str
@@ -75,6 +75,9 @@ extern char error_info[1024];
 #define FN_GET_Power "Power"
 	#define Power_GET_percent "percent"
 	#define Power_GET_status "status"
+
+#define FN_GET_Online "Users"
+	#define Online_GET_Section "count"
 	
 #define FN_GET_Storage "Storage"
 	#define Storage_GET_Section "Section"
@@ -132,9 +135,31 @@ extern char error_info[1024];
 
 #define FN_GET_BTN_RST "BtnReset"
 
+#define FN_INTERNET "internet"
+
+#define FN_GET_OTAUPGRADE "GetOTAInfo"
+
+#define FN_GET_OTAStatus "OTAStatus"
+	#define GET_OTAStatus "status"
+
 #define FN_GET_AIRPLAY_NAME "airplay"
 
+#define FN_GET_RepairAuto "RepairAuto"
+	#define GET_RepairAuto_enable "enable"
+#define FN_GET_GetDMClient   "GetDMClient"
+	#define FN_GET_GetDMClient_Disabled "disabled"
+
+#define FN_GET_WIFI_SWITCH "wifiSwitch"
+	#define WIFI_SWITCH_MODE "mode"
+
 //set function
+
+#define FN_SET_WIFI_SWITCH "wifiSwitch"
+	#define WIFI_SWITCH_MODE "mode"
+
+#define FN_FORMAT "Format"
+
+
 
 #define FN_SET_SSID "SSID"
 	#define SSID_SET_name "name"
@@ -156,6 +181,7 @@ extern char error_info[1024];
 	#define JoinWireless_SET_AP_tkip_aes "tkip_aes"
 	#define JoinWireless_SET_AP_password "password"
 	#define JoinWireless_SET_AP_mac "mac"
+	#define JoinWireless_SET_AP_add_network "add_network"
 	
 #define FN_SET_JoinWired "JoinWired"
 	#define JoinWired_SET_PPPOE "PPPOE"
@@ -208,6 +234,9 @@ extern char error_info[1024];
 #define FN_Upgrade "Upgrade"
 
 #define FN_HALT "Halt"
+
+#define FN_SYNCSYS "SyncSystem"
+	#define Sync_Clean_Cache "cleancache"
 
 #define FN_Time_Sync "Time"
 	#define Time_Sync_value "value"

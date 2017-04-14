@@ -90,6 +90,15 @@ int db_query_task_msg_cb(void *self, void *msg)
 		case MSG_DB_QUERY_FILE_BY_NAME:
 			ret = db_query(database, QUERY_FILE_BY_NAME, &p_OprObj->data.file_data);
             break;
+        case MSG_DB_QUERY_FILE_BY_PATH:
+			ret = db_query(database, QUERY_FILE_BY_PATH, &p_OprObj->data.file_data);
+            break;
+        case MSG_DB_QUERY_ENCRYPT_FILE_BY_PATH:
+            ret = db_query(database, QUERY_ENCRYPT_FILE_BY_PATH, &p_OprObj->data.file_data);
+            break;
+        case MSG_DB_QUERY_ENCRYPT_FILE_BY_NAME:
+            ret = db_query(database, QUERY_ENCRYPT_FILE_BY_NAME, &p_OprObj->data.file_data);
+            break;
 		case MSG_DB_QUERY_FILE_LIST_CNT:
 			ret = db_query(database, QUERY_FILE_LIST_COUNT, &p_OprObj->data.file_list);
             break;
@@ -208,7 +217,6 @@ int db_write_task_msg_cb(void *self, void *msg)
 	 //add new items into database
 	if(p_obj->m_type >= MSG_DB_FILE_SINGLE_ADD && p_obj->m_type <= MSG_DB_FILE_BATCH_ADD)
 	{
-		//ret = insert_handler(p_obj->m_type, database, p_OprObj);
 		ret = dm_db_insert_file(database, &p_OprObj->data.insert_data);
 	}
 	else if(p_obj->m_type == MSG_DB_FILE_COPY)

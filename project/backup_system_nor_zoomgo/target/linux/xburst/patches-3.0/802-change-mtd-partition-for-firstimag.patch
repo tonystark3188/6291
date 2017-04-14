@@ -1,0 +1,57 @@
+diff -urN a/arch/mips/xburst/soc-x1000/chip-x1000/canna/common/spi_bus.c b/arch/mips/xburst/soc-x1000/chip-x1000/canna/common/spi_bus.c
+--- a/arch/mips/xburst/soc-x1000/chip-x1000/canna/common/spi_bus.c	2016-09-09 18:46:01.394017500 +0800
++++ b/arch/mips/xburst/soc-x1000/chip-x1000/canna/common/spi_bus.c	2016-09-13 22:07:18.136140500 +0800
+@@ -11,12 +11,10 @@
+ 
+ #define SIZE_ALL			0x1000000	/* 16M */		
+ #define SIZE_BOOTLOADER		0x30000	 	/* 192K */
+-#define SIZE_FACTORY		0x10000		/* 64K */ 
++#define SIZE_FACTORY		0x10000		/* 64K */
++#define SIZE_FIRSTIMAGE		0xA00000	/* 10M */
+ #define SIZE_KERNEL			0x200000 	/* 2M */
+-//#define SIZE_ROOTFS		0xB80000 	/* 11.5M */
+-#define SIZE_ROOTFS			0x800000 	/* 8M */
+-#define SIZE_USRDATA		0x80000  	/* 512K */
+-#define SIZE_BACKUP			0x5B0000  	/* 5824K */
++#define SIZE_ROOTFS			0x3B0000 	/* 3776K */
+ #define SIZE_ERASE_FLAG		0x10000		/* 64K */
+ 
+ struct mtd_partition jz_mtd_partition1[] = {
+@@ -36,28 +34,28 @@
+ 		.size =     SIZE_FACTORY,
+ 	},
+ 	{
+-		.name =     "kernel",
++		.name =     "firstimage",
+ 		.offset =   SIZE_BOOTLOADER + SIZE_FACTORY,
++		.size =     SIZE_FIRSTIMAGE,
++	},
++	{
++		.name =     "kernel",
++		.offset =   SIZE_BOOTLOADER + SIZE_FACTORY + SIZE_FIRSTIMAGE,
+ 		.size =     SIZE_KERNEL,
+ 	},
+ 	{
+ 		.name =     "rootfs",
+-		.offset =   SIZE_KERNEL + SIZE_BOOTLOADER + SIZE_FACTORY,
++		.offset =   SIZE_KERNEL + SIZE_BOOTLOADER + SIZE_FACTORY + SIZE_FIRSTIMAGE,
+ 		.size =     SIZE_ROOTFS,
+ 	},
+ 	{
+ 		.name =     "firmware",
+-		.offset =   SIZE_BOOTLOADER + SIZE_FACTORY,
++		.offset =   SIZE_BOOTLOADER + SIZE_FACTORY + SIZE_FIRSTIMAGE,
+ 		.size =     SIZE_KERNEL + SIZE_ROOTFS,
+ 	},
+ 	{
+-		.name =     "backup",
+-		.offset =   SIZE_BOOTLOADER + SIZE_KERNEL + SIZE_ROOTFS + SIZE_FACTORY,
+-		.size =     SIZE_BACKUP,
+-	},
+-	{
+ 		.name =     "airdiskflag",
+-		.offset =   SIZE_BOOTLOADER + SIZE_KERNEL + SIZE_ROOTFS + SIZE_FACTORY + SIZE_BACKUP,
++		.offset =   SIZE_BOOTLOADER + SIZE_KERNEL + SIZE_ROOTFS + SIZE_FACTORY + SIZE_FIRSTIMAGE,
+ 		.size =     SIZE_ERASE_FLAG,
+ 	},
+ #if 0

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <uci.h>
-
+#include "my_debug.h"
 static const char *delimiter = " ";
 
 static enum {
@@ -17,6 +17,165 @@ static enum {
 
 struct uci_context *ctx;
 //int uci_get_str_len=0;
+
+unsigned char* urlDecode(char *string)  
+{
+		int destlen = 0;
+		unsigned char *src, *dest;
+		unsigned char *newstr;
+	
+		if (string == NULL) return NULL;
+	
+		for (src = string; *src != '\0'; src++) 	
+		{
+		   if (*src == '%')
+			{
+				destlen++;
+				src++;
+			}
+		   else destlen++;
+		}
+		newstr = (unsigned char *)malloc(destlen + 1);
+		src = string;
+		dest = newstr;
+	
+		while (*src != '\0')  
+		{
+			if (*src == '%')
+			{
+				char h = toupper(src[1]);
+				char l = toupper(src[2]);
+				int vh, vl;
+				vh = isalpha(h) ? (10+(h-'A')) : (h-'0');
+				vl = isalpha(l) ? (10+(l-'A')) : (l-'0');
+				*dest++ = ((vh<<4)+vl);
+				src += 3;
+			} 
+			else if (*src == '+') 
+			{
+				*dest++ = ' ';
+				src++;
+			} 
+			else
+			{
+				*dest++ = *src++;
+			}
+		}
+		
+		*dest = 0;
+	
+	   return newstr;
+	}
+
+
+
+char * GetStringFromWeb()
+{
+	char method[10];
+	char *outstring;
+	int string_length;
+	
+	strcpy(method,getenv("REQUEST_METHOD"));
+	
+	if(! strcmp(method,"POST"))
+	{
+		//fprintf(stdout,"method is post<br>");
+		string_length=atoi(getenv("CONTENT_LENGTH"));
+		if(string_length!=0)
+		{
+			outstring=malloc(sizeof(char)*string_length+1);
+			fread(outstring,sizeof(char),string_length,stdin);
+			//fprintf(stdout,"%s<br>",outstring);
+		}
+	}
+
+	else if(! strcmp(method,"GET"))
+	{
+		//fprintf(stdout,"method is get<br>");
+		string_length=strlen(getenv("QUERY_STRING"));
+		outstring=malloc(sizeof(char)*string_length+1);
+		strcpy(outstring,getenv("QUERY_STRING"));
+		string_length=strlen(outstring);
+		//fprintf(stdout,"%s<br>",outstring);
+	}
+	
+	if(string_length==0)
+	{
+		return NULL;
+	}
+	return outstring;
+	
+	
+}
+
+int processString(char *string,char *name,char *value)
+{
+#define debug 0
+	char *ret_value=value;
+	char *p_name;
+	//p_debug(string);
+	//p_debug(name);
+
+
+	if(string==NULL || strlen(string)==0)
+	{
+		#if debug
+		printf("the string is wrong. ");
+		#endif
+		return -1;
+	}
+	
+	if((p_name=strstr(string,name))==NULL)
+	{
+		#if debug
+		printf("the name is not found. ");
+		#endif
+		return -1;
+	}
+	//else{
+	//	p_debug("find name=%s",name);
+	//	p_debug("p_name=%s",p_name);
+	//}
+	p_name+=strlen(name)+1;
+	if((*p_name)=='&' || !(*p_name) )
+	{
+		#if debug
+		printf("the value is empty. ");
+		#endif
+		*value='\0';
+		return 0;
+	}
+	while( *p_name != '&' && *p_name)
+	{
+		if(*p_name =='+')
+		{
+			*ret_value=' ';
+		}
+		else
+		{
+			*ret_value=*p_name;
+		}
+		p_name++;
+		
+		ret_value++;
+	}
+	*ret_value='\0';
+	//p_debug("value=%s",value);
+	return 0;
+}
+
+void cgi_log( char *string){
+	FILE *fw_fp;
+	int f_size=0;
+	if( (fw_fp=fopen("/tmp/cgi_log.txt","ab+"))==NULL)    // write and read,binary
+	{
+		exit(1);
+	}		
+	f_size=fwrite(string,1,strlen(string),fw_fp);
+	fclose(fw_fp);
+	return;
+}
+
 
 static void cli_perror(void)
 {

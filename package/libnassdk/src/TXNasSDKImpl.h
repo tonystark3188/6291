@@ -45,6 +45,7 @@ typedef struct tag_SendFileTask{
 	std::string file_path;                  //¾ø¶ÔÂ·¾¶
 	std::string buff_with_file;
 	std::string bussiness_name;
+	unsigned int platform;
 }NasSendFileTask;
 
 
@@ -67,7 +68,7 @@ public:
 	void SendAckDataPoints();
 
 	//SendFileTo
-	void AddSendFileTask(std::string task_key, unsigned long long target_id, std::string file_path, std::string buff_with_file,std::string bussiness_name);
+	void AddSendFileTask(std::string task_key, unsigned long long target_id, std::string file_path, std::string buff_with_file,std::string bussiness_name,unsigned int platform);
 	void SendFileTasks();
 	bool DeleteSendFileTask(std::string task_key);
 

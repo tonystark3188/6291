@@ -110,7 +110,7 @@ read_stream_comb(struct stream *stream,const char *reason)
 
 int file_json_to_string(struct conn *c,JObj* response_json)
 {
-	ENTER_FUNC();
+	//ENTER_FUNC();
 	JObj* header_json = JSON_NEW_EMPTY_OBJECT();
 	JSON_ADD_OBJECT(header_json, "cmd", JSON_NEW_OBJECT(c->cmd,int));
 	JSON_ADD_OBJECT(header_json, "seq", JSON_NEW_OBJECT(c->seq,int));
@@ -205,30 +205,7 @@ fail:
 	//elog(E_LOG, NULL, "open_listening_port(%d): %s", port, strerror(errno));
 	return (-1);
 }
-#if 0
-static void
-msg_write_stream(struct stream *from, struct stream *to)
-{
-	int	n, len;
-	len = io_data_len(&from->io);
-	assert(len > 0);
-	/* TODO: should be assert on CAN_WRITE flag */
-	n = msg_write_socket(to, io_data(&from->io), len);
-	DMCLOG_D("write_stream (%d %s): written %d/%d bytes (errno %d)",
-	    to->conn->rem.chan.sock,
-	    to->io_class ? to->io_class->name : "(null)", n, len, ERRNO);
-	if (n > 0)
-	{
-		io_clear(&from->io);
-		io_clear(&to->io);
-		//io_inc_tail(&from->io, n);
-	}
-	else if (n == -1 && (ERRNO == EINTR || ERRNO == EWOULDBLOCK))
-		n = n;	/* Ignore EINTR and EAGAIN */
-	else if (!(to->flags & FLAG_DONT_CLOSE))
-		stop_stream(to);
-}
-#endif
+
 static void
 write_stream(struct stream *from, struct stream *to)
 {
@@ -238,6 +215,7 @@ write_stream(struct stream *from, struct stream *to)
 	
 	/* TODO: should be assert on CAN_WRITE flag */
 	n = to->io_class->write(to, io_data(&from->io), len);
+	//DMCLOG_D("n = %d,len = %d,head:%llu,tail:%llu",n,len,from->io.head,from->io.tail);
 	if (n > 0)
 	{
 		io_inc_tail(&from->io, n);
@@ -268,7 +246,7 @@ parse_http_request(struct conn *c)
 {
 	char	*s = c->rem.io.buf;
 	char	*buf = NULL;
-	DMCLOG_D("recv:%s",s);
+	//DMCLOG_D("recv:%s",s);
 	file_parse_process(c);
 	io_clear(&c->rem.io);
 	io_clear(&c->loc.io);
@@ -277,23 +255,30 @@ parse_http_request(struct conn *c)
 		goto EXIT1;
 	}
 	file_func_process(c);
+	//DMCLOG_D("c->cmd=%d,c->error=%d",c->cmd,c->error);
 	if(c->error != 0){
 		if(c->cmd == FN_FILE_UPLOAD\
 			||c->cmd == FN_FILE_STREAM_UPLOAD\
 			||c->cmd == FN_FILE_GET_BACKUP_FILE\
 			||c->cmd == FN_FILE_GET_LIST\
 			||c->cmd == FN_FILE_GET_LSIT_BY_TYPE\
-			||c->cmd == FN_FILE_GET_DIR_LIST_BY_TYPE)
+			||c->cmd == FN_FILE_GET_DIR_LIST_BY_TYPE\
+			||c->cmd == FN_ENCRYPT_FILE_GET_LIST\
+			||c->cmd == FN_ENCRYPT_FILE \
+			||c->cmd == FN_ENCRYPT_DIR \
+			||c->cmd == FN_ENCRYPT_FILE \
+			||c->cmd == FN_ENCRYPT_FILE_DECRYPT)
 			goto EXIT1;
 		goto EXIT2;
 	}
-	if(!(c->cmd == FN_FILE_DOWNLOAD ||c->cmd == FN_FILE_UPLOAD ||c->cmd == FN_FILE_STREAM_UPLOAD|| c->cmd == FN_FILE_GET_BACKUP_FILE \
+	if(!(c->cmd == FN_FILE_DOWNLOAD || c->cmd == FN_ENCRYPT_FILE_DOWNLOAD ||c->cmd == FN_FILE_UPLOAD ||c->cmd == FN_FILE_STREAM_UPLOAD|| c->cmd == FN_FILE_GET_BACKUP_FILE \
 		||c->cmd == FN_ROUTER_SET_UPLOAD_FIRMWARE || c->cmd == FN_FILE_COPY|| c->cmd == FN_FILE_MOVE || c->cmd == FN_FILE_SEARCH\
-		||c->cmd == FN_FILE_GET_LIST||c->cmd == FN_FILE_GET_LSIT_BY_TYPE\
+		||c->cmd == FN_FILE_GET_LIST||c->cmd == FN_FILE_GET_LSIT_BY_TYPE ||c->cmd == FN_ENCRYPT_FILE || c->cmd == FN_ENCRYPT_FILE_DECRYPT|| c->cmd == FN_ENCRYPT_FILE_GET_LIST\
 		||c->cmd == FN_FILE_GET_DIR_LIST_BY_TYPE\
 		||c->cmd == FN_FILE_GET_ALBUM_LIST\
 		||c->cmd == FN_FILE_GET_DIR_BY_TYPE\
 		||c->cmd == FN_FILE_GET_LIST_BY_PATH\
+		||c->cmd == FN_ENCRYPT_DIR \
 		||c->cmd == FN_FILE_DELETE_ALL_CB))
 	{
 		stop_stream(&c->loc);
@@ -302,7 +287,7 @@ parse_http_request(struct conn *c)
 	
 EXIT1:	
 	buf = dm_file_inotify(c->cmd ,c->error);
-	if(c->cmd == FN_FILE_GET_LIST||c->cmd == FN_FILE_GET_LSIT_BY_TYPE||c->cmd == FN_FILE_GET_DIR_LIST_BY_TYPE)
+	if(c->cmd == FN_FILE_GET_LIST||c->cmd == FN_FILE_GET_LSIT_BY_TYPE||c->cmd == FN_FILE_GET_DIR_LIST_BY_TYPE ||c->cmd == FN_ENCRYPT_FILE_GET_LIST)
 	{
 		send_server_error(c,buf);
 	}else{
@@ -508,6 +493,14 @@ read_stream(struct stream *stream)
 		{
 			n = n;
 		}else{
+			if(stream->conn->cmd == FN_FILE_COPY ||stream->conn->cmd == FN_ENCRYPT_FILE ||stream->conn->cmd == FN_ENCRYPT_FILE_DECRYPT)
+			{
+				if(stream->conn->copy_status != NULL)
+				{
+					*stream->conn->copy_status = -1;
+					DMCLOG_E("quit copy/encryp/decrypt process");
+				}
+			}
 			stop_stream(stream);
 		}
 		
@@ -552,7 +545,7 @@ msg_read_stream(struct stream *stream)
 	    io_space(&stream->io), len);
 	if (n > 0)
 	{
-		DMCLOG_D("n = %d,buf = %s",n,io_space(&stream->io));
+		//DMCLOG_D("n = %d,buf = %s",n,io_space(&stream->io));
 		io_inc_head(&stream->io, n);
 		io_inc_tail(&stream->io, n);
 	}
@@ -561,11 +554,11 @@ msg_read_stream(struct stream *stream)
 		DMCLOG_D("stop stream");
 		stop_stream(stream);
 	}
-	DMCLOG_D("msg read_stream (%d %s): read %d/%d/%lu bytes (errno %d)",
+	/*DMCLOG_D("msg read_stream (%d %s): read %d/%d/%lu bytes (errno %d)",
 	    stream->conn->rem.chan.sock,
 	    stream->io_class ? stream->io_class->name : "(null)",
 	    n, len, (unsigned long) stream->io.total, ERRNO);
-	
+	*/
 	if (stream->content_len > 0 && stream == &stream->conn->loc) {
 		assert(stream->io.total <= stream->content_len);
 		if (stream->io.total == stream->content_len)
@@ -695,7 +688,9 @@ disconnect(struct conn *c)
 				|| c->cmd == FN_FILE_DEL_LIST_BY_PATH\
 				|| c->cmd == FN_ROUTER_SET_HIDE_ATTR\
 				|| c->cmd == FN_ROUTER_SET_ALBUM_HIDE_ATTR\
-				|| c->cmd == FN_FILE_DELETE_ALL_CB)
+				|| c->cmd == FN_FILE_DELETE_ALL_CB \
+				|| c->cmd == FN_ENCRYPT_FILE \
+				|| c->cmd == FN_ENCRYPT_FILE_DECRYPT)
 			{
 				_check_ip_to_list(c->client_ip);
 				uint16_t sign = get_database_sign();

@@ -63,7 +63,6 @@ endef
 
 TARGET_CFLAGS += -DMAX_DEBUG_LEVEL=$(CONFIG_PACKAGE_SAMBA_MAX_DEBUG_LEVEL) -D__location__=\\\"\\\" -ffunction-sections -fdata-sections
 TARGET_LDFLAGS += -Wl,--gc-sections
-
 CONFIGURE_VARS += \
 	ac_cv_lib_attr_getxattr=no \
 	ac_cv_search_getxattr=no \

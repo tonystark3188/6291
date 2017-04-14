@@ -65,8 +65,10 @@ struct file_dl_req
 {
 	std::vector<file_dl_item> dl_item;
 	unsigned long long target_id;
+	unsigned int platform; //0 Î´Öª£¬1 PCQQ£¬2 MQQ
 	file_dl_req() {
 		target_id = 0;
+		platform = 0;
 	}
 };
 

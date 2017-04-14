@@ -1,10 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include "cgiget.h"
-#define FW_DEV "/dev/mtdblock5"
+#include "uci_for_cgi.h"
+#define FW_DEV "/dev/mmcblk0"
 #define FW_FILE "/tmp/fwupgrade"
-#define FW_LEN 8126464
+#define FW_LEN (53*1024*1024)
 #define BUF_MAX 0x80000
 
 void logstr(char *str)
@@ -46,33 +51,77 @@ int main(int argc, char const *argv[])
 	// 	logstr("1 open fwupgrade failed.");
 	// 	return 0;
 	// }
+#if 1
 	system("sync");
 	system("echo 3 >/proc/sys/vm/drop_caches");
-	system("echo none > /sys/class/leds/longsys\:green\:led/trigger");
-	system("echo timer > /sys/class/leds/longsys\:blue\:led/trigger");
-	sleep(1);
-	system("block umount");
-	usleep(200000);
-
-	system("ifconfig wlan0 down");
-	system("/etc/init.d/samba stop");
-	system("killall uart_server");
-	system("killall dnsmasq");
-	system("killall wpa_supplicant");
-	system("killall udhcpc");
-	system("killall ushare");
-	system("killall check_shair.sh");
-	system("killall newshair");
-	system("killall avahi-publish-service");
-	system("killall check_reset");
+	//system("echo none > /sys/class/leds/longsys\:green\:led/trigger");
+	//system("echo timer > /sys/class/leds/longsys\:blue\:led/trigger");
+	//sleep(1);
+	// system("block umount");
+	// usleep(200000);
+#endif
+	// system("ifconfig wlan0 down");
+	// system("/etc/init.d/samba stop");
+	// system("killall uart_server");
+	// system("killall dnsmasq");
+	// system("killall wpa_supplicant");
+	// system("killall udhcpc");
+	// system("killall ushare");
+	// system("killall check_shair.sh");
+	// system("killall newshair");
+	// system("killall avahi-publish-service");
+	// system("killall check_reset");
 	system("/etc/init.d/dm_router stop");
+#if 0
+	unsigned long filesize;
+	FILE *fp=NULL;
+	fp=fopen(FW_FILE,"r");
+	if(fp==NULL)
+		exit(1);
+	fseek(fp, 0L, SEEK_END);
+	filesize = ftell(fp);
+	fclose(fp);
 
+	unsigned char pad_ff[1024];
+	unsigned long write_len=0;
+	int ret_size;
+	FILE *mmc_fp;
+	memset(pad_ff,0xff,sizeof(pad_ff));
+	mmc_fp=fopen(FW_DEV,"wb");
+	if(mmc_fp==NULL)
+	{
+		printf("can not open device\n");
+		exit(1);
+	}
+		
+	fseek(mmc_fp,(3*1024*1024),SEEK_SET);
+	while(write_len<FW_LEN)
+	{
+		ret_size=fwrite(pad_ff,1,1024,mmc_fp);
+		if(ret_size!=1024)
+		{
+			printf("write error\n");
+			break;
+		}
+		
+		write_len += ret_size;
+	}
+	fclose(mmc_fp);
+
+
+#endif
 	//system("mv /tmp/fwupgrade /tmp/fwupgrade.gz");
 	//system("gzip -d /tmp/fwupgrade.gz");
-	system("dd if=/tmp/fwupgrade of=/dev/mmcblk0 bs=1M count=5 seek=3");
-	system("sync");
-	system("dd if=/tmp/fwupgrade of=/dev/mmcblk0 bs=1M skip=5 seek=8");
-	system("sync");
+
+	// system("dd if=/tmp/fwupgrade of=/dev/mmcblk0 bs=1M count=5 seek=3");
+	// system("sync");
+	// system("dd if=/tmp/fwupgrade of=/dev/mmcblk0 bs=1M skip=5 seek=8");
+	// system("sync");
+	system("sysupgrade /tmp/fwupgrade &");
+
+
+	// system("dd if=/tmp/fwupgrade of=/dev/mmcblk0 bs=1M seek=3");
+
 	//return 0;
 
 #if 0
@@ -155,6 +204,7 @@ int main(int argc, char const *argv[])
 	fclose(fp_dev);
 	fclose(fw_fp);
 #endif
+#if 0
 	system("sync");
 
 
@@ -165,6 +215,8 @@ int main(int argc, char const *argv[])
 			// close(fd);
 		//	logstr("reboot -f\n");
 			system("reboot -f");
+			system("sleep 5");
+			system("echo b 2>/dev/null >/proc/sysrq-trigger");
 	}else{
 		free(cgistr);
 		// ioctl(fd,0);
@@ -172,5 +224,6 @@ int main(int argc, char const *argv[])
 		//logstr("reboot -f\n");
 		system("halt");
 	}
+#endif
 	return 0;
 }

@@ -55,6 +55,9 @@ typedef enum
     QUERY_FILE_INFO,             //query single file informaion
     QUERY_FILE_BY_UUID,             //query single file informaion by uuid
     QUERY_FILE_BY_NAME,          //
+    QUERY_FILE_BY_PATH,          //
+    QUERY_ENCRYPT_FILE_BY_PATH,
+    QUERY_ENCRYPT_FILE_BY_NAME,          //
     QUERY_FILE_DIR_LIST_COUNT,       //query record count in a certain file list
     QUERY_FILE_LIST_COUNT,       //query record count in a certain file list
     QUERY_FILE_LIST_COUNT_BY_PATH,       //query record count in a certain file list
@@ -131,6 +134,7 @@ typedef enum
     FILE_TABLE_DELETE_INFO    				= 0x01,
     FILE_TABLE_DELETE_TYPE_BY_PATH    		= 0x02,
     FILE_TABLE_DELETE_LIST    				= 0x03,
+    FILE_TABLE_DELETE_ENCRYPT    			= 0x04,
 }file_delete_cmd_t;
 
 

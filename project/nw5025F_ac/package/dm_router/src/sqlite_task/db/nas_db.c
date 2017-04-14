@@ -38,42 +38,19 @@ extern db_table_t g_device_table;
 extern db_table_t g_version_table;
 extern db_table_t g_backup_file_table;
 
-static error_t dm_do_insert_file(sqlite3 *database, file_info_t *pfi)
-{
-    file_type_t type;
-	error_t errcode = RET_SUCCESS;
 
-	type = get_file_type(pfi);
-    
-    if(type == TYPE_DIR)
-    {
-	    pfi->file_size = 0;
-	}
+error_t dm_db_insert_file(sqlite3 *database, insert_data_t *pdata)
+{
+	error_t errcode = RET_SUCCESS;
 
 	//finally, insert the record to file table.
 	if(g_file_table.ops.insert)
 	{
-	    if((errcode = g_file_table.ops.insert(database, pfi)) != RET_SUCCESS)
+	    if((errcode = g_file_table.ops.insert(database, pdata)) != RET_SUCCESS)
 	    {
 	    	log_error("insert to file_table error...errcode=0x%X", errcode);
 			return errcode;
 		}
-	}
-	return errcode;
-}
-
-error_t dm_db_insert_file(sqlite3 *database, insert_data_t *pdata)
-{
-	file_info_t *pfi;
-	error_t errcode = RET_SUCCESS;
-	
-	pfi = &pdata->file_info;
-
-	if((errcode = dm_do_insert_file(database, pfi))
-			!= RET_SUCCESS)
-	{
-		log_warning("error when insert %s to file_table\n",pfi->path);
-		return errcode;
 	}
 	return errcode;
 }
@@ -97,27 +74,6 @@ error_t db_scan_disk_file(sqlite3 *database, scan_data_t *data)
 	log_debug("exit OK......");
 	return errcode; 
 }
-
-static error_t file_table_delete_callback(sqlite3 *database, void *private_data, 
-								update_info_t *pui)
-{
-	file_info_t *pfi = (file_info_t *)private_data;
-    file_type_t  type;
-	
-	if(pfi == NULL)
-	{
-		return EINVAL_ARG;
-	}
-
-    if(pui != NULL)
-    {
-		pui->total_update_size += pfi->file_size;
-    }
-    //other type ..should not do anything more, directly return true.
-    return RET_SUCCESS;
-}
-
-
 
 /*
 *description: delete  file record and update according tables.
@@ -424,12 +380,13 @@ error_t db_query(sqlite3 *database, QueryApproach approach, void *data)
 		case QUERY_FILE_LIST_COUNT_BY_PATH:
 		{
 			file_list_t *plist = (file_list_t *)data;
-			//log_debug("end querying file list count");
+			errcode = g_file_table.ops.query(database, approach, data);
 			break;
 		}
 		case QUERY_FILE_LIST_BY_PATH:
 		{
 			file_list_t *plist = (file_list_t *)data;
+			errcode = g_file_table.ops.query(database, approach, data);
 			//log_debug("end querying file list count");
 			break;
 		}
@@ -457,6 +414,7 @@ error_t db_query(sqlite3 *database, QueryApproach approach, void *data)
 		case QUERY_FILE_INFO:
 		case QUERY_FILE_BY_UUID:
 		case QUERY_FILE_BY_NAME:
+		case QUERY_FILE_BY_PATH:
 		{
 			file_info_t *pfi = (file_info_t *)data;
 	
@@ -546,8 +504,35 @@ error_t db_query(sqlite3 *database, QueryApproach approach, void *data)
 			log_debug("end querying no thumbnail photo list");
 			break;
 		}
-
-		default: break;
+		case QUERY_ENCRYPT_FILE_BY_PATH:
+		{
+			//log_debug("start QUERY_ENCRYPT_FILE_BY_PATH");
+			errcode = g_file_table.ops.query(database, approach, data);
+			//log_debug("end QUERY_ENCRYPT_FILE_BY_PATH");
+			if(errcode == EDB_RECORD_NOT_EXIST)
+			{
+				log_trace("file not exist");
+			//	errcode = RET_SUCCESS;
+			}
+			break;
+		}		
+		case QUERY_ENCRYPT_FILE_BY_NAME:
+		{
+			//log_debug("start QUERY_ENCRYPT_FILE_BY_NAME");
+			errcode = g_file_table.ops.query(database, approach, data);
+			//log_debug("end QUERY_ENCRYPT_FILE_BY_NAME");
+			if(errcode == EDB_RECORD_NOT_EXIST)
+			{
+				log_trace("file not exist");
+			//	errcode = RET_SUCCESS;
+			}
+			break;
+		}
+		default:
+		{
+			DMCLOG_D("unkown approach %d",approach);
+		}
+		break;
 	}
 
 	if(errcode != RET_SUCCESS)
@@ -591,6 +576,12 @@ static error_t config_db_file(sqlite3 *database)
 		log_warning("create version_table error");
 		return errcode;
 	}
+    
+    if((errcode = sqlite3_exec_busy_wait(database, SQLITE_CREATE_ENCRYPT_TABLE, NULL, NULL)) != SQLITE_OK)
+    {
+        log_warning("create version_table error");
+        return errcode;
+    }
 
 	#if 0
 	S_STRNCPY(version.version, get_sys_db_version(), MAX_VERSION_SIZE);
@@ -666,12 +657,18 @@ static error_t config_db_disk_file(sqlite3 *database)
 		log_warning("create version_table error");
 		return errcode;
 	}
-	memset(&version_info,0,sizeof(version_info_t));
-	if((errcode = version_table_query(database, &version_info)) != RET_SUCCESS)
-	{
-		DMCLOG_E("query version info error");
-		return errcode;
-	}
+                                         
+     if((errcode = sqlite3_exec_busy_wait(database, SQLITE_CREATE_ENCRYPT_TABLE, NULL, NULL)) != SQLITE_OK)
+     {
+         log_warning("create version_table error");
+         return errcode;
+     }
+//	memset(&version_info,0,sizeof(version_info_t));
+//	if((errcode = version_table_query(database, &version_info)) != RET_SUCCESS)
+//	{
+//		DMCLOG_E("query version info error");
+//		return errcode;
+//	}
 	
 	/*if(*version_info.version)
 	{
@@ -768,7 +765,6 @@ static error_t create_db_file(char *name)
 
 static error_t create_db_disk_file(char *name)
 {
-	ENTER_FUNC();
 	sqlite3 *db;
 	error_t errcode;
 	
@@ -787,7 +783,6 @@ static error_t create_db_disk_file(char *name)
 		return errcode;
 	}
 	sqlite3_close(db);
-	EXIT_FUNC();
 	return errcode;
 }
 
@@ -851,6 +846,7 @@ int ftruncate_database(char *path)
 	}
 	return 0;
 }
+                                         
 static error_t db_disk_init(char *name)
 {
 	error_t errcode = RET_SUCCESS;
@@ -862,11 +858,19 @@ static error_t db_disk_init(char *name)
 		else
 			return errcode;
 	}
+    
 	if((errcode = file_table_init(name)) != RET_SUCCESS)
 	{
 		DMCLOG_E("file table init error,error code=0x%x", errcode);
 		return errcode;
 	}
+    
+    if(db_update(name) != RET_SUCCESS)
+    {
+        DMCLOG_E("failed to update db");
+        ASSERT(0);
+    }
+    
 	/*if((errcode = backup_file_table_init(name)) != RET_SUCCESS)
 	{
 		DMCLOG_E("file table init error,error code=0x%x", errcode);
@@ -928,6 +932,7 @@ void register_db_table_ops(void)
     snprintf(DATABASE, 128, "%s/%s", get_sys_dm_db_path(),get_sys_db_name());
 	DMCLOG_D("db file path:%s", DATABASE);
 }
+                                         
 void register_disk_table_ops(struct disk_node *disk_info)
 {
 	register_file_table_ops();

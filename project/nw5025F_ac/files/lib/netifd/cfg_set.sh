@@ -129,6 +129,8 @@ user_set() {
 	local CLIENT_DISABLED=`nor get client_disabled`
 	
 	local ROOT_PWD=`nor get root_pwd`
+	local ENC_KEY=`nor get enc_key`
+	local ENC_TIPS=`nor get enc_tips`
 	
 	local DISK_ST=`nor get disk_st`
 
@@ -154,7 +156,12 @@ user_set() {
 	if [ $ROOT_PWD ]; then
 		[ "$ROOT_PWD" != "unknow" ] && echo \{\"password\":\"$ROOT_PWD\"\} > /etc/root_password.txt
 	fi
-	
+	if [ $ENC_KEY ]; then
+		[ "$ENC_KEY" != "unknow" ] && echo "$ENC_KEY" > /etc/key
+	fi
+	if [ $ENC_TIPS ]; then
+		[ "$ENC_TIPS" != "unknow" ] && echo "$ENC_TIPS" > /etc/tips 
+	fi 
 	if [ $DISK_ST ]; then
 		[ "$DISK_ST" != "unknow" ] && echo \{\"pc_disable\":$DISK_ST\} > /etc/disk_st.txt
 	fi

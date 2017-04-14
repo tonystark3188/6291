@@ -2,15 +2,17 @@
 #include "cgiWireless.h"
 #include <sys/time.h>
 #include <unistd.h>
+#include <linux/wireless.h>
 #include "my_def.h"
 #include "socket_uart.h"
 #include "cfg_api.h"
-
+#include "msg.h"
 // #include "auto_connect.h"
-extern char *get_conf_str(char *var);
+extern char *get_conf_str3(char *var);
 
 #define get_power_level_num  1
 #define get_Firmware_Edition 5
+#define OTASIZE 1024
 #define rtl_encryp_control "/proc/rtl_encryp_control"
 #define FILENAME_MAX 2048
 #define DM_CONF_FILE "/usr/mips/conf/dm_router.conf"
@@ -31,6 +33,59 @@ enum wifi_mode
 	M_5G=5
 };
 
+#if WIRELESS_EXT <= 11
+#ifndef SIOCDEVPRIVATE
+#define SIOCDEVPRIVATE      0x8BE0
+#endif
+#define SIOCIWFIRSTPRIV      SIOCDEVPRIVATE
+#endif
+#define RTPRIV_IOCTL_SHOW_CONNSTATUS	(SIOCIWFIRSTPRIV + 0x1B)
+#define RTPRIV_IOCTL_GET_MAC_TABLE_STRUCT	(SIOCIWFIRSTPRIV + 0x1F)
+
+
+
+#define MAC_ADDR_LEN        6
+#define ETH_LENGTH_OF_ADDRESS      6
+#define MAX_LEN_OF_MAC_TABLE      64
+
+
+
+typedef union _MACHTTRANSMIT_SETTING {
+	struct {
+		unsigned short MCS:7;	/* MCS */
+		unsigned short BW:1;	/*channel bandwidth 20MHz or 40 MHz */
+		unsigned short ShortGI:1;
+		unsigned short STBC:2;	/*SPACE */
+		unsigned short rsv:3;
+		unsigned short MODE:2;	/* Use definition MODE_xxx. */
+	} field;
+	unsigned short word;
+} MACHTTRANSMIT_SETTING, *PMACHTTRANSMIT_SETTING;
+
+typedef struct _RT_802_11_MAC_ENTRY {
+	unsigned char ApIdx;
+	unsigned char Addr[MAC_ADDR_LEN];
+	unsigned char Aid;
+	unsigned char Psm;		/* 0:PWR_ACTIVE, 1:PWR_SAVE */
+	unsigned char MimoPs;		/* 0:MMPS_STATIC, 1:MMPS_DYNAMIC, 3:MMPS_Enabled */
+	signed char AvgRssi0;
+	signed char AvgRssi1;
+	signed char AvgRssi2;
+	unsigned int ConnectedTime;
+	MACHTTRANSMIT_SETTING TxRate;
+	unsigned int LastRxRate;
+	signed short StreamSnr[3];				/* BF SNR from RXWI. Units=0.25 dB. 22 dB offset removed */
+	signed short SoundingRespSnr[3];			/* SNR from Sounding Response. Units=0.25 dB. 22 dB offset removed */
+/*	signed short TxPER;	*/					/* TX PER over the last second. Percent */
+/*	signed short reserved;*/
+
+} RT_802_11_MAC_ENTRY, *PRT_802_11_MAC_ENTRY;
+
+typedef struct _RT_802_11_MAC_TABLE {
+	unsigned long Num;
+	RT_802_11_MAC_ENTRY Entry[MAX_LEN_OF_MAC_TABLE];
+} RT_802_11_MAC_TABLE, *PRT_802_11_MAC_TABLE;
+
 ///////////////////////////////////////////////////////
 //for storage//////////////////////////////////////////
 ///////////////////////////////////////////////////////
@@ -38,6 +93,70 @@ static const unsigned long long G = 1024*1024*1024ull;
 static const unsigned long long M = 1024*1024;
 static const unsigned long long K = 1024;
 static char str[20];
+
+static int my_system(const char * cmd) 
+{ 
+	FILE * fp; 
+	int res; char buf[1024]; 
+	if (cmd == NULL) 
+	{ 
+		printf("my_system cmd is NULL!\n");
+		return -1;
+	}
+
+	if ((fp = popen(cmd, "r") ) == NULL) 
+	{ 
+		perror("popen");
+		printf("popen error: %s/n", strerror(errno)); return -1; 
+	} 
+	else
+	{
+		while(fgets(buf, sizeof(buf), fp)) 
+		{ 
+			printf("%s", buf); 
+		} 
+		if ( (res = pclose(fp)) == -1) 
+		{ 
+			printf("close popen file pointer fp error!\n"); return res;
+		} 
+		else if (res == 0) 
+		{
+			return res;
+		} 
+		else 
+		{ 
+			printf("popen res is :%d\n", res); return res; 
+		} 
+	}
+	return 0;
+}
+
+void handle_mac_format(char *in, char *out)
+{
+	int i,j,len;
+	len = strlen(in);
+	if(strstr(in,":") != NULL)
+	{
+		strcpy(out,in);	
+	}
+	else
+	{
+		for(i=0,j=0;i < len; i++,j++)
+		{
+			if(in[i] >= 65 && in[i] <= 90)
+				in[i] += 32;
+			out[j] = in[i];
+			if((i+1)%2 == 0)
+			{
+				j++;
+				out[j] = ':';
+			}
+		}
+		out[j] = '\0';
+		
+	}
+	
+}
 
 int getsys(xmlNodePtr root);
 int setsys(xmlNodePtr root);
@@ -56,6 +175,7 @@ int getFTP(xmlNodePtr tag, char *retstr);
 int getSAMBA(xmlNodePtr tag, char *retstr);
 int getDMS(xmlNodePtr tag, char *retstr);
 int getScan(xmlNodePtr tag, char *retstr);
+int getOnline(xmlNodePtr tag, char *retstr);
 int getStorage(xmlNodePtr tag, char *retstr);
 int getVersion(xmlNodePtr tag, char *retstr);
 int getJoinWired(xmlNodePtr tag, char *retstr);
@@ -64,8 +184,13 @@ int getpower(xmlNodePtr tag, char *retstr);
 int getClientStatus(xmlNodePtr tag, char *retstr);
 int get3G(xmlNodePtr tag, char *retstr);
 int getBtnReset(xmlNodePtr tag, char *retstr);
+int internet(xmlNodePtr tag, char *retstr);
 int getairplay(xmlNodePtr tag, char *retstr);
-
+int getotastatus(xmlNodePtr tag, char *retstr);
+int getRepairAuto(xmlNodePtr tag, char *retstr);
+int getDMClient(xmlNodePtr tag, char *retstr);
+int getWifiSwitch(xmlNodePtr tag, char *retstr);
+int getdiskotaupgrade(xmlNodePtr tag, char *retstr);
 tagHandle gtaghandle_get[]=
 {
 	{FN_GET_SSID, getssid},
@@ -73,6 +198,7 @@ tagHandle gtaghandle_get[]=
 	{FN_GET_WorkMode, getWorkMode},
 	{FN_GET_APList, getScan},
 	{FN_GET_Power, getpower},
+	{FN_GET_Online, getOnline},
 	{FN_GET_Storage, getStorage},
 	{FN_GET_FTP, getFTP},
 	{FN_GET_SAMBA, getSAMBA},
@@ -84,7 +210,11 @@ tagHandle gtaghandle_get[]=
 	{FN_GET_Client_Status,getClientStatus},
 	{FN_GET_3G,get3G},
 	{FN_GET_BTN_RST,getBtnReset},
+
 	{FN_SET_AIRPLAY_NAME,getairplay},
+
+	{FN_GET_WIFI_SWITCH,getWifiSwitch},
+	{FN_GET_GetDMClient,getDMClient},
 };
 
 void printstr(char *str)
@@ -102,7 +232,7 @@ void printstr(char *str)
 	fclose(fw_fp);
 #endif
 }
-
+int setWifiSwitch(xmlNodePtr tag, char *retstr);
 int setssid(xmlNodePtr tag, char *retstr);
 int setWorkMode(xmlNodePtr tag, char *retstr);
 int setJoinWireless(xmlNodePtr tag, char *retstr);
@@ -112,11 +242,24 @@ int setSAMBA(xmlNodePtr tag, char *retstr);
 int setDMS(xmlNodePtr tag, char *retstr);
 int Upgrade(xmlNodePtr tag, char *retstr);
 int halt(xmlNodePtr tag, char *retstr);
+int SyncSystem(xmlNodePtr tag, char *retstr);
 int TimeSync(xmlNodePtr tag, char *retstr);
 int setClient(xmlNodePtr tag, char *retstr);
 int set3G(xmlNodePtr tag, char *retstr);
 int setairplay(xmlNodePtr tag, char *retstr);
 int setiperf(xmlNodePtr tag, char *retstr);
+int setotastatus(xmlNodePtr tag, char *retstr);
+int setFsckTest(xmlNodePtr tag, char *retstr);
+int setRepairHandle(xmlNodePtr tag, char *retstr);
+int setRepairAuto(xmlNodePtr tag, char *retstr);
+int setForgetWifiInfo(xmlNodePtr tag, char *retstr);
+int setDisabledClient(xmlNodePtr tag, char *retstr);
+int setDMClient(xmlNodePtr tag, char *retstr);
+int setFormat(xmlNodePtr tag, char *retstr);
+
+
+
+
 
 tagHandle gtaghandle_set[]=
 {
@@ -131,11 +274,17 @@ tagHandle gtaghandle_set[]=
 	{FN_SET_WebDAV, NULL},
 	{FN_Upgrade,Upgrade},
 	{FN_HALT,halt},
+
 	{FN_Time_Sync,TimeSync},
 	{FN_SET_Client,setClient},
 	{FN_SET_3G,set3G},
 	{FN_SET_AIRPLAY_NAME, setairplay},
 	{FN_SET_iperf,setiperf},
+
+
+
+	{FN_SET_WIFI_SWITCH,setWifiSwitch},
+	{FN_FORMAT,setFormat},
 };
 
 
@@ -453,10 +602,10 @@ char* kscale(unsigned long b, unsigned long bs)
 ///////////////////////////////////////////////////////////
 int getssid(xmlNodePtr tag, char *retstr)
 {
-	char name[32]="\0";
+	char name[33]="\0";
 	char encrypt[32]="\0";
 	char channel[5]="\0";
-	char password[32]="\0";
+	char password[33]="\0";
 	char encrypt_len[5]="\0";
 	char format[8]="\0";
 	char mac[32]="\0";
@@ -541,6 +690,17 @@ int getssid(xmlNodePtr tag, char *retstr)
 	//uci_free_context(ctx);
 	return 0;
 
+}
+#define remote_ap_num 9
+int updateSysVal(const char *para,const char *val){
+	char set_str[128]={0};
+	char tmp[128]={0};
+	sprintf(set_str,"sed -e \'/%s/d\' -i /tmp/state/status",para);
+	system(set_str);
+	memset(set_str,0,sizeof(set_str));
+	
+	sprintf(set_str,"echo \'%s=%s\' >> /tmp/state/status",para, val);
+	system(set_str);
 }
 
 int getRemoteAP(xmlNodePtr tag, char *retstr)
@@ -1038,7 +1198,120 @@ int getScan(xmlNodePtr tag, char *retstr)
 	return 0;
 	
 }
+int getOnline(xmlNodePtr tag, char *retstr)
+{
 
+	#if 0
+	char buffer[BUFSIZ]; 
+	FILE *read_fp; 
+	int chars_read; 
+	int count=0; 
+	char *ppid;
+	memset( buffer, 0, BUFSIZ ); 
+	char tmpStr[64];
+
+	sprintf(tmpStr,"%s","ps |grep file_download.cgi|wc -l");
+
+	read_fp=popen(tmpStr,"r");
+	if(read_fp!=NULL)
+	{
+		chars_read = fread(buffer, sizeof(char), BUFSIZ-1, read_fp); 
+		if (chars_read > 0){
+			//p_debug("buffer==%s==",buffer);
+			//count=atoi(buffer);
+			count=buffer[0]-'0';
+			count=count-2;
+			p_debug("count=%d",count);
+			pclose(read_fp);
+			//return count;
+		}else {
+			p_debug("chars_read=%d",chars_read);
+			pclose(read_fp);
+			//return 0;
+		}
+
+	}else {
+		p_debug("read fp error");
+		//return 0;
+	}
+
+	sprintf(retstr,"<Users count=\"%d\"/>",count);
+	p_debug(retstr);
+	return 0;
+	#endif
+	int    socket_id;
+	struct   iwreq wrq;
+	char data[4096]="\0";
+	int    ret;
+	RT_802_11_MAC_TABLE    *mp;
+	int count = 0;
+	char mode[64] = "\0";
+	char uci_option_str[64] = "\0";
+	FILE *read_fp; 
+	int chars_read = 0;
+	char buffer[64] = "\0";
+	memset(uci_option_str,'\0',64);
+	strcpy(uci_option_str,"system.@system[0].wifimode"); 
+	uci_get_option_value(uci_option_str,mode);
+	if(strcmp(mode,"ap") == 0)
+	{	
+	
+		socket_id = socket(AF_INET, SOCK_DGRAM, 0);
+		if(socket_id < 0)
+		{
+			sprintf(retstr,"<Return status=\"false\">socket error!</Return>");
+			return -1;
+		}
+		memset(data, 0x00, 4096);
+		strcpy(wrq.ifr_name, "ra0");
+		wrq.u.data.length = 4096;
+		wrq.u.data.pointer = data;
+		wrq.u.data.flags = 0;
+		ret = ioctl(socket_id, RTPRIV_IOCTL_GET_MAC_TABLE_STRUCT, &wrq);
+		if(ret != 0)
+		{
+			sprintf(retstr,"<Return status=\"false\">ioctl error!</Return>");
+			close(socket_id);
+			return -1;
+		}
+		mp = (RT_802_11_MAC_TABLE *)wrq.u.data.pointer;
+		count = mp->Num;
+		close(socket_id);
+	}
+	else if (strcmp(mode,"sta") == 0)
+	{
+		read_fp=popen("wpa_cli all_sta | grep dot11RSNAStatsSTAAddress | wc -l","r");
+		if(read_fp != NULL)
+		{
+			chars_read = fread(buffer, sizeof(char), 64-1, read_fp); 
+			if (chars_read > 0)
+			{
+				count = atoi(buffer);
+				pclose(read_fp);
+				
+			}else
+			{
+				pclose(read_fp);
+				sprintf(retstr,"<Return status=\"false\">popen error!</Return>");
+				return -1;
+			}
+		}
+		else
+		{
+			sprintf(retstr,"<Return status=\"false\">popen error!</Return>");
+			return -1;
+		}
+	}
+	else
+	{
+		sprintf(retstr,"<Return status=\"false\">wifi mode error!</Return>");
+		return -1;
+	}
+	sprintf(retstr,"<Users count=\"%d\"></Users>",count);
+	p_debug(retstr);
+	return 0;
+
+}
 int getStorage(xmlNodePtr tag, char *retstr)
 {
 	FILE* mount_table;
@@ -1371,66 +1644,119 @@ int getJoinWired(xmlNodePtr tag, char *retstr)
 	return 0;
 	
 }
+int get_conf_str2(char *dest,char *var)
+{
+	FILE *fp=fopen("/etc/fw_version.conf","r");
+	if(NULL == fp)
+	{
+		//printf("open /etc/config/nrender.conf failed \n");
+		return 0;
+	}
+	char tmp[128];
+	char *ret_str;
+	bzero(tmp,128);
+	while(fgets(tmp,128,fp)!=NULL)
+	{
+		if('\n'==tmp[strlen(tmp)-1])
+		{
+			tmp[strlen(tmp)-1]=0;
+		}
+		//printf("get string from /etc/config/nrender.conf:%s\n",tmp);
+		if(!strncmp(var,tmp,strlen(var)))
+		{
+			ret_str = malloc(strlen(tmp)-strlen(var));
+			if(!ret_str)
+			{
+				fclose(fp);
+				return 0;
+			}
+			bzero(ret_str,strlen(tmp)-strlen(var));
+			strcpy(ret_str,tmp+strlen(var)+1);
+			
+			//printf("ret string:%s\n",ret_str);
+			fclose(fp);
+			strcpy(dest,ret_str);
+			free(ret_str);
+			return 0;
+		}
+		
+	}
+	fclose(fp);
+	return 0;
+}
 
 int getVersion(xmlNodePtr tag, char *retstr)
 {
-	// DM_CONF_FILE
-	char      line[FILENAME_MAX],var[sizeof(line)], val[sizeof(line)];
-	const char    *arg;
-	char fw_ver_num[32]="\0";
-	char fw_ver_num_tmp[32]="\0";
-  	size_t      i;
-  	FILE      *fp;
-  	char *p = NULL;
-  	char *version=get_conf_str("fw_version");
+	char versionName[64]={0};
+	get_conf_str2(versionName,"versionName");
+
+	char *version=get_conf_str3("fw_version");
+
+	if(!version)
+		return 0;
+
+
+sprintf(retstr,"<Version fw1=\"%s\" fw2=\"%s-%s\"></Version>",FW_1,versionName,version);
+
+#if 0
+	char *version=get_conf_str("fw_version");
 	int cfg_ret = 0;
 	char version_flag[32] = "\0";
-  	if ((fp = fopen(DM_CONF_FILE, "r")) != NULL)
-  	{
-  		while (fgets(line, sizeof(line), fp) != NULL) 
-  		{
-  			/* Skip comments and empty lines */
-      		if (line[0] == '#' || line[0] == '\n')
-        		continue;
-        	/* Trim trailing newline character */
-      		line[strlen(line) - 1] = '\0';
-      		if (sscanf(line, "%s %[^#\n]", var, val) == 2)
-      		{
-      			
-      			if(strcmp(var ,"airdisk_pro_fw_version")==0)
-      			{	
-      				strncpy(fw_ver_num,val,strlen(val));
-      				fclose(fp);
-      				break;
-      			}
-      		}
-
-  		}
-  	}
 	if(!version)
 		return 0;
 	cfg_ret = get_cfg_str("version_flag",version_flag);
 	if( (cfg_ret == 0) || (strcmp(version_flag,"1") == 0))
-	{//not final version
-		// sprintf(retstr,"<Version fw1=\"%s\" fw2=\"%s-%s\"></Version>",FW_1,FW_3,version);
-		strcpy(fw_ver_num_tmp, fw_ver_num);
+	{
+		sprintf(retstr,"<Version fw1=\"%s\" fw2=\"%s-%s\"></Version>",FW_1,FW_3,version);
 	}
 	else
-	{//final version
-		// sprintf(retstr,"<Version fw1=\"%s\" fw2=\"%s-%s\"></Version>",FW_1,FW_2,version);
-		p = strrchr(fw_ver_num, '.');
-		if(NULL != p){
-      		memcpy(fw_ver_num_tmp, fw_ver_num, p-fw_ver_num);
-   	 	}
-    	else{
-      		strcpy(fw_ver_num_tmp, fw_ver_num);
-    	}
+	{
+		sprintf(retstr,"<Version fw1=\"%s\" fw2=\"%s-%s\"></Version>",FW_1,FW_2,version);
 	}
-	sprintf(retstr,"<Version fw1=\"%s\" fw2=\"%s-%s\"></Version>",FW_1,fw_ver_num_tmp,version);
 	free(version);
 	return 0;
+#endif
 }
-
+int get_conf_str(char *dest,char *var)
+{
+	FILE *fp=fopen("/tmp/state/status","r");
+	if(NULL == fp)
+	{
+		//printf("open /etc/config/nrender.conf failed \n");
+		return 0;
+	}
+	char tmp[128];
+	char *ret_str;
+	bzero(tmp,128);
+	while(fgets(tmp,128,fp)!=NULL)
+	{
+		if('\n'==tmp[strlen(tmp)-1])
+		{
+			tmp[strlen(tmp)-1]=0;
+		}
+		//printf("get string from /etc/config/nrender.conf:%s\n",tmp);
+		if(!strncmp(var,tmp,strlen(var)))
+		{
+			ret_str = malloc(strlen(tmp)-strlen(var));
+			if(!ret_str)
+			{
+				fclose(fp);
+				return 0;
+			}
+			bzero(ret_str,strlen(tmp)-strlen(var));
+			strcpy(ret_str,tmp+strlen(var)+1);
+			
+			//printf("ret string:%s\n",ret_str);
+			fclose(fp);
+			strcpy(dest,ret_str);
+			free(ret_str);
+			return 0;
+		}
+		
+	}
+	fclose(fp);
+	return 0;
+}
 
 int getpower(xmlNodePtr tag, char *retstr)
 {
@@ -1628,6 +1954,90 @@ int fd1,fd2;
 	return 0;
 	
 }
+
+int getDMClient(xmlNodePtr tag, char *retstr)
+{
+	char status[5]="\0";
+	char uci_option_str[64]="\0";
+
+	memset(uci_option_str,'\0',64);
+	strcpy(uci_option_str,"wireless.@wifi-iface[1].disabled"); 
+	uci_get_option_value(uci_option_str,status);
+	
+	sprintf(retstr,"<GetDMClient disabled=\"%s\"></GetDMClient>",status);
+}
+int getWifiSwitch(xmlNodePtr tag, char *retstr){
+	char wifimode[5]="\0";
+	int mode=0;
+	char uci_option_str[64]="\0";
+
+	memset(uci_option_str,'\0',64);
+	strcpy(uci_option_str,"system.@system[0].wifimode"); 
+	uci_get_option_value(uci_option_str,wifimode);
+
+	if(!strcmp(wifimode,"sta"))	
+		mode=1;
+	else
+		mode=0;
+	
+	sprintf(retstr,"<%s mode=\"%d\"></%s>",FN_GET_WIFI_SWITCH,mode,FN_GET_WIFI_SWITCH);
+		
+
+}
+
+
+int setWifiSwitch(xmlNodePtr tag, char *retstr){
+	char *wifiMode=NULL;//0 for AP+STA; 1 for P2P-GO
+	char *pxml=NULL;
+	char *ntmp=NULL;
+	int flag=0;
+	int ret;
+	/**/
+
+	if((pxml=xmlGetprop(tag,(const xmlChar*)WIFI_SWITCH_MODE))!=NULL)
+		{
+		if((wifiMode=(char *)malloc(strlen(pxml)+1))!=NULL)
+			{
+				memset(wifiMode,0,strlen(pxml)+1);
+				ntmp = xmldecode(pxml);
+				strcpy(wifiMode,ntmp);
+				free(pxml);
+				free(ntmp);	
+				pxml=NULL;
+				ntmp=NULL;
+			}
+	}
+
+	printf("Content-type:text/html\r\n\r\n");
+
+	p_debug("wifiMode=%s\n",wifiMode);
+	if(!strcmp(wifiMode,"0"))//ap mode
+	{
+		flag=1;
+		fprintf(stdout,"<%s><Return status=\"true\" delay=\"10\"></Return></%s>\r\n",SETSYSSTR,SETSYSSTR);
+		fflush(stdout);
+		
+	}else if(!strcmp(wifiMode,"1"))//p2p mode
+	{
+		flag=2;//system("wifi_switch2.sh sta");
+		fprintf(stdout,"<%s><Return status=\"true\" delay=\"10\"></Return></%s>\r\n",SETSYSSTR,SETSYSSTR);
+		fflush(stdout);
+	}
+	else {
+		fprintf(stdout,"<%s><Return status=\"false\" delay=\"10\">Please check your parameter</Return></%s>\r\n",SETSYSSTR,SETSYSSTR);
+		fflush(stdout);		
+	}
+
+	free(wifiMode);
+	wifiMode=NULL;
+	if(flag==1)	
+		ret = my_system("/bin/wifi_switch.sh ap >/dev/null");
+	else if(flag==2)	
+		ret = my_system("/bin/wifi_switch.sh sta >/dev/null");
+	p_debug("wifi_switch return value:%d\n",ret);
+	return 0;
+}
+
 ///////////////////////////////////////////////////////////
 //设置需要先检查参数是否正确，然后应答一个正确或者错误码
 //////////////////////////////////////////////////////////
@@ -3572,3 +3982,125 @@ int setiperf(xmlNodePtr tag, char *retstr)
 	free(pxml);
 	return 0;
 }
+#define ROOT_PATH "/tmp/mnt/USB-disk-1/hack"
+
+void updateVer(int flag){
+	char set_str[128]={0};
+	char tmp[128]={0};
+	
+	if(flag==0){
+
+		sprintf(set_str,"sed -e \'/%s/d\' -i /tmp/state/status",
+"unfinishedVer");
+		system(set_str);
+		memset(set_str,0,sizeof(set_str));
+		
+		sprintf(set_str,"echo \'%s=%d\' >> /tmp/state/status","unfinishedVer", time(NULL));
+		system(set_str);
+	
+	}else if(flag==1){
+		sprintf(set_str,"sed -e \'/%s/d\' -i /tmp/state/status",
+"completedVer");
+		system(set_str);
+		memset(set_str,0,sizeof(set_str));
+		
+		sprintf(set_str,"echo \'%s=%d\' >> /tmp/state/status","completedVer", time(NULL));
+		system(set_str);
+
+	}else {
+		sprintf(set_str,"sed -e \'/%s/d\' -i /tmp/state/status",
+"unfinishedVer");
+		system(set_str);
+		memset(set_str,0,sizeof(set_str));
+		
+		sprintf(set_str,"echo \'%s=%d\' >> /tmp/state/status","unfinishedVer", time(NULL));
+		system(set_str);
+		
+		sprintf(set_str,"sed -e \'/%s/d\' -i /tmp/state/status",
+"completedVer");
+		system(set_str);
+		memset(set_str,0,sizeof(set_str));
+		
+		sprintf(set_str,"echo \'%s=%d\' >> /tmp/state/status","completedVer", time(NULL));
+		system(set_str);
+	
+		
+	}
+
+
+}
+
+int setFormat(xmlNodePtr tag, char *retstr){
+
+	int fd;
+	char real_file_path[64]={0};
+	#if 1
+	sprintf(real_file_path,"rm -rf %s >/dev/null","/tmp/mnt/USB-disk-1/ota/");
+	system(real_file_path);
+
+	sprintf(real_file_path,"rm -rf %s >/dev/null","/tmp/mnt/USB-disk-1/public/");
+	system(real_file_path);
+	
+	memset(real_file_path,0,64);
+	sprintf(real_file_path,"rm -rf %s >/dev/null",ROOT_PATH);
+	system("/etc/init.d/dm_letv stop >/dev/null");
+	system(real_file_path);
+	//system("mcu_control -s 1 >/dev/null");//
+	system("pwm_control 1  1 0;pwm_control 1 0 0 >/dev/null");
+	updateSysVal("led_status","1");//
+	updateSysVal("lv_n","0");//
+	updateSysVal("o_n","0");//
+	updateSysVal("v_n","0");//
+	updateSysVal("p_n","0");//
+	updateSysVal("p_n","0");//
+	updateVer(2);
+
+	fd=access(real_file_path,0);
+	
+	//if( remove(real_file_path) == 0 )
+	if(fd<0){	
+		p_debug("Remove file %s OK \n",real_file_path);
+		fprintf(stdout,"Content-type:text/html\r\n\r\n");
+		fprintf(stdout,"<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+		fprintf(stdout,"<%s><Return status=\"true\" ></Return></%s>\r\n",SETSYSSTR,SETSYSSTR);
+		fflush(stdout);		
+		
+		//sleep(1);
+		system("/etc/init.d/dm_letv start >/dev/null");
+		system("/etc/init.d/samba restart >/dev/null");
+		system("reboot -f");
+		//system("uci set system.@system[0].unfinishedVer=\"0\"");
+		//system("uci set system.@system[0].finishedVer=\"0\"");
+		//system("uci commit");
+	}else
+	#endif
+	{
+		system("fuser -Km /tmp/mnt/USB-disk-1/ >/dev/null");
+		system("block umount >/dev/null");
+		system("mkfs.vfat /dev/sda1 >/dev/null");
+		//sleep(5);
+		system("block mount >/dev/null");
+		fd=access(real_file_path,0);
+		if(fd<0){	
+			
+			system("/etc/init.d/dm_letv start >/dev/null");
+			p_debug("Remove file %s OK \n",real_file_path);
+			fprintf(stdout,"Content-type:text/html\r\n\r\n");
+			fprintf(stdout,"<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+			fprintf(stdout,"<%s><Return status=\"true\" ></Return></%s>\r\n",SETSYSSTR,SETSYSSTR);
+			fflush(stdout);	
+		}else
+		{
+			p_debug("Remove file %s fail \n",real_file_path);	
+			fprintf(stdout,"Content-type:text/html\r\n\r\n");
+			fprintf(stdout,"<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+			fprintf(stdout,"<%s><Return status=\"false\" ></Return></%s>\r\n",SETSYSSTR,SETSYSSTR);
+			fflush(stdout);
+		}
+		system("reboot -f");
+		//return -1;
+	}
+
+	return 0;
+}
+

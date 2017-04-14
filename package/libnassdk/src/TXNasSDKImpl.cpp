@@ -51,6 +51,9 @@ binder_info_t g_binder_list_internal; //已绑定的用户列表
 
 void notify_file_transfer_progress(unsigned long long cookie, unsigned long long progress, unsigned long long max_progress);
 void notify_file_transfer_complete(unsigned long long cookie, const std::string& file_key, int errcode, int status);
+extern "C" {
+	int tx_send_file_to_pcqq(unsigned long long target_id, char * file_path, unsigned long long * transfer_cookie, char * buff_with_file, int buff_length, char * bussiness_name);
+}
 
 void on_send_data_point_callback_internal(unsigned int cookie, unsigned long long from_client, int err_code)
 {
@@ -134,7 +137,7 @@ void SendOperationMgr::SendReportDataPoints()
 
 }
 
-void SendOperationMgr::AddSendFileTask(std::string task_key, unsigned long long target_id, std::string file_path, std::string buff_with_file,std::string bussiness_name)
+void SendOperationMgr::AddSendFileTask(std::string task_key, unsigned long long target_id, std::string file_path, std::string buff_with_file,std::string bussiness_name,unsigned int platform)
 {
 	DU_ThreadLock::Lock lock(m_lock_send_file);
 
@@ -144,6 +147,7 @@ void SendOperationMgr::AddSendFileTask(std::string task_key, unsigned long long 
 	task->file_path  = file_path;
 	task->buff_with_file = buff_with_file;
 	task->bussiness_name = bussiness_name;
+	task->platform = platform;
 
 	m_vecFileTaskToSend.push_back(task);
 }
@@ -153,7 +157,12 @@ void SendOperationMgr::SendFileTasks()
 	if(m_vecFileTaskToSend.empty()) return;
 
 	unsigned long long cookie = 0;
-	int dl_ret = tx_send_file_to(m_vecFileTaskToSend[0]->target_id, (char*)m_vecFileTaskToSend[0]->file_path.c_str(),&cookie,(char*)m_vecFileTaskToSend[0]->buff_with_file.c_str(), (int)m_vecFileTaskToSend[0]->buff_with_file.length(),  (char*)m_vecFileTaskToSend[0]->bussiness_name.c_str());	
+	int dl_ret = 0;
+	if(m_vecFileTaskToSend[0]->platform == 1){ //PCQQ
+		dl_ret = tx_send_file_to_pcqq(m_vecFileTaskToSend[0]->target_id, (char*)m_vecFileTaskToSend[0]->file_path.c_str(),&cookie,(char*)m_vecFileTaskToSend[0]->buff_with_file.c_str(), (int)m_vecFileTaskToSend[0]->buff_with_file.length(),  (char*)m_vecFileTaskToSend[0]->bussiness_name.c_str());	
+	}else{
+		dl_ret = tx_send_file_to(m_vecFileTaskToSend[0]->target_id, (char*)m_vecFileTaskToSend[0]->file_path.c_str(),&cookie,(char*)m_vecFileTaskToSend[0]->buff_with_file.c_str(), (int)m_vecFileTaskToSend[0]->buff_with_file.length(),  (char*)m_vecFileTaskToSend[0]->bussiness_name.c_str());	
+	}
 	TNOTICE("Send File To:  target = %llu, file = %s, business name = %s, dl_ret = %d, cookie = %llu\n", m_vecFileTaskToSend[0]->target_id,m_vecFileTaskToSend[0]->file_path.c_str(), m_vecFileTaskToSend[0]->bussiness_name.c_str(), dl_ret, cookie);
 	file_transfer_record_mgr::getInstance()->add_transfer_record(cookie,m_vecFileTaskToSend[0]->task_key);
 	file_transfer_record_mgr::getInstance()->set_transfer_begin(cookie,DU_File::getFileSize(m_vecFileTaskToSend[0]->file_path),m_vecFileTaskToSend[0]->file_path,transfer_type_c2c_out,m_vecFileTaskToSend[0]->target_id,m_vecFileTaskToSend[0]->task_key,std::string("nassdk"));
@@ -509,9 +518,6 @@ void on_login_complete_internal(int errcode)
 	{
 		if(errcode != 0) {
 			TERROR("Login failure, error = %d\n", errcode);
-			//等待一秒，然后重新登陆
-			DU_ThreadControl::sleep(1000); //毫秒
-			//tx_device_relogin();
 		} else {
 			TNOTICE("Login success, error = %d\n", errcode);
 		}
@@ -775,9 +781,10 @@ int tx_nas_upload_file(const char* abspath,const char* filekey)
 	if(abspath == NULL || filekey == NULL) return -1;
 
 	if(DU_File::isFileExist(abspath)){
-		std::string md5 = DU_MD5::md5str(DU_File::load2str(abspath)); //获取文件md5
+		std::string md5 = "";//DU_MD5::md5str(DU_File::load2str(abspath)); //获取文件md5
 		std::string url    = FILE_UPLOAD_KEY_MGR_SDK->get_file_upload_key(filekey,md5);
 		if(!url.empty()){
+			TERROR("Debug: --> Alread uploaded\n");
 			return err_null;         //已经上传过
 		}
 
@@ -805,11 +812,11 @@ int tx_nas_upload_file(const char* abspath,const char* filekey)
 int tx_nas_get_url(const char* filekey, char* url, int len)
 {
 	if(filekey == NULL) return err_invalid_param;
-
-	std::string md5 = DU_MD5::md5str(DU_File::load2str(filekey));
+	//TNOTICE("get_url: filekey=%s\n",filekey);
+	std::string md5 = "";//DU_MD5::md5str(DU_File::load2str(filekey));
 	std::string strUrl = FILE_UPLOAD_KEY_MGR_SDK->get_file_upload_key(filekey,md5);
 	if(strUrl.empty()) return nas_err_file_not_exist;
-
+	//TNOTICE("get_url: strUrl=%s\n",strUrl.c_str());
 	int lenUrl = strUrl.length();
 	if(len < (lenUrl + 1)) return err_buffer_notenough;
 	

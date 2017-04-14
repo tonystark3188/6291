@@ -33,11 +33,15 @@ int handle_get_dir_list_cmd(int file_type,unsigned long offset,unsigned long len
 
 
 int handle_file_rename_cmd(char *src_path,char *des_path,char *uuid);
-//int handle_get_file_uuid_cmd(char *src_path,char *file_uuid,char *disk_uuid);
+int handle_file_hide_cmd(char *src_path,bool attr,char *uuid,bool album);
+
 int handle_file_insert_cmd(char *file_uuid,char *src_path,char bIsRegularFile,char *uuid);
 
+int handle_file_list_insert_cmd(struct dl_list *head,char *uuid);
+
 int handle_file_delete_cmd(char *src_path,char *uuid);
-int handle_get_disk_info_cmd(char *uuid,disk_info_t *disk_pfi);
+int handle_file_list_delete_cmd(char **file_list,char *uuid);
+
 int handle_insert_disk_table(disk_info_t *disk_info);
 int handle_update_disk_table(disk_info_t *disk_info);
 

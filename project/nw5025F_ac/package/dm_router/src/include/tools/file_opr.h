@@ -122,6 +122,10 @@ struct file_dnode
 	unsigned 		index;
 	bool			attr;
 	int 			fname_allocated;
+	char 			*dest_encrypt_path;
+	char 			*dest_encrypt_name;
+	char 			*src_path;
+	char 			*virtual_path;
 	struct file_dnode *dn_next;
 };
 #define PAGESIZE 48
@@ -163,6 +167,8 @@ int make_directory(char *path);
 
 ssize_t cp_file(const char *src_file, const char *dest_file);
 int get_file_size(const char *path, uint64_t *size);
+unsigned dm_getDirCnt(char *path);
+
 
 //在指定磁盘创建标记文件(隐藏在磁盘根目录)
 int create_mark_file(char *path,char *uuid);

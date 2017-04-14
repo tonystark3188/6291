@@ -59,6 +59,7 @@
 #define NET_INFO_ACCESS				"net_info_access"
 #define ADVANCED_FUNC_ACCESS		"advanced_func_access"
 #define DELETE_FILE_LIST_ACCESS		"delete_file_list"
+#define ENCRYPT_FILE_ACCESS			"encrypt_file"
 
 #define USB_DEV_NAME 				"USB-disk"
 #define SD_DEV_NAME					"SD-disk"
@@ -175,6 +176,11 @@ struct stream {
 	int			headers_len;
 	big_int_t		content_len;
 	unsigned int		flags;
+	big_int_t 	offset;
+	int 		start_byte;
+	AES_KEY aes;
+	int i;
+	big_int_t nwrites;
 #define	FLAG_HEADERS_PARSED	1
 #define	FLAG_SSL_ACCEPTED	2
 #define	FLAG_R			4		/* Can read in general	*/
@@ -190,6 +196,12 @@ struct stream {
 #define DISK_UUID_LEN		64
 #define DEVICE_NAME_LEN		512
 
+struct need_encrypted_file{
+	unsigned int total;
+	unsigned int finished;
+	char **fileArray;
+}nef;
+
 typedef struct conn {
 	struct llhead	link;		/* Connections chain		*/
 	struct shttpd_ctx *ctx;		/* Context this conn belongs to */
@@ -201,8 +213,13 @@ typedef struct conn {
 	struct headers	ch;		/* Parsed client headers	*/
 	struct stream	loc;		/* Local stream			*/
 	struct stream	rem;		/* Remote stream		*/
+
+	int *copy_status;
 	off_t offset;
 	off_t length;
+    
+    int off;
+    int len;
 	int cmd;
 	int seq;
     unsigned copy_seq;
@@ -257,6 +274,10 @@ typedef struct conn {
 	int event;//0:mount on pc;1:udisk extract
 	char action_node[16];//the node of action
 	char **file_dnode;
+	struct need_encrypted_file* nef;
+	char tips[256];
+	char token[32];
+	char *key;
 };
 
 #define THREAD_COUNT 1
@@ -306,6 +327,7 @@ struct shttpd_ctx {
 #define	FOR_EACH_WORD_IN_LIST(s,len)	\
 	for (; s != NULL && (len = strcspn(s, DELIM_CHARS)) != 0; s += len + 1)
 extern int db_get_mime_type(const char *uri, int len);
+extern char *get_mime_type(const char *uri, int len);
 extern void	stop_stream(struct stream *stream);
 extern void	open_listening_ports(struct shttpd_ctx *ctx);
 
@@ -322,7 +344,8 @@ extern int	my_open(const char *, int flags, int mode);
 
 extern const struct io_class	io_file;
 extern const struct io_class	io_socket;
-
+extern const struct io_class	io_enc_file;
+extern const struct io_class	io_enc_dir;
 extern int file_json_to_string(struct conn *c,JObj* response_json);
 
 
@@ -334,6 +357,8 @@ extern int file_json_to_string(struct conn *c,JObj* response_json);
 extern const struct io_class	io_file;
 extern const struct io_class	io_socket;
 extern const struct io_class	io_dir;
+extern const struct io_class	io_all_dir;
+
 extern const struct io_class	io_type;
 extern const struct io_class	io_dir_type;
 
@@ -341,6 +366,8 @@ extern const struct io_class	io_dir_type;
 
 extern int	put_dir(const char *path);
 extern void	get_dir(struct conn *c);
+extern void	all_get_dir(struct conn *c);
+
 //extern void	get_type(struct conn *c);
 
 extern void	get_file(struct conn *c, struct stat *stp);

@@ -92,7 +92,6 @@ int file_transfer_processor::upload_process(const tx_file_transfer_info* ft_info
 	std::string file_md5 = DU_MD5::md5str(DU_File::load2str(param->_abs_path));
 	//先将key存起来
 	FILE_UPLOAD_KEY_MGR_SDK->add_file_upload_key(param->_filekey,param->_abs_path, download_url, file_md5);
-
 	if(param->_pre_upload) {
 		TNOTICE("Get uploaded thumbnail URL success ! file = %s\n", param->_abs_path.c_str());
 		g_task_mgr.rm_upload_task(cookie);

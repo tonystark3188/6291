@@ -7,7 +7,15 @@ extern "C" {
 #include "task/task_base.h"
 #include "base.h"
 
+enum release_disk_flag{
+	UNRELEASE_DISK,
+	RELEASE_DISK
+};
 
+enum release_disk_event{
+	PC_MOUNT_EVENT,
+	UDISK_EXTRACT_EVENT
+};
 
 #define AIRDISK_ON_PC 1
 #define AIRDISK_OFF_PC 0
@@ -16,6 +24,7 @@ typedef struct disk_node {
 	struct disk_node *dn_next;
 	char uuid[16];
 	char path[128];
+	char dev_node[32];	
 	unsigned long long total_size; 		/* total size 1KB */
 	unsigned long long free_size;  		/* free size 1KB */
 	char pid[16];					/* pid */
@@ -40,6 +49,12 @@ typedef struct _DiskTaskObj
 	struct disk_node  disk_info;
 	DISK_DEL_CALLBACK onDMDiskListDel;
     DISK_ADD_CALLBACK onDMDiskListAdd;
+	int cmd;
+	int seq;
+	int clientFd;
+	int release_flag;
+	int event;
+	int actionNode[16];
 	pthread_mutex_t mutex;
 }DiskTaskObj;
 

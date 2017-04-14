@@ -8,7 +8,7 @@
 #include <fcntl.h>
 
 
-static char path[] = "/tmp/mnt/USB-disk-1";
+static char path[] = "/tmp/mnt/SD-disk-1";
 
 
 //return value : -1 error,0 no storage,1 have storage
@@ -42,22 +42,22 @@ int main(int argc, char* argv[])
 	while (1) 
 	{
 		ret = find_mount_point(path);
+		//printf("ret: %d, nas_status: %d\n", ret, nas_status);
 		if((1 == ret) && (0 == nas_status))
 		{
 			disk_cnt++;
-			if(3 == disk_cnt)
+			if(3 <= disk_cnt)
 			{
 				disk_cnt = -1;
 				nas_status = 1;	
 				printf("tx_nas init!!!\n");
 				system("/usr/sbin/nasdemo >/dev/null &");
-				
 			}
 		}
 		else if((0 == ret) && (1 == nas_status))
 		{
 			nodisk_cnt++;
-			if(5 == nodisk_cnt)
+			if(5 <= nodisk_cnt)
 			{
 				nodisk_cnt = -1;
 				nas_status = 0;

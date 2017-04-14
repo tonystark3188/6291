@@ -1,0 +1,162 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+Addr	main.c	/^	unsigned char Addr[MAC_ADDR_LEN];$/;"	m	struct:_RT_802_11_MAC_ENTRY	file:
+Aid	main.c	/^	unsigned char Aid;$/;"	m	struct:_RT_802_11_MAC_ENTRY	file:
+ApIdx	main.c	/^	unsigned char ApIdx;$/;"	m	struct:_RT_802_11_MAC_ENTRY	file:
+AvgRssi0	main.c	/^	signed char AvgRssi0;$/;"	m	struct:_RT_802_11_MAC_ENTRY	file:
+AvgRssi1	main.c	/^	signed char AvgRssi1;$/;"	m	struct:_RT_802_11_MAC_ENTRY	file:
+AvgRssi2	main.c	/^	signed char AvgRssi2;$/;"	m	struct:_RT_802_11_MAC_ENTRY	file:
+BUTTON_DOUBLE	socket_uart.h	/^	BUTTON_DOUBLE = 0x800$/;"	e	enum:button_status
+BUTTON_DOWN_LED_OFF	socket_uart.h	/^	BUTTON_DOWN_LED_OFF = 1,$/;"	e	enum:button_status
+BUTTON_DOWN_RESET	socket_uart.h	/^	BUTTON_DOWN_RESET = 0X80,$/;"	e	enum:button_status
+BUTTON_UP	socket_uart.h	/^	BUTTON_UP = 0,$/;"	e	enum:button_status
+BW	main.c	/^		unsigned short BW:1;	\/*channel bandwidth 20MHz or 40 MHz *\/$/;"	m	struct:_MACHTTRANSMIT_SETTING::__anon1	file:
+CMD	main.c	16;"	d	file:
+ConnectedTime	main.c	/^	unsigned int ConnectedTime;$/;"	m	struct:_RT_802_11_MAC_ENTRY	file:
+DEBUG	main.c	96;"	d	file:
+DEBUG	main.c	98;"	d	file:
+DETECT_BOARD	socket_uart.h	/^	DETECT_BOARD,$/;"	e	enum:pc_detect_status
+DETECT_PC	socket_uart.h	/^	DETECT_PC$/;"	e	enum:pc_detect_status
+ERROR_CLIENT_DATA	socket_uart.h	/^	ERROR_CLIENT_DATA = -100,$/;"	e	enum:error_code
+ERROR_CLIENT_INIT	socket_uart.h	/^	ERROR_CLIENT_INIT = -101,$/;"	e	enum:error_code
+ERROR_CLIENT_PARSE	socket_uart.h	/^	ERROR_CLIENT_PARSE = -105,$/;"	e	enum:error_code
+ERROR_CLIENT_RECV	socket_uart.h	/^	ERROR_CLIENT_RECV = -103,$/;"	e	enum:error_code
+ERROR_CLIENT_SEND	socket_uart.h	/^	ERROR_CLIENT_SEND = -102,$/;"	e	enum:error_code
+ERROR_CLIENT_TIMEOUT	socket_uart.h	/^	ERROR_CLIENT_TIMEOUT = -104,$/;"	e	enum:error_code
+ERROR_SERVER_DATA	socket_uart.h	/^	ERROR_SERVER_DATA = -112$/;"	e	enum:error_code
+ERROR_SERVER_PARSE	socket_uart.h	/^	ERROR_SERVER_PARSE = -110,$/;"	e	enum:error_code
+ERROR_SERVER_UART_HANDLE	socket_uart.h	/^	ERROR_SERVER_UART_HANDLE = -111,$/;"	e	enum:error_code
+ETH_LENGTH_OF_ADDRESS	main.c	53;"	d	file:
+Entry	main.c	/^	RT_802_11_MAC_ENTRY Entry[MAX_LEN_OF_MAC_TABLE];$/;"	m	struct:_RT_802_11_MAC_TABLE	file:
+IDLE_WIFI_TIME	main.c	27;"	d	file:
+LastRxRate	main.c	/^	unsigned int LastRxRate;$/;"	m	struct:_RT_802_11_MAC_ENTRY	file:
+MACHTTRANSMIT_SETTING	main.c	/^} MACHTTRANSMIT_SETTING, *PMACHTTRANSMIT_SETTING;$/;"	t	typeref:union:_MACHTTRANSMIT_SETTING	file:
+MAC_ADDR_LEN	main.c	52;"	d	file:
+MAX_LEN_OF_MAC_TABLE	main.c	54;"	d	file:
+MCS	main.c	/^		unsigned short MCS:7;	\/* MCS *\/$/;"	m	struct:_MACHTTRANSMIT_SETTING::__anon1	file:
+MODE	main.c	/^		unsigned short MODE:2;	\/* Use definition MODE_xxx. *\/$/;"	m	struct:_MACHTTRANSMIT_SETTING::__anon1	file:
+MimoPs	main.c	/^	unsigned char MimoPs;		\/* 0:MMPS_STATIC, 1:MMPS_DYNAMIC, 3:MMPS_Enabled *\/$/;"	m	struct:_RT_802_11_MAC_ENTRY	file:
+Num	main.c	/^	unsigned long Num;$/;"	m	struct:_RT_802_11_MAC_TABLE	file:
+OFF	main.c	/^	OFF$/;"	e	enum:led_status	file:
+ON	main.c	/^	ON,$/;"	e	enum:led_status	file:
+PMACHTTRANSMIT_SETTING	main.c	/^} MACHTTRANSMIT_SETTING, *PMACHTTRANSMIT_SETTING;$/;"	t	typeref:union:_MACHTTRANSMIT_SETTING	file:
+POWER_CHARGING	socket_uart.h	/^	POWER_CHARGING,$/;"	e	enum:power_charge_status
+POWER_DISCHARGING	socket_uart.h	/^	POWER_DISCHARGING,$/;"	e	enum:power_charge_status
+POWER_LOW	socket_uart.h	/^	POWER_LOW$/;"	e	enum:power_charge_status
+POWER_NORMAL	socket_uart.h	/^	POWER_NORMAL,$/;"	e	enum:power_charge_status
+PRT_802_11_MAC_ENTRY	main.c	/^} RT_802_11_MAC_ENTRY, *PRT_802_11_MAC_ENTRY;$/;"	t	typeref:struct:_RT_802_11_MAC_ENTRY	file:
+PRT_802_11_MAC_TABLE	main.c	/^} RT_802_11_MAC_TABLE, *PRT_802_11_MAC_TABLE;$/;"	t	typeref:struct:_RT_802_11_MAC_TABLE	file:
+Psm	main.c	/^	unsigned char Psm;		\/* 0:PWR_ACTIVE, 1:PWR_SAVE *\/$/;"	m	struct:_RT_802_11_MAC_ENTRY	file:
+RTPRIV_IOCTL_ADD_PMKID_CACHE	main.c	43;"	d	file:
+RTPRIV_IOCTL_ADD_WPA_KEY	main.c	46;"	d	file:
+RTPRIV_IOCTL_BBP	main.c	39;"	d	file:
+RTPRIV_IOCTL_E2P	main.c	41;"	d	file:
+RTPRIV_IOCTL_GET_APCLI_RSSI	main.c	50;"	d	file:
+RTPRIV_IOCTL_GET_MAC_TABLE	main.c	47;"	d	file:
+RTPRIV_IOCTL_GET_MAC_TABLE_STRUCT	main.c	48;"	d	file:
+RTPRIV_IOCTL_GSITESURVEY	main.c	45;"	d	file:
+RTPRIV_IOCTL_MAC	main.c	40;"	d	file:
+RTPRIV_IOCTL_RADIUS_DATA	main.c	44;"	d	file:
+RTPRIV_IOCTL_SET	main.c	38;"	d	file:
+RTPRIV_IOCTL_SHOW_CONNSTATUS	main.c	49;"	d	file:
+RTPRIV_IOCTL_STATISTICS	main.c	42;"	d	file:
+RT_802_11_MAC_ENTRY	main.c	/^} RT_802_11_MAC_ENTRY, *PRT_802_11_MAC_ENTRY;$/;"	t	typeref:struct:_RT_802_11_MAC_ENTRY	file:
+RT_802_11_MAC_TABLE	main.c	/^} RT_802_11_MAC_TABLE, *PRT_802_11_MAC_TABLE;$/;"	t	typeref:struct:_RT_802_11_MAC_TABLE	file:
+RT_PRIV_IOCTL	main.c	37;"	d	file:
+SHUTDOWN	main.c	18;"	d	file:
+SIOCDEVPRIVATE	main.c	32;"	d	file:
+SIOCIWFIRSTPRIV	main.c	34;"	d	file:
+SOCKET_UART_GET_BOTTON_STATUS	socket_uart.h	23;"	d
+SOCKET_UART_GET_CHARGE_STATUS	socket_uart.h	24;"	d
+SOCKET_UART_GET_END	socket_uart.h	32;"	d
+SOCKET_UART_GET_FIMRWARE_VERSION	socket_uart.h	27;"	d
+SOCKET_UART_GET_IF_POWEROFF	socket_uart.h	28;"	d
+SOCKET_UART_GET_LINE_IN	socket_uart.h	29;"	d
+SOCKET_UART_GET_PC_DETEC	socket_uart.h	26;"	d
+SOCKET_UART_GET_POWER_PERCENT	socket_uart.h	22;"	d
+SOCKET_UART_GET_START	socket_uart.h	20;"	d
+SOCKET_UART_GET_STORAGE_DIRECTION	socket_uart.h	30;"	d
+SOCKET_UART_GET_STORAGE_POWER	socket_uart.h	25;"	d
+SOCKET_UART_PORT	socket_uart.h	15;"	d
+SOCKET_UART_SET_AMP	socket_uart.h	43;"	d
+SOCKET_UART_SET_END	socket_uart.h	47;"	d
+SOCKET_UART_SET_MUTE	socket_uart.h	44;"	d
+SOCKET_UART_SET_POWEROFF	socket_uart.h	38;"	d
+SOCKET_UART_SET_RESET	socket_uart.h	37;"	d
+SOCKET_UART_SET_START	socket_uart.h	35;"	d
+SOCKET_UART_SET_STORAGE_DIRECTION	socket_uart.h	40;"	d
+SOCKET_UART_SET_STORAGE_MODE	socket_uart.h	41;"	d
+SOCKET_UART_SET_STORAGE_POWER	socket_uart.h	39;"	d
+SOCKET_UART_SET_SURE_POWEROFF	socket_uart.h	45;"	d
+SOCKET_UART_SET_VERIFY_KEY	socket_uart.h	42;"	d
+SOCKET_UART_STM8_UPLOAD	socket_uart.h	50;"	d
+SOCKET_UART_TIMEOUT	socket_uart.h	17;"	d
+SOCKET_UART_WAIT_COUNT	socket_uart.h	16;"	d
+STATUS_KEYPRESS_ACK	main.c	23;"	d	file:
+STATUS_KEY_PRESS	main.c	22;"	d	file:
+STATUS_RESTORE	main.c	20;"	d	file:
+STATUS_RESTORE_ACK	main.c	21;"	d	file:
+STATUS_WIFILED_OFF	main.c	19;"	d	file:
+STBC	main.c	/^		unsigned short STBC:2;	\/*SPACE *\/$/;"	m	struct:_MACHTTRANSMIT_SETTING::__anon1	file:
+STORAGE_BOARD	socket_uart.h	/^	STORAGE_BOARD$/;"	e	enum:storage_direction_status
+STORAGE_PC	socket_uart.h	/^	STORAGE_PC,$/;"	e	enum:storage_direction_status
+STORAGE_POWER_OFF	socket_uart.h	/^	STORAGE_POWER_OFF,$/;"	e	enum:storage_power_status
+STORAGE_POWER_ON	socket_uart.h	/^	STORAGE_POWER_ON$/;"	e	enum:storage_power_status
+ShortGI	main.c	/^		unsigned short ShortGI:1;$/;"	m	struct:_MACHTTRANSMIT_SETTING::__anon1	file:
+SoundingRespSnr	main.c	/^	signed short SoundingRespSnr[3];			\/* SNR from Sounding Response. Units=0.25 dB. 22 dB offset removed *\/$/;"	m	struct:_RT_802_11_MAC_ENTRY	file:
+StreamSnr	main.c	/^	signed short StreamSnr[3];				\/* BF SNR from RXWI. Units=0.25 dB. 22 dB offset removed *\/$/;"	m	struct:_RT_802_11_MAC_ENTRY	file:
+TARGET	Makefile	/^TARGET = check_reset$/;"	m
+TxRate	main.c	/^	MACHTTRANSMIT_SETTING TxRate;$/;"	m	struct:_RT_802_11_MAC_ENTRY	file:
+UART_R	socket_uart.h	/^	UART_R,$/;"	e	enum:uart_rw_mode
+UART_W	socket_uart.h	/^	UART_W$/;"	e	enum:uart_rw_mode
+_MACHTTRANSMIT_SETTING	main.c	/^typedef union _MACHTTRANSMIT_SETTING {$/;"	u	file:
+_RT_802_11_MAC_ENTRY	main.c	/^typedef struct _RT_802_11_MAC_ENTRY {$/;"	s	file:
+_RT_802_11_MAC_TABLE	main.c	/^typedef struct _RT_802_11_MAC_TABLE {$/;"	s	file:
+__DEBUG__	main.c	28;"	d	file:
+__SOCKET_UART_H__	socket_uart.h	2;"	d
+button_status	socket_uart.h	/^enum button_status{$/;"	g
+cmd_info	main.c	/^struct cmd_info{$/;"	s	file:
+data	main.c	/^	unsigned char data;$/;"	m	struct:cmd_info	file:
+data	socket_uart.h	/^	unsigned short data;$/;"	m	struct:socket_uart_cmd
+error_code	socket_uart.h	/^enum error_code{$/;"	g
+field	main.c	/^	} field;$/;"	m	union:_MACHTTRANSMIT_SETTING	typeref:struct:_MACHTTRANSMIT_SETTING::__anon1	file:
+fuser_mount_point	main.c	/^static int fuser_mount_point(void)$/;"	f	file:
+get_button_reset_status	main.c	/^int get_button_reset_status(int *reset_status)$/;"	f
+get_pc_detect_status	main.c	/^int get_pc_detect_status(int *detect_status)$/;"	f
+get_storage_direction	main.c	/^int get_storage_direction(int *storage_dir)$/;"	f
+get_wifi_connect_info	main.c	/^int get_wifi_connect_info(int socket_id, int *current_sta_cnt, int *client_status)$/;"	f
+key_status_get	main.c	14;"	d	file:
+key_status_set	main.c	13;"	d	file:
+led_status	main.c	/^enum led_status$/;"	g	file:
+main	main.c	/^int main() $/;"	f
+mode	main.c	/^	unsigned char mode;  \/\/ 0 --read  1--write$/;"	m	struct:cmd_info	file:
+mode	socket_uart.h	/^	unsigned char mode;   \/\/ 0 --read  1--write$/;"	m	struct:socket_uart_cmd
+pc_detect_status	socket_uart.h	/^enum pc_detect_status{$/;"	g
+poll_online	main.c	/^static void poll_online(void)$/;"	f	file:
+power_charge_status	socket_uart.h	/^enum power_charge_status{$/;"	g
+regaddr	main.c	/^	unsigned char regaddr;$/;"	m	struct:cmd_info	file:
+regaddr	socket_uart.h	/^	unsigned char regaddr;$/;"	m	struct:socket_uart_cmd
+reset_status_get	main.c	12;"	d	file:
+reset_status_set	main.c	11;"	d	file:
+resume_service	main.c	/^static void resume_service(void)$/;"	f	file:
+resume_usb	main.c	/^static void resume_usb(void)$/;"	f	file:
+resume_wifi	main.c	/^static void resume_wifi(void)$/;"	f	file:
+rsv	main.c	/^		unsigned short rsv:3;$/;"	m	struct:_MACHTTRANSMIT_SETTING::__anon1	file:
+set_reset_mcu	main.c	/^int set_reset_mcu(void)$/;"	f
+set_storage_direction	main.c	/^int set_storage_direction(int storage_dir)$/;"	f
+set_system_poweroff	main.c	/^int set_system_poweroff(void)$/;"	f
+shutdown_set	main.c	15;"	d	file:
+socket_uart_cmd	socket_uart.h	/^typedef struct socket_uart_cmd$/;"	s
+socket_uart_cmd_t	socket_uart.h	/^}socket_uart_cmd_t;$/;"	t	typeref:struct:socket_uart_cmd
+storage_direction_status	socket_uart.h	/^enum storage_direction_status{$/;"	g
+storage_power_status	socket_uart.h	/^enum storage_power_status{$/;"	g
+suspend_service	main.c	/^static void suspend_service(void)$/;"	f	file:
+suspend_usb	main.c	/^static void suspend_usb(void)$/;"	f	file:
+suspend_wifi	main.c	/^static void suspend_wifi(void)$/;"	f	file:
+system_reset	main.c	/^void system_reset(void)$/;"	f
+uart_rw_mode	socket_uart.h	/^enum uart_rw_mode{$/;"	g
+word	main.c	/^	unsigned short word;$/;"	m	union:_MACHTTRANSMIT_SETTING	file:

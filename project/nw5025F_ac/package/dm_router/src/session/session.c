@@ -17,7 +17,7 @@
  */
 #include "session.h"
 #include "dm_encrypt.h"
-
+#include "file_json.h"
 static unsigned long acc_count = 0;
 
 static int dm_session_process(struct conn *c)
@@ -28,11 +28,11 @@ static int dm_session_process(struct conn *c)
 	if(!*c->session)
 	{
 		//allocate session
-		DMCLOG_D("session is null");
+		//DMCLOG_D("session is null");
 		time(&timep);
 		p = localtime(&timep);
 		timep = mktime(p);
-		DMCLOG_D("time()->localtime()->mktime():%d",timep);
+		//DMCLOG_D("time()->localtime()->mktime():%d",timep);
 		acc_count++;
 		c->cur_time = timep + acc_count;
 		_dm_gen_session(c->session, c->username, c->password, c->cur_time);
@@ -45,14 +45,52 @@ static int dm_session_process(struct conn *c)
 		{
 			c->ctx->session_reset = reset_session_list;
 		}
+        
+        if(c->cmd == 3)//logout command
+        {
+            set_session_login(c->session,FALSE,&c->ctx->p_session_list);
+            DMCLOG_D("logout success");
+        }
+        /*if(c->cmd == FN_ENCRYPT_FILE ||c->cmd == FN_ENCRYPT_FILE_GET_LIST \
+        	|| c->cmd == FN_ENCRYPT_FILE_DOWNLOAD || c->cmd == FN_ENCRYPT_FILE_DECRYPT \
+        	|| c->cmd == FN_ENCRYPT_FILE_DELETE || c->cmd == FN_VAULT_LOGOUT \
+	       	|| c->cmd == FN_ENCRYPT_FILE_IS_EXIST || c->cmd == FN_VAULT_LOGIN 	
+	      	)
+	     */
+	     if(c->cmd > FN_ENCRYPT_FILE_IS_EXIST - 1 && c->cmd < FN_VAULT_GET_PATH + 1)	
+	     {
+			if(is_token_login(c->session,&c->ctx->p_session_list) == TRUE){
+				if(c->cmd == FN_VAULT_LOGOUT){
+					set_token_login(c->session,FALSE,&c->ctx->p_session_list);
+				}
+			}else {
+				if(c->cmd == FN_VAULT_IS_OPEN ||c->cmd == FN_VAULT_IS_EMPTY || c->cmd == FN_VAULT_GET_TIPS|| c->cmd == FN_VAULT_GET_PATH || c->cmd == FN_VAULT_OPEN||c->cmd == FN_VAULT_CLOSE){
+					return 0;
+				}				
+				if(c->cmd != FN_VAULT_LOGIN){
+					c->error = DM_ERROR_VAULT_TOKEN_ERROR;
+					DMCLOG_E("the cmd : %d have no permit to process",c->cmd);
+					return -1;
+				}
+				if(check_key(c->password) != 0){
+					c->error = DM_ERROR_VAULT_TOKEN_ERROR;
+					DMCLOG_E("the password error %s",c->password);
+					return -1;
+				}
+				set_token_login(c->session,TRUE,&c->ctx->p_session_list);
+			}
+
+        }/**/
 	}else{
 		if(c->cmd != 2)
 		{
+			c->error = ERROR_SESSION_PROCESS;				
 			DMCLOG_E("the cmd : %d have no permit to process",c->cmd);
 			return -1;
 		}
 		if(dm_match_password(c->password) != 1)
 		{
+			c->error = ERROR_SESSION_PROCESS;
 			DMCLOG_E("password match error");
 			return -1;
 		}

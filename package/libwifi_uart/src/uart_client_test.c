@@ -29,6 +29,8 @@ void usage()
 	printf("cmd 9	: set RTC time for 2016-12-25-7(week)08:00:00\n");
 	printf("cmd 10	: set ALARM time for 2016-12-25-7(week)08:05:00 on\n");
 	printf("cmd 11	: set ALARM time off\n");
+	printf("cmd 12	: set led ALL off\n");
+	printf("cmd 13	: set led ALL on\n");	
 	printf("<option -c:input code>\n");
 }
 
@@ -321,7 +323,28 @@ int main(int argc, char **argv)
 					ret = SocketUartClientStart(&g_uart_cmd);
 					if(ret == 0)
 						printf("set ALARM TIME off success\n");;
-				}else 
+				}else if(!strcmp(optarg,"12"))
+				{	
+					g_uart_cmd.mode = UART_W;
+					g_uart_cmd.regaddr = SOCKET_UART_SET_LED_AOFF;
+					g_uart_cmd.data = (unsigned short)RESET_LED_BLINK;
+					ret = SocketUartClientStart(&g_uart_cmd);
+					if(ret == 0)
+						printf("set led all off success\n");
+					else						
+						printf("set led all off fail\n");
+				}else if(!strcmp(optarg,"13"))
+				{	
+					g_uart_cmd.mode = UART_W;
+					g_uart_cmd.regaddr = SOCKET_UART_SET_LED_AON;
+					g_uart_cmd.data = (unsigned short)RESET_LED_BLINK;
+					ret = SocketUartClientStart(&g_uart_cmd);
+					if(ret == 0)
+						printf("set led all on success\n");
+					else						
+						printf("set led all on fail\n");
+				}
+				else 
 				{
 					printf("invalid argument\n");
 					usage();

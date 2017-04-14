@@ -14,18 +14,21 @@ CXX_EXTERN_BEGIN
 
 //音频类型
 enum audio_format {
-	audio_format_amr = 1,
-	audio_format_aac = 2,
+	audio_format_amr  = 1,
+	audio_format_aac  = 2, //双声道目前仅支持48KHz采样率, 单声道对采样率没有限制
+    audio_format_g711 = 6,
 };
 
 /**
  * 收发音频数据流时的参数
  * head_length   : 结构体的长度.
  * audio_format  ：表示音频编码的格式，也就是音频压缩算法，受限于手机QQ安装包体积的限制，目前只支持固定值： 1
- * encode_param  ：表示音频压缩算法的具体参数，建议值： 7
+ * encode_param  ：当编码格式为AMR时：表示音频压缩算法的具体参数，建议值： 7。当编码格式为AAC时填1。当编码格式为G711时，0代表Alaw, 1代表uLaw。
  * frame_per_pkg ：音频数据是一个数据包一个数据包发送到手机端的，如果一帧音频数据很小，那么单个数据包中可以装n个音频数据帧，这个参数用来指定n，建议值：8
- * sampling_info ：采样参数 value = ((通道数 << 24) | (采样率 << 16) | (位宽 << 8)| 0x00)，建议值：GET_SIMPLING_INFO(1, 8, 16) = 17305600；
+ * sampling_info ：采样参数，用于建议通过GET_SIMPLING_INFO和GET_AMR_SIMPLING_INFO计算该值
  *                 注  ：采样率 = 8000（8K） ，此处采样率请填8 ； 采样率  48000（48K） 此处填48； 以此类推。
+ *                 注  ：假设系统是little-endian
+ *                 注  ：如果是AMR格式请使用GET_AMR_SIMPLING_INFO
  * reserved      ：保留字段
  */
 typedef struct _tx_audio_encode_param
@@ -36,7 +39,7 @@ typedef struct _tx_audio_encode_param
 	unsigned char frame_per_pkg;
 	unsigned int  sampling_info;
 	unsigned int  reserved;
-	
+
 } tx_audio_encode_param;
 
 
@@ -47,6 +50,11 @@ typedef struct _tx_audio_encode_param
 *  param：bit 位宽，取 8 或 16，推荐16
 */
 #define GET_SIMPLING_INFO(channel, sampling, bit)  ((channel << 24) | (sampling << 16) | (bit << 8) | 0x00)
+
+/**
+*  AMR音频格式计算sampling_info数值的宏
+*/
+#define GET_AMR_SIMPLING_INFO(channel, sampling, bit)  ((bit << 24) | (sampling << 16) | (channel << 8) | 0x00)
 
 
 /**

@@ -1,0 +1,18 @@
+--- a/source3/smbd/notify_internal.c	2015-02-22 22:11:32.000000000 +0800
++++ b/source3/smbd/notify_internal.c	2017-03-08 16:53:11.004244956 +0800
+@@ -23,6 +23,7 @@
+   given event matches any of the stored notify waiiters.
+ */
+ 
++#include <libnotify_server/notify_server.h>
+ #include "includes.h"
+ #include "system/filesys.h"
+ #include "librpc/gen_ndr/ndr_notify.h"
+@@ -929,6 +930,7 @@
+ 	DEBUG(10, ("notify_trigger called action=0x%x, filter=0x%x, "
+ 		   "path=%s\n", (unsigned)action, (unsigned)filter, path));
+ 
++	notify_server_modified_file(action,path);
+ 	/* see if change notify is enabled at all */
+ 	if (notify == NULL) {
+ 		return;

@@ -1,0 +1,125 @@
+diff -uNr a/src/cfgparser.h b/src/cfgparser.h
+--- a/src/cfgparser.h	2007-12-09 21:03:36.000000000 +0800
++++ b/src/cfgparser.h	2013-11-19 17:32:46.743168853 +0800
+@@ -35,7 +35,10 @@
+ #define USHARE_ENABLE_DLNA        "USHARE_ENABLE_DLNA"
+ 
+ #define USHARE_CONFIG_FILE        "ushare.conf"
+-#define DEFAULT_USHARE_NAME       "uShare"
++//define DEFAULT_USHARE_NAME       "airmusic"
++extern char *get_conf_str(char *var);
++
++#define DEFAULT_USHARE_NAME (get_conf_str("model_name"))
+ 
+ #if (defined(BSD) || defined(__FreeBSD__))
+ #define DEFAULT_USHARE_IFACE      "lnc0"
+diff -uNr a/src/ushare.c b/src/ushare.c
+--- a/src/ushare.c	2013-11-19 15:46:50.633172006 +0800
++++ b/src/ushare.c	2013-11-19 15:51:12.022554837 +0800
+@@ -277,6 +277,21 @@
+   char *description = NULL;
+   int res;
+   size_t len;
++  char *model_name=get_conf_str("model_name");
++  if(!model_name)
++	  model_name="default_model_name";
++  char *model_number=get_conf_str("model_number");
++  if(!model_number)
++	  model_number="default_model_number";
++  char *model_description=get_conf_str("model_description");
++  if(!model_description)
++	  model_description="default_model_description";
++  char *manufacturer=get_conf_str("manufacturer");
++  if(!manufacturer)
++	  manufacturer="default_manufacturer";
++  char *url_manufacturer=get_conf_str("url_manufacturer");
++  if(!url_manufacturer)
++	  url_manufacturer="default_url_manufacturer";
+ 
+   if (!ut || !ut->name || !ut->udn || !ut->ip)
+     return -1;
+@@ -287,15 +302,15 @@
+     len = 0;
+     description =
+       dlna_dms_description_get (ut->name,
+-                                "GeeXboX Team",
+-                                "http://ushare.geexbox.org/",
+-                                "uShare : DLNA Media Server",
++                                model_name,
++                                url_manufacturer,
++                                model_description,
+                                 ut->model_name,
+-                                "001",
+-                                "http://ushare.geexbox.org/",
+-                                "USHARE-01",
+-                                ut->udn,
+-                                "/web/ushare.html",
++                                model_number,
++                                url_manufacturer,
++                                model_number,
++								ut->udn,
++								"/web/ushare.html",
+                                 "/web/cms.xml",
+                                 "/web/cms_control",
+                                 "/web/cms_event",
+@@ -308,11 +323,14 @@
+   else
+   {
+ #endif /* HAVE_DLNA */ 
+-  len = strlen (UPNP_DESCRIPTION) + strlen (ut->name)
+-    + strlen (ut->model_name) + strlen (ut->udn) + 1;
++
++  len = strlen(UPNP_DESCRIPTION) + strlen(ut->name) + strlen(ut->model_name) + strlen(ut->udn) + 1;
++  len += strlen(manufacturer)+strlen(url_manufacturer)+strlen(model_description)\
++  	+strlen(model_name)+strlen(model_number)+strlen(url_manufacturer);
+   description = (char *) malloc (len * sizeof (char));
+   memset (description, 0, len);
+-  sprintf (description, UPNP_DESCRIPTION, ut->name, ut->model_name, ut->udn);
++  sprintf (description, UPNP_DESCRIPTION, ut->name, manufacturer, url_manufacturer, \
++  	model_description, model_name, model_number, url_manufacturer, ut->udn);
+ #ifdef HAVE_DLNA
+   }
+ #endif /* HAVE_DLNA */
+@@ -569,8 +597,9 @@
+   memset (buf, 0, 64);
+   ptr = (unsigned char *) ifr.ifr_hwaddr.sa_data;
+ #endif /* (defined(BSD) || defined(__FreeBSD__)) */
+-
+-  snprintf (buf, 64, "%s-%02x%02x%02x%02x%02x%02x", DEFAULT_UUID,
++	char my_defauly_uuid[64]={0};//replace DEFAULT_UUID
++	sprintf(my_defauly_uuid,"%s-1234-5678-90",get_conf_str("model_name"));
++  snprintf (buf, 64, "%s-%02x%02x%02x%02x%02x%02x", my_defauly_uuid,
+             (ptr[0] & 0377), (ptr[1] & 0377), (ptr[2] & 0377),
+             (ptr[3] & 0377), (ptr[4] & 0377), (ptr[5] & 0377));
+
+--- a/src/ushare.h	2007-12-09 21:03:36.000000000 +0800
++++ b/src/ushare.h	2013-11-19 17:27:09.103792390 +0800
+@@ -37,7 +37,7 @@
+ 
+ #define VIRTUAL_DIR "/web"
+ #define XBOX_MODEL_NAME "Windows Media Connect Compatible"
+-#define DEFAULT_UUID "898f9738-d930-4db4-a3cf"
++#define DEFAULT_UUID "airmusic-d930-4db4-a3cf"
+ 
+ #define UPNP_MAX_CONTENT_LENGTH 4096
+ 
+@@ -54,13 +54,13 @@
+ "  <device>" \
+ "    <deviceType>urn:schemas-upnp-org:device:MediaServer:1</deviceType>" \
+ "    <friendlyName>%s: 1</friendlyName>" \
+-"    <manufacturer>GeeXboX Team</manufacturer>" \
+-"    <manufacturerURL>http://ushare.geexbox.org/</manufacturerURL>" \
+-"    <modelDescription>GeeXboX uShare : UPnP Media Server</modelDescription>" \
++"    <manufacturer>%s</manufacturer>" \
++"    <manufacturerURL>%s</manufacturerURL>" \
++"    <modelDescription>%s</modelDescription>" \
+ "    <modelName>%s</modelName>" \
+-"    <modelNumber>001</modelNumber>" \
+-"    <modelURL>http://ushare.geexbox.org/</modelURL>" \
+-"    <serialNumber>GEEXBOX-USHARE-01</serialNumber>" \
++"    <modelNumber>%s</modelNumber>" \
++"    <modelURL>%s</modelURL>" \
++"    <serialNumber></serialNumber>" \
+ "    <UDN>uuid:%s</UDN>" \
+ "    <serviceList>" \
+ "      <service>" \

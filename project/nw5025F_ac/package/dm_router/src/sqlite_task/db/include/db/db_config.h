@@ -127,6 +127,17 @@ extern unsigned char g_root_level;
 	"TOTAL_SIZE  INT  NOT NULL,"\
 	"FREE_SIZE   INT);"
 
+#define SQLITE_CREATE_ENCRYPT_TABLE \
+"create table IF NOT EXISTS  encrypt_table("\
+"ID   INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,"\
+"NAME CHAR NOT NULL,"\
+"PATH CHAR,"\
+"DATE   INT,"\
+"SIZE   INT);"
+
+
+
+
 #define SQLITE_ENABLE_WAL_MODE  "PRAGMA journal_mode=WAL;"
 	
 	

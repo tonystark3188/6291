@@ -46,6 +46,16 @@ backup_system_nor_orico_round)
 echo "you're selecting Project:+++++ backup_system_nor_round ++++";;
 nw5035)
 echo "you're selecting Project:+++++ nw5035 ++++";;
+nw5015F)
+echo "you're selecting project:+++++ nw5015F +++";;
+nw5025E_8801)
+echo "you're selecting project:+++++ nw5025E_8801 +++";;
+nw5025F_LENOVO)
+echo "you're selecting project:+++++ nw5025F_LENOVO +++";;
+NW5030_ZOOMGO)
+echo "you're selecting project:+++++ NW5030_ZOOMGO +++";;
+backup_system_nor_zoomgo)
+echo "you're selecting project:+++++ backup_system_nor_zoomgo +++";;
 *)
 echo "wrong project"
 exit;;
@@ -79,7 +89,8 @@ CURPATH=../
 
 #restorefactory
 
-
+#remove qq pem
+rm -r -f $CURPATH/package/libnassdk/files/*.pem
 
 #remove kernel file which builded
 rm -r -f $CURPATH/$BUILD_LINUX_PATH

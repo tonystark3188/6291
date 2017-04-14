@@ -14,7 +14,7 @@ define Package/libnassdk
   SECTION:=net
   CATEGORY:=Base system
   TITLE:=lib NAS QQ SDK
-  DEPENDS:=+libstdcpp +libpthread +zlib +libm +librt +libdl +libjson-c +glib2 
+  DEPENDS:=+libstdcpp +libpthread +zlib +libm +librt +libdl +libjson-c +glib2 +libiw 
 endef
 
 define Package/libnassdk/description
@@ -51,7 +51,7 @@ define Package/libnassdk/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/libnas* $(1)/lib/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/lib/libtx* $(1)/lib/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/nasdemo $(1)/usr/sbin/
-	#$(INSTALL_BIN) $(PKG_BUILD_DIR)/smartlink/smartlink $(1)/usr/sbin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/smartlink/smartlink $(1)/usr/sbin/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/nas_monitor/nasdemo_monitor $(1)/usr/sbin/
 	$(CP) $(PKG_BUILD_DIR)/etc/*.pem $(1)/etc/qq/
 	$(CP) $(PKG_BUILD_DIR)/etc/Guid_file.txt $(1)/etc/qq/

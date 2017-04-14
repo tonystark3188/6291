@@ -104,31 +104,32 @@ typedef enum
 	STATE_UNVISIBLE_IN_TRASH = 0x11
 }file_state_t;
 
+typedef enum{
+	DB_STATUS_WAITTING,
+	DB_STATUS_SCANNING
+}dbStatus;
 
 #define MAX_MIME_TYPE_SIZE     32
 
 
 typedef struct FileInfoTable
 {
-	off_t file_size;//文件大小
-	unsigned create_time;//创建时间
-	unsigned modify_time;//修改时间
-	unsigned access_time;
-	char isFolder;//是否是目录文件
-	char *name;	//文件名
-	char *dir;
-	char *path;   //name
-	char *path_escape;
-	char mime_type[MAX_MIME_TYPE_SIZE];
-	int  file_type;		   // see file_type_t
-	uint32_t parent_id; 
-	uint32_t index;
-	char *name_escape;
-	uint32_t hdisk_id;
-	uint32_t media_info_index;
-	uint8_t  file_state;
-	char file_uuid[64];
-	uint32_t file_count;
+	off_t 		file_size;//文件大小
+	unsigned 	create_time;//创建时间
+	unsigned 	modify_time;//修改时间
+	unsigned 	access_time;
+	char 		isFolder;//是否是目录文件
+	char *		name;	//文件名
+	char *		dir;
+	char *		path;   //name
+	char 		mime_type[MAX_MIME_TYPE_SIZE];
+	int  		file_type;		   // see file_type_t
+	uint32_t 	parent_id; 
+	uint32_t	index;
+	char 		file_uuid[64];
+	unsigned	file_count;
+	bool		attr;
+	bool		parent_attr;
 	struct dl_list next;
 }file_info_t;
 
@@ -151,10 +152,11 @@ typedef enum
     FILE_TABLE_UPDATE_STATE       = 0x01,
     FILE_TABLE_UPDATE_ACCESS_TIME = 0x02,
 	FILE_TABLE_UPDATE_MODIFY_TIME = 0x04,
-	FILE_TABLE_UPDATE_THUMB_NO    = 0x08,
+	FILE_TABLE_UPDATE_ALBUM_HIDE  = 0x08,
 	FILE_TABLE_UPDATE_THUMB_POS   = 0x10,
 	FILE_TABLE_UPDATE_FAVORITE    = 0x20,
-	FILE_TABLE_UPDATE_SIZE        = 0x40
+	FILE_TABLE_UPDATE_SIZE        = 0x40,
+	FILE_TABLE_UPDATE_HIDE        = 0x80
 }file_update_cmd_t;
 
 
@@ -184,37 +186,12 @@ static inline file_type_t get_file_type(file_info_t *pfi)
 	}
 }
 
-
-static inline void set_file_type(file_info_t *pfi, file_type_t type)
-{
-    if(type > TYPE_UNKNOWN)
-    {
-        type = TYPE_UNKNOWN;
-	}
-
-	pfi->file_type = type;
-}
-
-
-static inline bool is_media_file(file_info_t *pfi)
-{
-	file_type_t type = get_file_type(pfi);
-
-	if(type == TYPE_VIDEO || type == TYPE_AUDIO || type == TYPE_IMAGE)
-	{
-		return TRUE;
-	}
-
-	return FALSE;
-}
-
 error_t file_table_init(char *name);
 int file_query_callback(void *data, int nFields, char **FieldValue, char **FieldName);
 int file_path_query_callback(void **data, int nFields, char **FieldValue, char **FieldName);
-
+int file_attr_query_callback(void *data, int nFields, char **FieldValue, char **FieldName);
 void register_file_table_ops(void);
-error_t dm_get_parent_id(const char *path, uint32_t *id);
-
+int GetDmFileTableScanStatus();
 
 #ifdef __cplusplus
 }
